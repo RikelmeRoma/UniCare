@@ -1,28 +1,38 @@
+import { useState } from 'react';
 import { Sidebar } from '../components/Sidebar';
 import { PatientHeader } from '../components/PatientHeader';
 import OdontogramApp from '../components/OdontogramaViewer';
-import Periodograma from '../components/PeriodogramaViewer'; // <-- Importação do Periodograma
+import Periodograma from '../components/PeriodogramaViewer';
 
 export function DentalRecordPage() {
+  // Estado para controlar a aba ativa (começa na anamnese)
+  const [activeTab, setActiveTab] = useState('anamnese');
+
+  // Função auxiliar para aplicar o estilo correto no botão da aba ativa
+  const getTabStyle = (tabName: string) => {
+    return `px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
+      activeTab === tabName 
+        ? 'text-blue-600 border-blue-600' 
+        : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'
+    }`;
+  };
+
   return (
     <div className="min-h-screen bg-[#f8fafc] flex font-sans">
       <Sidebar />
       
       <main className="flex-1 ml-64 p-8">
-        {/* Navegação Superior */}
         <div className="text-sm text-gray-500 mb-6 flex items-center gap-2">
           <span>Módulos Clínicos</span>
           <span>/</span>
           <span className="text-blue-600 font-medium">Ficha Odonto</span>
         </div>
 
-        {/* Cabeçalho do Paciente */}
         <PatientHeader />
 
-        {/* Layout Principal: Coluna Esquerda + Área Central */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
-          {/* Coluna Esquerda (Resumo Clínico / Alertas) */}
+          {/* Coluna Esquerda */}
           <div className="lg:col-span-3 space-y-6">
             <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
               <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -40,7 +50,7 @@ export function DentalRecordPage() {
             
             <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
               <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <span>❤️</span> Sinais Vitais (Hoje)
+                <span>❤️</span> Sinais Vitais
               </h3>
               <div className="space-y-2 text-sm text-gray-700">
                 <div className="flex justify-between border-b pb-2">
@@ -55,34 +65,62 @@ export function DentalRecordPage() {
             </div>
           </div>
 
-          {/* Área Principal (Odontograma + Periodograma) */}
-          <div className="lg:col-span-9 space-y-6">
+          {/* Área Principal (Abas e Conteúdo) */}
+          <div className="lg:col-span-9">
             
-            {/* Bloco 1: Odontograma */}
-            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-              <div className="flex border-b border-gray-200 mb-6 overflow-x-auto">
-                <button className="px-4 py-3 text-sm font-medium text-blue-600 border-b-2 border-blue-600">
-                  Odontograma
-                </button>
-                <button className="px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700">
-                  Anamnese & Evolução
-                </button>
-                <button className="px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700">
-                  Plano de Tratamento
-                </button>
-              </div>
-              <div className="relative -mx-6 -my-4 sm:m-0 rounded-lg overflow-hidden border border-gray-100">
-                <OdontogramApp />
-              </div>
+            {/* Menu de Abas */}
+            <div className="bg-white px-4 pt-2 rounded-xl border border-gray-200 shadow-sm mb-6 flex overflow-x-auto">
+              <button 
+                onClick={() => setActiveTab('anamnese')} 
+                className={getTabStyle('anamnese')}
+              >
+                Anamnese & Exame Clínico
+              </button>
+              <button 
+                onClick={() => setActiveTab('evolucao')} 
+                className={getTabStyle('evolucao')}
+              >
+                Evolução
+              </button>
+              <button 
+                onClick={() => setActiveTab('tratamento')} 
+                className={getTabStyle('tratamento')}
+              >
+                Plano de Tratamento
+              </button>
             </div>
 
-            {/* Bloco 2: Periodograma */}
-            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-              <Periodograma />
-            </div>
+            {/* Conteúdo Renderizado Condicionalmente */}
+            
+            {/* 1. Aba Anamnese (Mostra os dois gráficos) */}
+            {activeTab === 'anamnese' && (
+              <div className="space-y-6">
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                  <OdontogramApp />
+                </div>
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                  <Periodograma />
+                </div>
+              </div>
+            )}
+
+            {/* 2. Aba Evolução */}
+            {activeTab === 'evolucao' && (
+              <div className="bg-white p-12 rounded-xl border border-gray-200 shadow-sm flex flex-col items-center justify-center text-gray-400 border-dashed">
+                <span className="text-4xl mb-3">📝</span>
+                <p>Histórico de evolução será renderizado aqui.</p>
+              </div>
+            )}
+
+            {/* 3. Aba Plano de Tratamento */}
+            {activeTab === 'tratamento' && (
+              <div className="bg-white p-12 rounded-xl border border-gray-200 shadow-sm flex flex-col items-center justify-center text-gray-400 border-dashed">
+                <span className="text-4xl mb-3">📋</span>
+                <p>O plano de tratamento do paciente será renderizado aqui.</p>
+              </div>
+            )}
 
           </div>
-
         </div>
       </main>
     </div>
