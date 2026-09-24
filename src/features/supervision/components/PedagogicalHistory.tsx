@@ -4,7 +4,7 @@ export function PedagogicalHistory() {
       <div className="flex justify-between items-end mb-6">
         <div>
           <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <span className="text-blue-600">🗂️</span> Histórico Pedagógico Recente (RF-008)
+            <span className="text-blue-600">🗂️</span> Histórico Pedagógico Recente
           </h3>
           <p className="text-xs text-gray-500 mt-1">Últimas evoluções homologadas e auditadas com assinatura digital</p>
         </div>
