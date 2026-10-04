@@ -1,0 +1,1 @@
+export { AppSidebar as PsySidebar } from '../../../components/layout/AppSidebar';
