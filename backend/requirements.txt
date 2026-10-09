@@ -5,6 +5,9 @@ alembic>=1.20.0
 psycopg2-binary>=2.9.10
 pydantic>=2.9.2
 pydantic-settings>=2.6.0
+# Necessario para o EmailStr do pydantic (validacao de e-mail no cadastro de
+# usuario). Sem ele, importa EmailStr quebra a aplicacao inteira.
+email-validator>=2.2.0
 python-jose[cryptography]>=3.3.0
 # bcrypt direto. NAO trocar por passlib[bcrypt]: o passlib 1.7.4 le a versao do
 # bcrypt de `bcrypt.__about__`, atributo removido no bcrypt 4+, e falha com

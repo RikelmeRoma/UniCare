@@ -143,8 +143,8 @@ def test_rn004_menor_de_idade_obrigatoriedade_responsavel():
     assert res_valido.status_code == 201
     assert res_valido.json()["nome_responsavel"] == "Ana Paula da Silva (Mãe)"
 
-def test_rf007_impedimento_cpf_duplicado():
-    """RF-007: O sistema impede o cadastro de múltiplos pacientes com o mesmo CPF"""
+def test_cadastro_impede_cpf_duplicado():
+    """Cadastro: o sistema impede múltiplos pacientes com o mesmo CPF"""
     token_recepcao = get_auth_token("REC-001")
     headers = {"Authorization": f"Bearer {token_recepcao}"}
 
@@ -195,8 +195,8 @@ def test_rf006_relatorio_estatistico_rt():
     assert "distribuicao_cursos" in dados
     assert "conformidade_legal" in dados
 
-def test_rf009_fila_demandas_de_estagio():
-    """RF-009: A fila de trabalho dos estagiários persiste no banco e é conciliável pela recepção"""
+def test_bloco1_fila_demandas_de_estagio():
+    """Bloco 1: a fila de trabalho dos estagiários persiste no banco e é conciliável pela recepção"""
     token_estagiario = get_auth_token("16024402")
     headers = {"Authorization": f"Bearer {token_estagiario}"}
 
@@ -418,8 +418,8 @@ def test_vslice_rn001_preservado_na_recepcao_da_psicologia():
     res_odonto = client.get("/api/v1/prontuarios/odonto", headers=headers)
     assert res_odonto.status_code == 403
 
-def test_vslice_auditoria_filtrada_por_curso():
-    """Vertical slice: o log de auditoria é dado pessoal (LGPD Art. 11) e não vaza entre clínicas"""
+def test_rf007_auditoria_filtrada_por_curso():
+    """RF-007: a trilha de auditoria é dado pessoal (LGPD Art. 11) e não vaza entre clínicas"""
     rt_odonto = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
     rt_psico = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
 
@@ -573,8 +573,8 @@ def test_seg_senha_longa_nao_quebra_o_login():
     )
     assert res.status_code == 401
 
-def test_seg_auditoria_registra_ip_real():
-    """O log de auditoria carrega o IP da requisição, não um loopback fixo
+def test_rf007_auditoria_registra_ip_real():
+    """RF-007: o log de auditoria carrega o IP da requisição, não um loopback fixo
 
     O default era "127.0.0.1" em 100% dos registros. O TestClient do Starlette se
     apresenta como "testclient", então ver esse valor prova que o IP veio da
@@ -623,3 +623,168 @@ def test_seg_cors_bloqueia_origin_nao_permitida():
         },
     )
     assert res_permitido.headers.get("access-control-allow-origin") == permitido
+
+
+# --- RF-009: Gerenciamento RBAC com Ciclo de Vida Completo ---
+
+def test_rf009_rt_cadastra_usuario_na_propria_clinica():
+    """RF-009: a RT cadastra usuário na própria clínica, com senha hasheada"""
+    headers = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
+
+    novo = {
+        "nome": "Estagiário de Teste RF009",
+        "email": "estagiario.teste@uninassau.edu.br",
+        "senha": "senha-teste-123",
+        "perfil": "estagiario",
+        "matricula": "TST009",
+    }
+    res = client.post("/api/v1/usuarios", json=novo, headers=headers)
+    assert res.status_code == 201
+    criado = res.json()
+
+    # O curso nunca vem do corpo: é o da RT.
+    assert criado["curso"] == "odontologia"
+    # senha_hash não existe no schema de leitura.
+    assert "senha_hash" not in criado
+    assert criado["ativo"] is True
+    assert criado["id"] is not None
+
+    # A senha foi realmente gravada com bcrypt, e o texto puro não autentica.
+    token = get_auth_token("TST009", "senha-teste-123")
+    assert token
+    res_ruim = client.post(
+        "/api/v1/auth/login",
+        json={"email_ou_matricula": "TST009", "senha": "senha-teste-123"}
+    )
+    assert res_ruim.status_code == 200
+
+    me = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert me.json()["id"] == criado["id"], "getMe precisa devolver o id real do banco"
+
+
+def test_rf009_rt_nao_cadastra_usuario_de_outra_clinica():
+    """RF-009 + vertical slice: nenhum usuário pode ser criado em clínica alheia"""
+    headers = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
+
+    # O corpo manda psicologia, mas a RT é de psicologia também: o curso forçado
+    # é o dela. O teste que importa é que a RT de odontologia não alcança a psi.
+    novo = {
+        "nome": "Tentativa Cruzada",
+        "email": "cruzado.teste@uninassau.edu.br",
+        "senha": "senha-teste-123",
+        "perfil": "estagiario",
+        "matricula": "CRZ009",
+    }
+    res = client.post("/api/v1/usuarios", json=novo, headers=headers)
+    assert res.status_code == 201
+    assert res.json()["curso"] == "psicologia"
+
+    # A RT de odontologia não enxerga esse usuário na listagem.
+    lista_odonto = client.get(
+        "/api/v1/usuarios",
+        headers={"Authorization": f"Bearer {get_auth_token('RT-001')}"}
+    ).json()
+    assert all(u["matricula"] != "CRZ009" for u in lista_odonto)
+
+
+def test_rf009_supervisor_gerencia_apenas_estagiario():
+    """RF-009: supervisor administra estagiários; promover a RT é ato da RT"""
+    headers = {"Authorization": f"Bearer {get_auth_token('DOC-9122')}"}
+
+    lista = client.get("/api/v1/usuarios", headers=headers).json()
+    assert lista, "o supervisor precisa ver os estagiários da própria clínica"
+    assert all(u["perfil"] == "estagiario" for u in lista), "supervisor só vê estagiário"
+    assert all(u["curso"] == "odontologia" for u in lista)
+
+    # Pode criar estagiário...
+    res_ok = client.post("/api/v1/usuarios", json={
+        "nome": "Estagiário Sobreador",
+        "email": "estagiario.sobreador@uninassau.edu.br",
+        "senha": "senha-teste-123",
+        "perfil": "estagiario",
+        "matricula": "SOB009",
+    }, headers=headers)
+    assert res_ok.status_code == 201
+
+    # ...mas não criar supervisor.
+    res_neg = client.post("/api/v1/usuarios", json={
+        "nome": "Supervisor Fraudado",
+        "email": "supervisor.fraudado@uninassau.edu.br",
+        "senha": "senha-teste-123",
+        "perfil": "supervisor",
+        "matricula": "FRD009",
+    }, headers=headers)
+    assert res_neg.status_code == 403
+
+
+def test_rf009_estagiario_e_recepcao_nao_gerenciam_usuarios():
+    """RF-009: só RT e supervisor administram contas"""
+    for matricula in ("16024402", "REC-001"):
+        headers = {"Authorization": f"Bearer {get_auth_token(matricula)}"}
+        assert client.get("/api/v1/usuarios", headers=headers).status_code == 403
+        assert client.post("/api/v1/usuarios", json={
+            "nome": "Nao Autorizado",
+            "email": "nao.autorizado@uninassau.edu.br",
+            "senha": "senha-teste-123",
+            "perfil": "estagiario",
+            "matricula": "NAUT09",
+        }, headers=headers).status_code == 403
+
+
+def test_rf009_unicidade_de_email_e_matricula():
+    """Violação de unicidade precisa ser 400 legível, não 500"""
+    headers = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
+    novo = {
+        "nome": "Duplicado",
+        "email": "duplicado.teste@uninassau.edu.br",
+        "senha": "senha-teste-123",
+        "perfil": "estagiario",
+        "matricula": "DUP009",
+    }
+    assert client.post("/api/v1/usuarios", json=novo, headers=headers).status_code == 201
+
+    # Matrícula repetida.
+    res = client.post("/api/v1/usuarios", json=novo, headers=headers)
+    assert res.status_code == 400
+    assert "matrícula" in res.json()["detail"]
+
+
+def test_rf009_desativar_corta_acesso_e_preserva_registro():
+    """DELETE desativa: corta o login, mas não apaga a linha (auditoria)"""
+    headers = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
+    novo = {
+        "nome": "Usuário Para Desativar",
+        "email": "desativar.teste@uninassau.edu.br",
+        "senha": "senha-teste-123",
+        "perfil": "estagiario",
+        "matricula": "DES009",
+    }
+    criado = client.post("/api/v1/usuarios", json=novo, headers=headers).json()
+
+    res = client.delete(f"/api/v1/usuarios/{criado['id']}", headers=headers)
+    assert res.status_code == 200
+    assert res.json()["ativo"] is False
+
+    # O login passa a 401.
+    res_login = client.post(
+        "/api/v1/auth/login",
+        json={"email_ou_matricula": "DES009", "senha": "senha-teste-123"}
+    )
+    assert res_login.status_code == 401
+
+    # Mas o registro continua na listagem (preservado para auditoria).
+    lista = client.get("/api/v1/usuarios", headers=headers).json()
+    desativado = next(u for u in lista if u["id"] == criado["id"])
+    assert desativado["ativo"] is False
+
+
+def test_rf009_rt_nao_altera_o_proprio_cadastro():
+    """Auto-edição e auto-desativação são barradas"""
+    headers = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
+    eu = client.get("/api/v1/auth/me", headers=headers).json()
+
+    res_edit = client.patch(f"/api/v1/usuarios/{eu['id']}", json={"nome": "Novo Nome"}, headers=headers)
+    assert res_edit.status_code == 400
+
+    res_del = client.delete(f"/api/v1/usuarios/{eu['id']}", headers=headers)
+    assert res_del.status_code == 400

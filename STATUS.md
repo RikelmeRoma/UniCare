@@ -436,9 +436,60 @@ auditoria registra `endereco_ip='172.19.0.1'` no lugar do loopback. Preflight de
 `localhost:5173`/`5174` é servido; de `site-malicioso.example` e
 `localhost:9999` é recusado. Banco de dev reseedado: 8 usuários com `$2b$12$`.
 
-### 🔴 Crítico
+## ✅ Bloco 4 — RF-009 Gerenciamento RBAC + `getMe()`
 
-*(nenhum item aberto — os dois foram resolvidos no Bloco 3)*
+**A gestão de usuários não existia no servidor.** `createUser`, `updateUser` e
+`deleteUser` só escreviam em `localStorage`: a aba "Usuários RBAC" do painel da
+RT nascia vazia, as listas de estagiários das duas supervisões idem, e a tela
+prometia uma senha `unicare123` que o banco nunca recebia.
+
+**Novo `routers/usuarios.py`** com quatro rotas: `GET`, `POST`, `PATCH /{id}` e
+`DELETE /{id}`. O curso **nunca vem do corpo** — é o de quem está executando, o
+que torna impossível cadastrar usuário em clínica alheia por requisição.
+
+**Supervisor administra estagiário; promover é ato da RT.** O relatório diz que
+"supervisores de odontologia podem gerenciar acadêmicos vinculados à Clínica
+Integrada", então `GET` dele devolve só estagiários da própria clínica e
+`POST`/`PATCH`/`DELETE` recusam qualquer outro perfil com 403. A primeira versão
+desta rota só aceitava RT e o compilador apontou a falha quando `ClinicalPairs` e
+`PsySupervisionPage` — telas de supervisor — passaram a precisar dela.
+
+**`DELETE` desativa, não apaga.** O login já checava `ativo` em
+`get_current_user`, mas a rota de login em si não checava: **usuário desativado
+conseguia fazer login e recebia token**. O teste pegou isso, e o corte de acesso
+passou a acontecer na porta de entrada.
+
+**`api.getMe()` finalmente tem consumidor.** O login agora busca o registro real
+depois de autenticar: `user.id` deixa de ser `Date.now()`, `registro_profissional`
+chega ao frontend — o que preenche o CRO que antes aparecia como "—" no
+`TeacherHeader` e no `FeedbackPanel` — e o token é revalidado contra o servidor
+em vez de só aceito.
+
+**Modais ganharam campo de senha.** Os três formulários de cadastro pediam nome,
+matrícula e e-mail e nenhum tinha senha; com o backend exigindo, todos passaram a
+ter, e todos os `createUser`/`updateUser`/`deleteUser` viraram `async` com
+tratamento de falha — os três anunciavam sucesso antes da resposta do servidor,
+o mesmo defeito corrigido no `PsyRecordPage` no Bloco 2.
+
+**Correção de identificadores RF.** O relatório define RF-007 como *Trilha de
+Auditoria* e RF-009 como *Gerenciamento RBAC*, e nossos testes usavam os dois
+números para outras coisas. Renomeados: `test_rf007_impedimento_cpf_duplicado`
+→ `test_cadastro_impede_cpf_duplicado`, e
+`test_rf009_fila_demandas_de_estagio` → `test_bloco1_fila_demandas_de_estagio`.
+Liberar o RF-007 permitiu promover os dois testes de auditoria a cobertura real
+dele. Os `RN` gainedam tabela de definição no `backend/README.md`, porque o
+relatório os menciona no cabeçalho mas não define nenhum.
+
+**Dependência nova:** `email-validator`, exigida pelo `EmailStr` do pydantic. Sem
+ela a aplicação inteira não importa.
+
+**Verificado:** `pytest` **32 passed** (era 25); `npm run build` verde. Cobertura
+nova: cadastro na clínica correta com hash bcrypt e sem `senha_hash` na resposta,
+travessia entre clínicas, supervisor só gerenciando estagiário, estagiário e
+recepção barrados, duplicata dando 400 em vez de 500, desativação cortando o login
+com o registro preservado, e auto-edição bloqueada.
+
+### 🔴 Crítico
 
 ### 🟠 Importante
 
@@ -505,7 +556,7 @@ Conhecimentos que não são dedutíveis do código e que custaram tempo diagnós
 ## Estado verificado
 
 ```
-pytest           → 20 passed (de backend/ e da raiz)
+pytest           → 32 passed (de backend/ e da raiz)
 alembic check    → No new upgrade operations detected
 alembic current  → c81d4e7a9b02 (head)
 /health          → dialect: postgresql, conectado: true

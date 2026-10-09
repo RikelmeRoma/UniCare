@@ -15,6 +15,17 @@ export interface AuthLoginResponse {
   matricula: string;
 }
 
+export interface ApiUsuario {
+  id: number;
+  nome: string;
+  email: string;
+  perfil: 'estagiario' | 'supervisor' | 'recepcao' | 'rt';
+  curso: 'psicologia' | 'odontologia' | 'geral';
+  matricula: string;
+  registro_profissional?: string;
+  ativo: boolean;
+}
+
 export interface ApiPaciente {
   id: number;
   nome: string;
@@ -161,6 +172,48 @@ class ApiService {
       matricula: string;
       registro_profissional?: string;
     }>('/auth/me');
+  }
+
+  // --- Usuários (RF-009) ---
+// `senha_hash` não existe em nenhum desses tipos: o backend nunca o serializa.
+async getUsuarios(): Promise<ApiUsuario[]> {
+    return this.request<ApiUsuario[]>('/usuarios');
+  }
+
+  async createUsuario(dados: {
+    nome: string;
+    email: string;
+    senha: string;
+    perfil: 'estagiario' | 'supervisor' | 'recepcao' | 'rt';
+    matricula: string;
+    registro_profissional?: string;
+  }): Promise<ApiUsuario> {
+    return this.request<ApiUsuario>('/usuarios', {
+      method: 'POST',
+      body: JSON.stringify(dados),
+    });
+  }
+
+  async updateUsuario(
+    id: number,
+    dados: {
+      nome?: string;
+      email?: string;
+      matricula?: string;
+      registro_profissional?: string;
+      ativo?: boolean;
+      senha?: string;
+    }
+  ): Promise<ApiUsuario> {
+    return this.request<ApiUsuario>(`/usuarios/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(dados),
+    });
+  }
+
+  /** Desativa, não apaga: o histórico de auditoria preserva a autoria. */
+  async desativarUsuario(id: number): Promise<ApiUsuario> {
+    return this.request<ApiUsuario>(`/usuarios/${id}`, { method: 'DELETE' });
   }
 
   // --- Pacientes ---

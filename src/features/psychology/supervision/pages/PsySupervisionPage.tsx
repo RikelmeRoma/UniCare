@@ -20,6 +20,8 @@ export function PsySupervisionPage() {
   const [nome, setNome] = useState('');
   const [matricula, setMatricula] = useState('');
   const [email, setEmail] = useState('');
+  // Senha obrigatoria: o backend grava com bcrypt e nao aceita usuario sem ela.
+  const [senha, setSenha] = useState('');
   const [periodo, setPeriodo] = useState('9º Período');
   const [turma, setTurma] = useState('Turma Terça Tarde (SPA)');
   const [feedbackSuccess, setFeedbackSuccess] = useState('');
@@ -39,12 +41,16 @@ export function PsySupervisionPage() {
     ([_, u]) => u.curso === 'psicologia' && u.perfil === 'estagiario'
   );
 
-  const handleCreateIntern = (e: React.FormEvent) => {
+  const handleCreateIntern = async (e: React.FormEvent) => {
     e.preventDefault();
     setValidationError('');
 
     if (!nome.trim() || !matricula.trim()) {
       setValidationError('Nome completo e Matrícula são obrigatórios.');
+      return;
+    }
+    if (senha.length < 6) {
+      setValidationError('A senha precisa de ao menos 6 caracteres.');
       return;
     }
 
@@ -53,21 +59,26 @@ export function PsySupervisionPage() {
       email.trim() ||
       `${nome.trim().toLowerCase().split(' ')[0]}.${cleanMatricula}@uninassau.edu.br`;
 
-    createUser({
+    const resultado = await createUser({
       nome: nome.trim(),
       matricula: cleanMatricula,
       email: cleanEmail,
       perfil: 'estagiario',
       curso: 'psicologia',
       registro_profissional: `${periodo} • ${turma}`,
+      senha,
     });
 
-    setFeedbackSuccess(
-      `Estagiário ${nome.trim()} cadastrado com sucesso! Já está visível na tela de login de Psicologia.`
-    );
+    if (!resultado.success) {
+      setValidationError(resultado.message);
+      return;
+    }
+
+    setFeedbackSuccess(resultado.message);
     setNome('');
     setMatricula('');
     setEmail('');
+    setSenha('');
     setShowCreateModal(false);
 
     setTimeout(() => {
@@ -309,6 +320,19 @@ export function PsySupervisionPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Ex: beatriz.ribeiro@uninassau.edu.br"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600/20 font-mono text-[11px]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Senha de Acesso *
+                </label>
+                <input
+                  type="text"
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                  placeholder="Mínimo 6 caracteres"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600/20 font-mono text-[11px]"
                 />
               </div>

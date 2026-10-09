@@ -38,6 +38,9 @@ export function RTStatsDashboard() {
   const [formPerfil, setFormPerfil] = useState<RoleType>('supervisor');
   const [formCurso, setFormCurso] = useState<CourseType>('psicologia');
   const [formRegistro, setFormRegistro] = useState('');
+  // O backend exige senha no cadastro: antes a tela prometia "unicare123" sem
+  // pedir nada e o banco nunca recebia hash nenhum.
+  const [formSenha, setFormSenha] = useState('');
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [userSuccessMsg, setUserSuccessMsg] = useState('');
   const [userErrorMsg, setUserErrorMsg] = useState('');
@@ -131,12 +134,16 @@ export function RTStatsDashboard() {
     (e) => e.pacienteId === pacienteSelecionadoCustodia?.id
   );
 
-  const handleCreateUser = (e: React.FormEvent) => {
+  const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setUserErrorMsg('');
 
     if (!formNome.trim() || !formMatricula.trim()) {
       setUserErrorMsg('Nome completo e Matrícula são obrigatórios.');
+      return;
+    }
+    if (formSenha.length < 6) {
+      setUserErrorMsg('A senha precisa de ao menos 6 caracteres.');
       return;
     }
 
@@ -145,28 +152,29 @@ export function RTStatsDashboard() {
       formEmail.trim() ||
       `${formNome.trim().toLowerCase().split(' ')[0]}.${cleanMatricula}@uninassau.edu.br`;
 
-    createUser({
+    // O curso não é escolhido: o backend usa o da RT que está cadastrando.
+    const resultado = await createUser({
       nome: formNome.trim(),
       matricula: cleanMatricula,
       email: cleanEmail,
       perfil: formPerfil,
-      curso: formPerfil === 'recepcao' ? 'odontologia' : formCurso,
+      curso: formCurso,
       registro_profissional: formRegistro.trim() || undefined,
+      senha: formSenha,
     });
 
-    setUserSuccessMsg(
-      `Perfil de ${formNome.trim()} (${
-        formPerfil === 'supervisor'
-          ? 'Supervisor'
-          : formPerfil === 'estagiario'
-          ? 'Estagiário'
-          : 'Recepção'
-      }) cadastrado com sucesso! Já está visível na tela de login.`
-    );
+    // Falha de escrita não pode ser engolida: o modal só fecha com sucesso real.
+    if (!resultado.success) {
+      setUserErrorMsg(resultado.message);
+      return;
+    }
+
+    setUserSuccessMsg(resultado.message);
     setFormNome('');
     setFormMatricula('');
     setFormEmail('');
     setFormRegistro('');
+    setFormSenha('');
     setShowCreateUserModal(false);
 
     setTimeout(() => {
@@ -186,34 +194,44 @@ export function RTStatsDashboard() {
     setShowEditUserModal(true);
   };
 
-  const handleSaveUserEdit = (e: React.FormEvent) => {
+  const handleSaveUserEdit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setUserErrorMsg('');
     if (!editingUserKey || !editNome.trim() || !editMatricula.trim()) {
       setUserErrorMsg('Nome completo e Matrícula são obrigatórios.');
       return;
     }
 
-    updateUser(editingUserKey, {
+    const resultado = await updateUser(editingUserKey, {
       nome: editNome.trim(),
       matricula: editMatricula.trim(),
       email:
         editEmail.trim() ||
         `${editNome.trim().toLowerCase().split(' ')[0]}.${editMatricula.trim()}@uninassau.edu.br`,
       perfil: editPerfil,
-      curso: editPerfil === 'recepcao' ? 'odontologia' : editCurso,
+      curso: editCurso,
       registro_profissional: editRegistro.trim() || undefined,
     });
 
-    setUserSuccessMsg(`Usuário ${editNome.trim()} atualizado com sucesso!`);
+    if (!resultado.success) {
+      setUserErrorMsg(resultado.message);
+      return;
+    }
+
+    setUserSuccessMsg(resultado.message);
     setShowEditUserModal(false);
     setEditingUserKey(null);
     setTimeout(() => setUserSuccessMsg(''), 5000);
   };
 
-  const handleExecuteDeleteUser = () => {
+  const handleExecuteDeleteUser = async () => {
     if (!userToDelete) return;
-    deleteUser(userToDelete.key);
-    setUserSuccessMsg(`Usuário ${userToDelete.nome} excluído do sistema com sucesso.`);
+    const resultado = await deleteUser(userToDelete.key);
+    if (!resultado.success) {
+      setUserErrorMsg(resultado.message);
+      return;
+    }
+    setUserSuccessMsg(resultado.message);
     setUserToDelete(null);
     setTimeout(() => setUserSuccessMsg(''), 5000);
   };
@@ -1049,10 +1067,23 @@ export function RTStatsDashboard() {
                   type="email"
                   value={formEmail}
                   onChange={(e) => setFormEmail(e.target.value)}
-                  placeholder="Ex: claudia.martins@uninassau.edu.br"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-[#002B49] font-mono text-[11px]"
-                />
-              </div>
+placeholder="Ex: claudia.martins@uninassau.edu.br"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-[#002B49] font-mono text-[11px]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Senha Provisória *
+              </label>
+              <input
+                type="text"
+                value={formSenha}
+                onChange={(e) => setFormSenha(e.target.value)}
+                placeholder="Mínimo 6 caracteres"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-[#002B49] font-mono text-[11px]"
+              />
+            </div>
 
               {userErrorMsg && (
                 <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs">
@@ -1063,11 +1094,12 @@ export function RTStatsDashboard() {
               <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl text-[11px] text-amber-900 space-y-1">
                 <div className="flex items-center gap-1.5 font-bold">
                   <ShieldCheckIcon className="w-4 h-4 text-amber-700" />
-                  <span>Conformidade RBAC & Regra de Acesso com Senha</span>
-                </div>
-                <p className="text-[10px] text-slate-600">
-                  O perfil cadastrado será adicionado automaticamente às opções de login do respectivo curso. Para acessar, o usuário deverá confirmar a senha padrão institucional <code className="font-mono font-bold bg-white px-1 py-0.5 rounded border border-amber-200">unicare123</code>.
-                </p>
+<span>Conformidade RBAC & Regra de Acesso com Senha</span>
+            </div>
+            <p className="text-[10px] text-slate-600">
+              O usuário é gravado na clínica desta RT e já pode entrar com a senha definida
+              acima. A senha é guardada com hash bcrypt — nem a RT consegue lê-la depois.
+            </p>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">

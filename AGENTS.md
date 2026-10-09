@@ -157,6 +157,27 @@ e omitível, e `PATCH /{id}/status` age por id, não por lista. Toda rota que
 escreve precisa conferir o curso do registro com `validar_curso_do_registro` —
 paciente `ambos` é a exceção legítima, agendamento não é (tem cadeira fixa).
 
+**O RF do relatório manda no identificador.** `RELATORIO_CONSOLIDADO_PROJETO.md` é a
+fonte normativa de RF-001 a RF-009: RF-007 é trilha de auditoria e RF-009 é
+gerenciamento RBAC. Já usamos esses dois números para outras coisas e os testes
+passaram a mentir. Para algo fora da lista do relatório (demandas de estágio,
+CPF duplicado), cite por descrição — não invente número.
+
+**`EmailStr` exige `email-validator`.** O pydantic importa o pacote sob demanda;
+sem ele no `requirements.txt`, a aplicação inteira quebra na importação, mesmo
+que o campo apareça num schema que quase ninguém usa.
+
+**Desativar usuário não é apagar.** `DELETE /usuarios/{id}` marca `ativo = false`.
+O login já checava `ativo` em `get_current_user`, mas **a rota de login não
+checava** — conta desativada recebia token com 200. Cheque `ativo` em qualquer
+lugar que emite credencial.
+
+**Supervisor gerencia estagiário, não colega.** `routers/usuarios.py` limita o
+supervisor a `perfil=estagiario` na própria clínica; promover alguém a supervisor
+ou a RT é ato da RT. As telas `ClinicalPairs` e `PsySupervisionPage` são de
+supervisor: se o endpoint não permitir, o compilador não avisa — a tela só passa
+a dar erro em runtime.
+
 **`Promise.allSettled` nunca rejeita.** Um `catch` externo depois dele é código
 morto. Ao absorver 401/403/500 sem log, a falha fica invisível.
 

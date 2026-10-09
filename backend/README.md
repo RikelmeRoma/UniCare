@@ -180,6 +180,7 @@ duas clínicas. `CursoUsuario.GERAL` existe no ENUM por compatibilidade mas
 | Ficha odonto | `GET/POST /prontuarios/odonto`, `PATCH /prontuarios/odonto/{id}/homologar` | clínico, restrito ao curso |
 | **Demandas (RF-009)** | `GET /demandas`, `POST /demandas`, `PATCH /demandas/{id}/status` | autenticado, escopado ao curso |
 | Auditoria | `GET /auditoria` | rt, supervisor — filtrada por curso |
+| **Usuários (RF-009)** | `GET /usuarios`, `POST /usuarios`, `PATCH /usuarios/{id}`, `DELETE /usuarios/{id}` | rt (clínica inteira) · supervisor (só estagiários da clínica) |
 | Relatórios | `GET /relatorios/estatisticas` | rt, supervisor — filtrado pelo curso |
 
 As demandas **não** têm bloqueio RN-001: é uma fila de trabalho pedagógico, e a
@@ -199,3 +200,38 @@ tela.
 * **RN-004 (Homologação Docente):** Apenas supervisores e RT podem alterar o status de prontuários para `VALIDADO`, e só nas fichas da clínica deles.
 * **RNF-004 (Logs de Auditoria):** Cada login, cadastro de paciente e visto é registrado na tabela `logs_auditoria`, com o **IP real da requisição** (`request.client.host`, nunca um valor fixo) e o **curso** de quem praticou o ato.
 * **Senhas:** bcrypt com `rounds=12`. `verify_password` só aceita `bcrypt.checkpw` — não existe fallback que compare texto puro.
+
+---
+
+## Normas (RN) e Requisitos (RF)
+
+Os identificadores `RF-001` a `RF-009` seguem o
+[`RELATORIO_CONSOLIDADO_PROJETO.md`](../RELATORIO_CONSOLIDADO_PROJETO.md), que é a
+fonte normativa. Os `RN` são registrados abaixo porque o relatório **menciona**
+`RN-001` a `RN-006` no cabeçalho mas não os define em nenhum ponto do documento —
+esta tabela é a definição que o código assume.
+
+| RN | Regra | Onde é imposta |
+|---|---|---|
+| RN-001 | Perfil `recepcao` é bloqueado no prontuário | `require_roles` em `prontuarios.py`; o guard de papel roda **antes** do de curso para preservar o `detail` |
+| RN-002 | Vedação de falas literais (CFP 06/2019) | validador de aspas no `ProntuarioPsicoCreate` (422) |
+| RN-003 | Salvaguarda institucional da RT | `require_roles` — mas **não** atravessa a clínica; `require_curso` não tem bypass |
+| RN-004 | Homologação é ato docente | `autorizado_homologacao` + conferência do curso do paciente |
+| RN-004 (parcial) | Responsável obrigatório para menor | `cadastrar_paciente` (400) |
+| RNF-004 | Trilha de auditoria com IP real e curso | `registrar_log` + `ip_do_cliente` |
+
+**Atenção:** o relatório usa RF-007 para *Trilha de Auditoria* e RF-009 para
+*Gerenciamento RBAC*. As demandas de estágio e o bloqueio de CPF duplicado não
+têm número no relatório e são citados por descrição, para não criar colisão.
+
+| RF | Recurso | Onde |
+|---|---|---|
+| RF-001 | Gestão de recepção e triagem | `routers/pacientes.py`, `routers/agendamentos.py` |
+| RF-002 | Prontuário eletrônico de psicologia | `routers/prontuarios.py` |
+| RF-003 | Odontograma e periograma interativo | `DentalRecordPage` (dados reais pendentes) |
+| RF-004 | Fila de homologação docente | `PATCH /prontuarios/{psico,odonto}/{id}/homologar` |
+| RF-005 | Gestão de duplas clínicas | `ClinicalPairs.tsx`, `PsySupervisionPage.tsx` |
+| RF-006 | Painel executivo da RT | `routers/relatorios.py` |
+| RF-007 | Trilha de auditoria imutável | `routers/auditoria.py` |
+| RF-008 | Troca rápida de perfil com imposição de senha | `LoginFields.tsx` (parcial) |
+| RF-009 | Gerenciamento RBAC | `routers/usuarios.py` |

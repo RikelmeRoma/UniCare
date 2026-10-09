@@ -39,6 +39,15 @@ def login(
             detail="Matrícula/E-mail ou senha incorretos."
         )
 
+    # `get_current_user` já recusava conta inativa, mas o login em si não: a
+    # desativação pelo RF-009 devolvia 200 com token válido. Agora o corte de
+    # acesso acontece na porta de entrada.
+    if not user.ativo:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Usuário desativado. Procure a Referência Técnica da clínica."
+        )
+
     token = create_access_token(data={"sub": user.email, "perfil": user.perfil, "curso": user.curso})
 
     registrar_log(
