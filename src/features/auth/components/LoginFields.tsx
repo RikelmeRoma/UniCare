@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth, type User } from '../context/AuthContext';
 import {
   KeyIcon,
-  ShieldCheckIcon,
   ExclamationTriangleIcon,
   EyeIcon,
   EyeSlashIcon,
@@ -17,7 +16,7 @@ interface LoginFieldsProps {
   onDomainChange: (domain: ActiveDomain) => void;
 }
 
-export function LoginFields({ activeDomain, onDomainChange }: LoginFieldsProps) {
+export function LoginFields({ onDomainChange }: LoginFieldsProps) {
   const navigate = useNavigate();
   const { loginWithCredentials } = useAuth();
 

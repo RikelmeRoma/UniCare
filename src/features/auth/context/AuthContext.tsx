@@ -2,7 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { api } from '../../../services/api';
 
 export type RoleType = 'estagiario' | 'supervisor' | 'recepcao' | 'rt';
-export type CourseType = 'psicologia' | 'odontologia';
+/** 'geral' = papéis institucionais (RT e recepção), que não pertencem a uma clínica. */
+export type CourseType = 'psicologia' | 'odontologia' | 'geral';
 
 export interface User {
   id: number;
@@ -159,7 +160,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         nome: res.nome,
         email: emailOuMatricula.includes('@') ? emailOuMatricula : `${emailOuMatricula}@uninassau.edu.br`,
         perfil: res.perfil,
-        curso: res.curso === 'geral' ? 'odontologia' : (res.curso as CourseType),
+        // 'geral' é preservado como 'geral'. Antes era convertido para
+        // 'odontologia', o que fazia recepção e RT aparecerem como odontologia e
+        // liberar a rota errada por acidente.
+        curso: res.curso as CourseType,
         matricula: res.matricula,
       };
       setUser(newUser);

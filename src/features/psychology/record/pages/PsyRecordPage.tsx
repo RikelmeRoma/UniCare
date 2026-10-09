@@ -19,8 +19,11 @@ export function PsyRecordPage() {
     (p) => p.curso === 'psicologia' || p.curso === 'ambos'
   );
 
-  const [selectedPatientId, setSelectedPatientId] = useState<number>(
-    pacientesPsico[0]?.id || 1
+  // `?? 1` era id fixo: no primeiro render a lista real ainda não tinha chegado,
+// então o <select> ficava sem opção correspondente quando os ids do banco eram
+// outros. O valor exibido é derivado do paciente resolvido, não do estado cru.
+  const [selectedPatientId, setSelectedPatientId] = useState<number | undefined>(
+    undefined
   );
 
   const pacienteSelecionado =
@@ -50,7 +53,9 @@ export function PsyRecordPage() {
   );
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [protocoloGerado, setProtocoloGerado] = useState('');
+  const [registroGerado, setRegistroGerado] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [erroMsg, setErroMsg] = useState('');
 
   // Detecção estrita de aspas (RN-002 / CFP nº 06/2019)
   const quoteRegex = /["“”«»]/;
@@ -65,18 +70,23 @@ export function PsyRecordPage() {
     setEvolucaoFim((prev) => prev.replace(/["“”«»]/g, ''));
   };
 
-  const handleSalvarEnviar = () => {
-    if (temViolacaoAspas || !pacienteSelecionado) return;
+  const handleSalvarEnviar = async () => {
+    if (temViolacaoAspas || !pacienteSelecionado || isSaving) return;
 
-    const protocolo = `PRT-${Date.now().toString().slice(-6)}/${new Date().getFullYear()}`;
-    setProtocoloGerado(protocolo);
+    setIsSaving(true);
+    setErroMsg('');
 
-    adicionarEvolucaoPsico({
+    // O retorno { success, message } é justamente o que impede perda de dado:
+    // abrir o modal de sucesso antes da resposta do servidor fazia a clínica
+    // acreditar que a síntese foi gravada quando o servidor pode ter recusado.
+    const resultado = await adicionarEvolucaoPsico({
       pacienteId: pacienteSelecionado.id,
       pacienteNome: pacienteSelecionado.nome,
-      estagiarioNome: user?.nome || 'Rikelme Roma Santos',
-      estagiarioMatricula: user?.matricula || '16032935',
-      supervisorNome: 'Prof. Dr. Robert Santos do Carmo',
+      estagiarioNome: user?.nome || '',
+      estagiarioMatricula: user?.matricula || '',
+      // Não existe vínculo estagiário↔supervisor no schema. Antes era gravado um
+      // nome literal, que virava dado falso dentro do prontuário.
+      supervisorNome: '',
       dataSessao: new Date(dataSessao).toLocaleDateString('pt-BR'),
       numeroSessao: numeroSessao,
       inicioTexto: evolucaoInicio,
@@ -84,6 +94,16 @@ export function PsyRecordPage() {
       fimTexto: evolucaoFim,
     });
 
+    setIsSaving(false);
+
+    if (!resultado.success || !resultado.evolucao) {
+      setErroMsg(resultado.message);
+      return;
+    }
+
+    // Id real devolvido pelo banco — não um "protocolo" montado no cliente com
+    // Date.now(), que não existe em lugar nenhum.
+    setRegistroGerado(resultado.evolucao.id);
     setShowSuccessModal(true);
   };
 
@@ -107,7 +127,7 @@ export function PsyRecordPage() {
             Paciente Ativo (SPA)
           </label>
           <select
-            value={selectedPatientId}
+            value={pacienteSelecionado?.id ?? ''}
             onChange={(e) => setSelectedPatientId(Number(e.target.value))}
             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-600 focus:outline-none"
           >
@@ -356,6 +376,7 @@ export function PsyRecordPage() {
                   setEvolucaoInicio('');
                   setEvolucaoMeio('');
                   setEvolucaoFim('');
+                  setErroMsg('');
                 }}
                 className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
               >
@@ -363,17 +384,25 @@ export function PsyRecordPage() {
               </button>
               <button
                 type="button"
-                disabled={temViolacaoAspas}
+                disabled={temViolacaoAspas || isSaving}
                 onClick={handleSalvarEnviar}
                 className={`px-6 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-xs ${
-                  temViolacaoAspas
+                  temViolacaoAspas || isSaving
                     ? 'bg-slate-400 cursor-not-allowed opacity-60'
                     : 'bg-blue-700 hover:bg-blue-800'
                 }`}
               >
-                Submeter para Homologação Docente
+                {isSaving ? 'Enviando…' : 'Submeter para Homologação Docente'}
               </button>
             </div>
+
+            {/* Falha de escrita não pode ser engolida: o rascunho continua na tela
+                para o estagiário corrigir e tentar de novo. */}
+            {erroMsg && (
+              <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl">
+                Não foi possível submeter a síntese: {erroMsg}
+              </div>
+            )}
           </div>
         ) : (
           /* ABA 2: LINHA DO TEMPO CRONOLÓGICA (RF-008 & RN-005) */
@@ -490,8 +519,8 @@ export function PsyRecordPage() {
               </div>
 
               <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1 font-mono text-center">
-                <p className="text-slate-400 text-[10px] uppercase tracking-wider">Protocolo de Registro Eletrônico</p>
-                <p className="text-slate-900 font-bold text-sm">{protocoloGerado}</p>
+                <p className="text-slate-400 text-[10px] uppercase tracking-wider">Registro no banco de dados</p>
+                <p className="text-slate-900 font-bold text-sm">#{registroGerado}</p>
                 <p className="text-slate-500 text-[10px]">Autoria: {user?.nome} ({user?.matricula})</p>
               </div>
 

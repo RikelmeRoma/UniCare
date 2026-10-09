@@ -35,11 +35,11 @@ export default function App() {
             <Route path="/recuperar-senha" element={<ForgotPasswordPage />} />
             <Route path="/nao-autorizado" element={<UnauthorizedPage />} />
 
-            {/* Rotas de Recepção Geral / Odonto (Acesso Restrito: Recepção e RT - Bloqueio RN-001 de Prontuários) */}
+            {/* Recepção Odontológica Integrada (REC-001). A recepção é uma conta por clínica. */}
             <Route
               path="/recepcao"
               element={
-                <ProtectedRoute allowedRoles={['recepcao', 'rt']}>
+                <ProtectedRoute allowedRoles={['recepcao', 'rt']} allowedCourses={['odontologia']}>
                   <ReceptionDashboard />
                 </ProtectedRoute>
               }
@@ -69,7 +69,7 @@ export default function App() {
             <Route
               path="/psi/recepcao"
               element={
-                <ProtectedRoute allowedRoles={['recepcao', 'rt']}>
+                <ProtectedRoute allowedRoles={['recepcao', 'rt']} allowedCourses={['psicologia']}>
                   <PsyReceptionDashboard />
                 </ProtectedRoute>
               }

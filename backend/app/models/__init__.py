@@ -3,6 +3,7 @@ from app.models.paciente import Paciente
 from app.models.agendamento import Agendamento, StatusAgendamento
 from app.models.prontuario import ProntuarioPsico, FichaOdonto, StatusProntuario
 from app.models.auditoria import LogAuditoria
+from app.models.demanda import DemandaEstagio, StatusDemanda, PrioridadeDemanda
 
 __all__ = [
     "Usuario",
@@ -15,4 +16,7 @@ __all__ = [
     "FichaOdonto",
     "StatusProntuario",
     "LogAuditoria",
+    "DemandaEstagio",
+    "StatusDemanda",
+    "PrioridadeDemanda",
 ]

@@ -9,5 +9,6 @@ class LogAuditoriaRead(SQLModel):
     acao: str
     tabela_afetada: str
     registro_id: Optional[int] = None
+    curso: str
     endereco_ip: Optional[str] = None
     timestamp: datetime

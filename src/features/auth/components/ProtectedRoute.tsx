@@ -27,8 +27,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/nao-autorizado" state={{ from: location }} replace />;
   }
 
-  // Verifica restrição de curso caso exista
-  if (allowedCourses && !allowedCourses.includes(user.curso) && user.perfil !== 'rt') {
+  // Verifica restrição de curso caso exista. O RT NÃO escapa: a vertical slice
+  // exige que a Referência Técnica de odontologia não entre na clínica
+  // psicológica — a salvaguarda institucional (RN-003) vale para auditoria e
+  // relatórios, não para dados clínicos de outro curso.
+  if (allowedCourses && !allowedCourses.includes(user.curso)) {
     return <Navigate to="/nao-autorizado" state={{ from: location }} replace />;
   }
 

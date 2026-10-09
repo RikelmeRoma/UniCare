@@ -105,7 +105,7 @@ flowchart TD
 ### Backend
 - **Framework:** FastAPI (Python 3.12+ assíncrono).
 - **Servidor ASGI:** Uvicorn rodando em `http://127.0.0.1:8000`.
-- **Persistência de Dados:** SQLite com ORM SQLAlchemy 2.0 (`unicare.db`).
+- **Persistência de Dados:** PostgreSQL 16 dockerizado com ORM SQLAlchemy 2.0, schema versionado por Alembic.
 - **Validação de Schemas:** Pydantic v2 com tipagem forte e serialização JSON segura.
 - **Auditoria:** Middleware de interceptação e injeção de logs de auditoria imutáveis.
 - **Testes Automatizados:** Pytest com suíte de conformidade regulatória (`backend/tests/test_compliance.py`).
@@ -119,7 +119,7 @@ UniCare/
 ├── backend/
 │   ├── app/
 │   │   ├── config.py             # Configurações e variáveis de ambiente
-│   │   ├── database.py           # Conexão SQLite / SQLAlchemy
+│   │   ├── database.py           # Conexão PostgreSQL / SQLAlchemy
 │   │   ├── main.py               # Ponto de entrada FastAPI e middlewares
 │   │   ├── models.py             # Modelos de dados (Pacientes, Prontuários, Logs)
 │   │   ├── schemas.py            # Schemas Pydantic de entrada/saída

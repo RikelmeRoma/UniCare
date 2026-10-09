@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   UserGroupIcon,
   MagnifyingGlassIcon,
@@ -11,9 +11,11 @@ import {
   TrashIcon,
 } from '../../../components/icons/CorporateIcons';
 import { useAuth, type User } from '../../auth/context/AuthContext';
+import { useClinic } from '../../clinic/context/ClinicContext';
 
 export function ClinicalPairs() {
   const { allUsers, createUser, updateUser, deleteUser } = useAuth();
+  const { fichasOdonto } = useClinic();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [nome, setNome] = useState('');
   const [matricula, setMatricula] = useState('');
@@ -113,22 +115,37 @@ export function ClinicalPairs() {
     setTimeout(() => setFeedbackSuccess(''), 5000);
   };
 
-  const pairs = [
-    { id: 'D1', name: 'L. Vasconcelos / G. Prado', chair: 'Cadeira 03', proc: '14 / 20', status: 'Pendente', patients: '2 Pacientes no Dia', color: 'bg-slate-900 text-white' },
-    { id: 'D2', name: 'B. Morais / P. Siqueira', chair: 'Cadeira 04', proc: '12 / 20', status: 'Pendente', patients: '2 Pacientes no Dia', color: 'bg-emerald-700 text-white' },
-    { id: 'D3', name: 'T. Nogueira / M. Figueira', chair: 'Cadeira 02', proc: '18 / 20', status: 'Em Análise', patients: '3 Pacientes Ativos', color: 'bg-blue-100 text-blue-900' },
-    { id: 'D4', name: 'C. Castro / R. Lima', chair: 'Cadeira 08', proc: '16 / 20', status: 'Em Dia', patients: '2 Pacientes Ativos', color: 'bg-slate-900 text-white' },
-    { id: 'D5', name: 'M. Arantes / J. Costa', chair: 'Cadeira 09', proc: '11 / 20', status: 'Correção', patients: '1 Paciente Ativo', color: 'bg-red-50 text-red-700 border border-red-200' },
-    { id: 'D6', name: 'F. Toledo / B. Neves', chair: 'Cadeira 11', proc: '15 / 20', status: 'Em Dia', patients: '2 Pacientes no Dia', color: 'bg-emerald-700 text-white' },
-    { id: 'D7', name: 'S. Dantas / E. Rocha', chair: 'Cadeira 06', proc: '17 / 20', status: 'Em Dia', patients: '2 Pacientes no Dia', color: 'bg-blue-100 text-blue-900' },
-    { id: 'D8', name: 'C. Barros / T. Freitas', chair: 'Cadeira 10', proc: '13 / 20', status: 'Pendente', patients: '2 Pacientes no Dia', color: 'bg-slate-900 text-white' },
-  ];
+  // Antes eram oito duplas fictícias com "14 / 20" procedimentos e status fixo.
+// Agora cada dupla é derivada das fichas reais: quantas viu e quantas tem
+// homologadas. Dupla que ainda não registrou ficha não entra na grade.
+const duplasReais = useMemo(() => {
+  const porDupla = new Map<string, { homologadas: number; total: number; pendentes: number; pacientes: number }>();
 
-  const filteredPairs = pairs.filter(
-    (p) =>
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.chair.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  for (const ficha of fichasOdonto) {
+    const atual = porDupla.get(ficha.duplaEstagiarios) ?? { homologadas: 0, total: 0, pendentes: 0, pacientes: 0 };
+    atual.total += 1;
+    if (ficha.status === 'VALIDADO') atual.homologadas += 1;
+    if (ficha.status === 'AGUARDANDO_VALIDACAO') atual.pendentes += 1;
+    porDupla.set(ficha.duplaEstagiarios, atual);
+  }
+
+  return Array.from(porDupla.entries()).map(([nome, contadores], idx) => ({
+    id: `D${idx + 1}`,
+    name: nome,
+    proc: `${contadores.homologadas} / ${contadores.total}`,
+    status: contadores.pendentes > 0 ? 'Pendente' : 'Em Dia',
+    patients: `${contadores.total} ficha(s)`,
+    color: contadores.pendentes > 0 ? 'bg-slate-900 text-white' : 'bg-emerald-700 text-white',
+  }));
+}, [fichasOdonto]);
+
+const pairs = duplasReais;
+
+const filteredPairs = pairs.filter(
+  (p) =>
+    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.id.toLowerCase().includes(searchTerm.toLowerCase())
+);
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-6">
@@ -268,7 +285,7 @@ export function ClinicalPairs() {
                 {pair.id}
               </div>
               <div>
-                <p className="font-bold text-xs text-slate-900">Dupla 0{idx + 1} • {pair.chair}</p>
+                <p className="text-xs font-bold text-slate-900">Dupla {pair.id}</p>
                 <p className="text-[10px] text-slate-500 mt-0.5">{pair.name}</p>
               </div>
             </div>
@@ -291,7 +308,7 @@ export function ClinicalPairs() {
       {/* Barra de Paginação Inferior */}
       <div className="flex justify-between items-center pt-4 border-t border-slate-100">
         <p className="text-xs text-slate-500">
-          Exibindo {filteredPairs.length} duplas da Turma ODO-2026.2-D1
+          Exibindo {filteredPairs.length} dupla(s) com ficha registrada
         </p>
         <button
           type="button"

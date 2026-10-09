@@ -50,7 +50,7 @@ interface PatientInfo {
  * CONSTANTES
  * ========================================================= */
 
-// Ordem dos dentes conforme layout clássico do periodograma.
+// Ordem dos dentes conforme layout clássico do periograma.
 const UPPER_TEETH: number[] = [
   18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28,
 ];
@@ -391,7 +391,7 @@ const ToothGlyph: React.FC<{
  * COMPONENTE PRINCIPAL
  * ========================================================= */
 
-const Periodograma: React.FC = () => {
+const Periograma: React.FC = () => {
   const [patient, setPatient] = useState<PatientInfo>({
     nome: "",
     nascimento: "",
@@ -839,14 +839,14 @@ const Periodograma: React.FC = () => {
       <div className="mb-4 pb-3 border-b border-slate-200">
         <div className="flex items-center gap-2 mb-1">
           <span className="px-2.5 py-0.5 rounded-md bg-[#881337] text-white text-[10px] font-bold uppercase tracking-wider shadow-2xs">
-            Periodograma
+            Periograma
           </span>
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">
             Exame Periodontal Clínico
           </span>
         </div>
         <h2 className="text-base font-bold text-slate-900 tracking-tight">
-          Periodograma Clínico Digital
+          Periograma Clínico Digital
         </h2>
         <p className="text-xs text-slate-500 mt-0.5">
           Mapeamento periodontal: profundidade de sondagem (PS), nível de inserção (NIC), recessão (REC) e sangramento (SS).
@@ -1033,4 +1033,4 @@ const Periodograma: React.FC = () => {
   );
 };
 
-export default Periodograma;
+export default Periograma;

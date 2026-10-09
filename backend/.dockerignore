@@ -1,0 +1,37 @@
+# Segredos: o .env real NUNCA deve entrar na imagem. O .gitignore não tem
+# efeito no Docker — sem este arquivo, `COPY . .` assaria a SECRET_KEY e a senha
+# do banco em uma camada da imagem.
+.env
+
+# Ambiente virtual da máquina: ~132 MB de wheels que o container não usa, já que
+# instala as dependencias no próprio build.
+.venv/
+venv/
+env/
+
+# Cache de build Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Logs e bancos locais
+*.log
+*.db
+*.sqlite3
+
+# Testes nao sao executados dentro do container da API
+tests/
+
+# Controle de versao
+.git/
+.gitignore
+.github/
+
+# Documentacao (o container precisa de README? nao)
+README.md
+.env.example
+pytest.ini
+docker-compose.yml

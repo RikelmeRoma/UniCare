@@ -1,34 +1,48 @@
-from typing import Dict, Any
+from typing import Dict, Any, List
 from fastapi import APIRouter, Depends
-from sqlmodel import Session, select, func
+from sqlmodel import Session, select
 
 from app.database import get_session
 from app.models.paciente import Paciente
 from app.models.agendamento import Agendamento, StatusAgendamento
 from app.models.prontuario import ProntuarioPsico, FichaOdonto, StatusProntuario
 from app.models.auditoria import LogAuditoria
-from app.models.usuario import Usuario, PerfilUsuario
+from app.models.usuario import Usuario, PerfilUsuario, CursoUsuario
 from app.services.auth_service import require_roles
 
 router = APIRouter(prefix="/relatorios", tags=["Relatórios & Indicadores Gerenciais (RF-006)"])
 
-# Relatórios estatísticos globais são restritos à Referência Técnica (RT) e Supervisores (RN-003)
+# Relatórios estatísticos globais são restritos à Referência Técnica (RT) e
+# Supervisores (RN-003). A segregação por curso é aplicada depois: cada RT tem
+# visão panorâmica apenas da clínica sob sua responsabilidade.
 autorizado_gestao = require_roles([PerfilUsuario.RT, PerfilUsuario.SUPERVISOR])
+
 
 @router.get("/estatisticas")
 def obter_estatisticas_gerenciais(
     session: Session = Depends(get_session),
     current_user: Usuario = Depends(autorizado_gestao)
 ) -> Dict[str, Any]:
+    # Vertical slice: o relatório cobre só a clínica do solicitante. Um RT de
+    # odontologia não enxerga números de psicologia — nem de dados, nem de
+    # contagens. Pacientes com curso "ambos" aparecem nas duas clínicas.
+    curso = current_user.curso.value
+    clinica = curso if curso in ("psicologia", "odontologia") else None
+
+    def visivel_a_clinica(curso_paciente: str) -> bool:
+        if clinica is None:
+            return True
+        return curso_paciente in (clinica, "ambos")
+
     # 1. Indicadores de Pacientes (RF-007)
-    pacientes = session.exec(select(Paciente)).all()
+    pacientes = [p for p in session.exec(select(Paciente)).all() if visivel_a_clinica(p.curso)]
     total_pacientes = len(pacientes)
     pacientes_psico = sum(1 for p in pacientes if p.curso in ("psicologia", "ambos"))
     pacientes_odonto = sum(1 for p in pacientes if p.curso in ("odontologia", "ambos"))
     pacientes_menores = sum(1 for p in pacientes if p.eh_menor)
 
     # 2. Indicadores de Agendamentos & Absenteísmo (RF-006)
-    agendamentos = session.exec(select(Agendamento)).all()
+    agendamentos = [a for a in session.exec(select(Agendamento)).all() if visivel_a_clinica(a.curso)]
     total_agendamentos = len(agendamentos)
 
     status_counts = {
@@ -51,8 +65,19 @@ def obter_estatisticas_gerenciais(
     agendamentos_odonto = sum(1 for a in agendamentos if a.curso == "odontologia")
 
     # 3. Indicadores de Prontuários & Homologação Docente (RF-004)
-    prontuarios_psico = session.exec(select(ProntuarioPsico)).all()
-    fichas_odonto = session.exec(select(FichaOdonto)).all()
+    # As tabelas clinicas nao guardam o curso: ele vem do paciente, por FK. Os
+    # models nao declaram Relationship, entao montamos um mapa id->curso a partir
+    # dos pacientes ja filtrados em vez de confiar no JOIN para popular a relacao.
+    curso_por_paciente = {p.id: p.curso for p in pacientes}
+
+    prontuarios_psico = [
+        pr for pr in session.exec(select(ProntuarioPsico)).all()
+        if curso_por_paciente.get(pr.paciente_id) in (clinica, "ambos")
+    ]
+    fichas_odonto = [
+        f for f in session.exec(select(FichaOdonto)).all()
+        if curso_por_paciente.get(f.paciente_id) in (clinica, "ambos")
+    ]
 
     psico_aguardando = sum(1 for pr in prontuarios_psico if pr.status == StatusProntuario.AGUARDANDO_VALIDACAO)
     psico_validados = sum(1 for pr in prontuarios_psico if pr.status == StatusProntuario.VALIDADO)
@@ -61,30 +86,37 @@ def obter_estatisticas_gerenciais(
     # 4. Indicadores de Segurança e Auditoria LGPD (Art. 11)
     total_logs_auditoria = len(session.exec(select(LogAuditoria)).all())
 
+    # distribuicao_cursos traz SOMENTE a chave da clínica do solicitante. O
+    # frontend precisa ler a chave do próprio curso — ler .psicologia e
+    # .odontologia fixos mostraria números que não são desta clínica.
+    distribuicao: Dict[str, Any] = {}
+    if clinica in (None, "psicologia"):
+        distribuicao["psicologia"] = {
+            "pacientes_ativos": pacientes_psico,
+            "agendamentos_totais": agendamentos_psico,
+            "prontuarios_submetidos": len(prontuarios_psico),
+            "prontuarios_aguardando_visto": psico_aguardando,
+            "prontuarios_validados": psico_validados,
+            "prontuarios_devolvidos": psico_devolvidos,
+        }
+    if clinica in (None, "odontologia"):
+        distribuicao["odontologia"] = {
+            "pacientes_ativos": pacientes_odonto,
+            "agendamentos_totais": agendamentos_odonto,
+            "fichas_clinicas_totais": len(fichas_odonto),
+        }
+
     return {
         "resumo_executivo": {
             "instituicao": "UNINASSAU Aracaju",
             "unidade": "Clínicas Integradas de Saúde (SPA & Odontologia)",
+            "curso": curso,
             "total_pacientes": total_pacientes,
             "total_agendamentos": total_agendamentos,
             "taxa_comparecimento_pct": taxa_comparecimento,
             "taxa_absenteismo_pct": taxa_absenteismo,
         },
-        "distribuicao_cursos": {
-            "psicologia": {
-                "pacientes_ativos": pacientes_psico,
-                "agendamentos_totais": agendamentos_psico,
-                "prontuarios_submetidos": len(prontuarios_psico),
-                "prontuarios_aguardando_visto": psico_aguardando,
-                "prontuarios_validados": psico_validados,
-                "prontuarios_devolvidos": psico_devolvidos,
-            },
-            "odontologia": {
-                "pacientes_ativos": pacientes_odonto,
-                "agendamentos_totais": agendamentos_odonto,
-                "fichas_clinicas_totais": len(fichas_odonto),
-            },
-        },
+        "distribuicao_cursos": distribuicao,
         "agendamentos_por_status": status_counts,
         "conformidade_legal": {
             "pacientes_menores_com_responsavel": pacientes_menores,

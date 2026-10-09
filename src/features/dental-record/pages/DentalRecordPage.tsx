@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { AppLayout } from '../../../components/layout/AppLayout';
 import { PatientHeader } from '../components/PatientHeader';
 import OdontogramApp from '../components/OdontogramaViewer';
-import Periodograma from '../components/PeriodogramaViewer';
+import Periograma from '../components/PeriogramaViewer';
 import { DentalEvolutionTab } from '../components/DentalEvolutionTab';
 import { TreatmentPlanTab } from '../components/TreatmentPlanTab';
 import { DentalRadiologyTab } from '../components/DentalRadiologyTab';
@@ -21,8 +21,10 @@ export function DentalRecordPage() {
     (p) => p.curso === 'odontologia' || p.curso === 'ambos'
   );
 
-  const [selectedPatientId, setSelectedPatientId] = useState<number>(
-    pacientesOdonto[0]?.id || 2
+  // Mesmo caso do prontuário psicológico: `|| 2` era id fixo e o <select> ficava
+  // sem opção correspondente até a lista real chegar.
+  const [selectedPatientId, setSelectedPatientId] = useState<number | undefined>(
+    undefined
   );
   const pacienteSelecionado =
     pacientesOdonto.find((p) => p.id === selectedPatientId) || pacientesOdonto[0];
@@ -33,7 +35,7 @@ export function DentalRecordPage() {
   return (
     <AppLayout
       title="Ficha Clínica Odontológica"
-      subtitle="Prontuário odontológico, mapeamento anatômico 2D, periodograma, evolução clínica e plano de tratamento hierarquizado"
+      subtitle="Prontuário odontológico, mapeamento anatômico 2D, periograma, evolução clínica e plano de tratamento hierarquizado"
       badge="Supervisão Clínica CFO"
       badgeType="emerald"
       actions={
@@ -42,7 +44,7 @@ export function DentalRecordPage() {
             Paciente da Clínica
           </label>
           <select
-            value={selectedPatientId}
+            value={pacienteSelecionado?.id ?? ''}
             onChange={(e) => setSelectedPatientId(Number(e.target.value))}
             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-600 focus:outline-none"
           >
@@ -69,7 +71,7 @@ export function DentalRecordPage() {
             }`}
           >
             <DocumentTextIcon className="w-4 h-4" />
-            <span>Odontograma 2D & Periodograma</span>
+            <span>Odontograma 2D & Periograma</span>
           </button>
 
           <button
@@ -158,19 +160,19 @@ export function DentalRecordPage() {
               </div>
             </div>
 
-            {/* Coluna Direita: Odontograma e Periodograma */}
+            {/* Coluna Direita: Odontograma e Periograma */}
             <div className="lg:col-span-9 space-y-6">
               <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
                 <OdontogramApp />
               </div>
               <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-                <Periodograma />
+                <Periograma />
               </div>
             </div>
           </div>
         )}
 
-        {activeTab === 'evolucao' && <DentalEvolutionTab />}
+        {activeTab === 'evolucao' && <DentalEvolutionTab pacienteId={pacienteSelecionado?.id} />}
 
         {activeTab === 'tratamento' && <TreatmentPlanTab />}
 

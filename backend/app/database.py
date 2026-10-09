@@ -1,17 +1,15 @@
-from sqlmodel import SQLModel, create_engine, Session
+from sqlmodel import create_engine, Session
 from app.config import settings
-
-# Conexão com suporte tanto a SQLite quanto PostgreSQL
-connect_args = {"check_same_thread": False} if settings.DATABASE_URL.startswith("sqlite") else {}
 
 engine = create_engine(
     settings.DATABASE_URL,
     echo=False,
-    connect_args=connect_args
+    # pool_pre_ping descarta conexões mortas quando o container do Postgres reinicia,
+    # evitando OperationalError na primeira requisição após o restart.
+    pool_pre_ping=True,
+    pool_size=5,
+    pool_recycle=1800,
 )
-
-def init_db():
-    SQLModel.metadata.create_all(engine)
 
 def get_session():
     with Session(engine) as session:

@@ -8,7 +8,6 @@ import {
   ChartBarIcon,
   ArrowRightOnRectangleIcon,
   BuildingOfficeIcon,
-  UserGroupIcon,
   LockClosedIcon,
 } from '../icons/CorporateIcons';
 

@@ -25,12 +25,17 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
   );
   const [observacaoLogistica, setObservacaoLogistica] = useState('Paciente confirmado por WhatsApp');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg('');
     const paciente = pacientes.find((p) => p.id === pacienteId);
     if (!paciente) return;
 
-    adicionarAgendamento({
+    setIsSaving(true);
+    const res = await adicionarAgendamento({
       pacienteId,
       pacienteNome: paciente.nome,
       estagiarioNome,
@@ -43,6 +48,14 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
       status: 'AGENDADO',
       observacaoLogistica,
     });
+    setIsSaving(false);
+
+    // Antes, o modal fechava sem esperar resposta nenhuma: uma falha de FK
+    // virava 500 engolido por console.warn e o agendamento sumia ao recarregar.
+    if (!res.success) {
+      setErrorMsg(res.message);
+      return;
+    }
 
     onClose();
   };
@@ -100,8 +113,11 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
                 }}
                 className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none"
               >
-                <option value="psicologia">Psicologia (SPA)</option>
-                <option value="odontologia">Odontologia Integrada</option>
+                {/* A recepção concilia a agenda da própria clínica: oferecer a
+                    outra aqui só geraria um 403 na hora de salvar. */}
+                <option value={defaultCurso}>
+                  {defaultCurso === 'psicologia' ? 'Psicologia (SPA)' : 'Odontologia Integrada'}
+                </option>
               </select>
             </div>
 
@@ -182,12 +198,18 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
             </button>
             <button
               type="submit"
-              className="px-5 py-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-xs"
+              disabled={isSaving}
+              className="px-5 py-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-xs disabled:opacity-50"
             >
-              Confirmar Agendamento
+              {isSaving ? 'Salvando...' : 'Confirmar Agendamento'}
             </button>
           </div>
         </form>
+        {errorMsg && (
+          <p className="mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            {errorMsg}
+          </p>
+        )}
       </div>
     </div>
   );

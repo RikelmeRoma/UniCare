@@ -15,13 +15,13 @@ class Agendamento(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     paciente_id: int = Field(foreign_key="pacientes.id", index=True)
-    paciente_nome: str
-    estagiario_nome: str
-    estagiario_matricula: str
-    curso: str
-    horario: str
-    turno: str = Field(default="tarde")
-    sala_ou_cadeira: str
-    tipo_consulta: str
+    paciente_nome: str = Field(max_length=200)
+    estagiario_nome: str = Field(max_length=200)
+    estagiario_matricula: str = Field(max_length=32)
+    curso: str = Field(max_length=20)
+    horario: str = Field(max_length=5)
+    turno: str = Field(default="tarde", max_length=10)
+    sala_ou_cadeira: str = Field(max_length=100)
+    tipo_consulta: str = Field(max_length=200)
     status: StatusAgendamento = Field(default=StatusAgendamento.AGENDADO)
-    observacao_logistica: Optional[str] = None
+    observacao_logistica: Optional[str] = Field(default=None, max_length=500)

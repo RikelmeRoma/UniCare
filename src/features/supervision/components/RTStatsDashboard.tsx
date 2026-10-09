@@ -23,7 +23,7 @@ import {
 
 export function RTStatsDashboard() {
   const { pacientes, agendamentos, evolucoesPsico, planosTratamento } = useClinic();
-  const { allUsers, createUser, updateUser, deleteUser } = useAuth();
+  const { allUsers, createUser, updateUser, deleteUser, user } = useAuth();
   const [stats, setStats] = useState<RelatorioEstatisticas | null>(null);
   const [logs, setLogs] = useState<ApiLogAuditoria[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -99,6 +99,16 @@ export function RTStatsDashboard() {
   const totalAgendamentos = stats?.resumo_executivo?.total_agendamentos ?? totalAgendamentosLocal;
   const taxaComparecimento = stats?.resumo_executivo?.taxa_comparecimento_pct ?? (100 - taxaAbsenteismoLocal);
   const taxaAbsenteismo = stats?.resumo_executivo?.taxa_absenteismo_pct ?? taxaAbsenteismoLocal;
+
+  // Vertical slice: o backend devolve distribuicao_cursos apenas com a chave da
+  // clínica do solicitante. Ler .psicologia e .odontologia fixos mostraria
+  // números de outro curso — ou cairia nos fallbacks inventados (?? 1, ?? 2).
+  const cursoPainel = user?.curso === 'odontologia' ? 'odontologia' : 'psicologia';
+  const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
+    | Record<string, number>
+    | undefined;
+  // Sem API, assume 0: inventar número é pior que mostrar vazio.
+  const num = (chave: string) => bloco?.[chave] ?? 0;
 
   const logsFiltrados = logs.filter(
     (l) =>
@@ -377,8 +387,7 @@ export function RTStatsDashboard() {
                     Prontuários em Fila Docente
                   </p>
                   <p className="text-2xl font-bold text-indigo-700 mt-1 font-mono">
-                    {stats?.distribuicao_cursos?.psicologia?.prontuarios_aguardando_visto ??
-                      evolucoesPsico.filter((e) => e.status === 'AGUARDANDO_VALIDACAO').length}
+{num('prontuarios_aguardando_visto')}
                   </p>
                 </div>
                 <div className="p-2.5 bg-indigo-50 text-indigo-700 rounded-lg">
@@ -409,7 +418,7 @@ export function RTStatsDashboard() {
                   <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
                     <span>Prontuários Homologados com Visto Digital</span>
                     <span className="font-mono text-emerald-700">
-                      {stats?.distribuicao_cursos?.psicologia?.prontuarios_validados ?? 1}
+                      {num('prontuarios_validados')}
                     </span>
                   </div>
                   <div className="w-full bg-slate-100 rounded-full h-2">
@@ -421,7 +430,7 @@ export function RTStatsDashboard() {
                   <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
                     <span>Evoluções Aguardando Parecer Docente</span>
                     <span className="font-mono text-indigo-700">
-                      {stats?.distribuicao_cursos?.psicologia?.prontuarios_aguardando_visto ?? 1}
+                      {num('prontuarios_aguardando_visto')}
                     </span>
                   </div>
                   <div className="w-full bg-slate-100 rounded-full h-2">
@@ -434,13 +443,13 @@ export function RTStatsDashboard() {
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
                   <span className="text-slate-500">Pacientes Vinculados</span>
                   <p className="text-base font-bold text-slate-900 mt-0.5 font-mono">
-                    {stats?.distribuicao_cursos?.psicologia?.pacientes_ativos ?? 2}
+                    {num('pacientes_ativos')}
                   </p>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
                   <span className="text-slate-500">Sessões Realizadas</span>
                   <p className="text-base font-bold text-slate-900 mt-0.5 font-mono">
-                    {stats?.distribuicao_cursos?.psicologia?.agendamentos_totais ?? 2}
+                    {num('agendamentos_totais')}
                   </p>
                 </div>
               </div>
@@ -485,7 +494,7 @@ export function RTStatsDashboard() {
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
                   <span className="text-slate-500">Pacientes Vinculados</span>
                   <p className="text-base font-bold text-slate-900 mt-0.5 font-mono">
-                    {stats?.distribuicao_cursos?.odontologia?.pacientes_ativos ?? 3}
+                    {num('pacientes_ativos')}
                   </p>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">

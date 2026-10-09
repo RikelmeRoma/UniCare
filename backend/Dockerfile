@@ -5,17 +5,21 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
-
+# Nao ha build-essential/libpq-dev aqui de proposito: psycopg2-binary distribui
+# wheel pronto, e uvloop/httptools, cryptography e reportlab tambem tem wheels
+# cp312. Adicionar essas ferramentas custava ~250-300 MB de camada.
+# ATENCAO: trocar psycopg2-binary por psycopg2 (versao que compila) exigirá
+# reintroduzir build-essential e libpq-dev.
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
+# O .dockerignore impede que .env, .venv/ e caches entrem na imagem.
 COPY . .
+
+# Garante permissao de execucao no entrypoint, independente do host de build
+RUN chmod +x docker/entrypoint.sh
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+ENTRYPOINT ["./docker/entrypoint.sh"]

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useClinic } from '../../clinic/context/ClinicContext';
+import { useAuth } from '../../auth/context/AuthContext';
 import {
   DocumentTextIcon,
   PlusIcon,
@@ -12,26 +13,40 @@ interface StudentDemandPanelProps {
 
 export function StudentDemandPanel({ cursoFiltro }: StudentDemandPanelProps) {
   const { demandas, adicionarDemanda } = useClinic();
+  // A matricula e de quem ESTA criando a demanda (o estagiario logado), nao de
+  // um aluno fixo no codigo — antes enviava sempre '16032935'.
+  const { user } = useAuth();
   const [showNovaDemanda, setShowNovaDemanda] = useState(false);
   const [alunoNome, setAlunoNome] = useState('');
   const [procedimento, setProcedimento] = useState('');
   const [prioridade, setPrioridade] = useState<'Alta' | 'Média' | 'Normal'>('Média');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   const demandasFiltradas = demandas.filter(
     (d) => !cursoFiltro || d.curso === cursoFiltro
   );
 
-  const handleNovaDemanda = (e: React.FormEvent) => {
+  const handleNovaDemanda = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg('');
     if (!alunoNome.trim() || !procedimento.trim()) return;
 
-    adicionarDemanda({
+    setIsSaving(true);
+    const res = await adicionarDemanda({
       alunoNome,
-      alunoMatricula: '16032935',
+      alunoMatricula: user?.matricula ?? '',
       curso: cursoFiltro || 'odontologia',
       procedimentoDesejado: procedimento,
       prioridade,
     });
+    setIsSaving(false);
+
+    // So fecha o formulario em caso de sucesso; antes fechava sem verificar nada.
+    if (!res.success) {
+      setErrorMsg(res.message);
+      return;
+    }
 
     setAlunoNome('');
     setProcedimento('');
@@ -96,11 +111,17 @@ export function StudentDemandPanel({ cursoFiltro }: StudentDemandPanelProps) {
             </select>
             <button
               type="submit"
-              className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-1.5 rounded-lg font-bold text-xs shadow-2xs"
+              disabled={isSaving}
+              className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-1.5 rounded-lg font-bold text-xs shadow-2xs disabled:opacity-50"
             >
-              Salvar Demanda
+              {isSaving ? 'Salvando...' : 'Salvar Demanda'}
             </button>
           </div>
+          {errorMsg && (
+            <p className="text-[10px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-2 py-1.5">
+              {errorMsg}
+            </p>
+          )}
         </form>
       )}
 

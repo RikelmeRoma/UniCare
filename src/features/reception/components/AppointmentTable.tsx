@@ -113,8 +113,12 @@ export function AppointmentTable() {
                   </td>
 
                   <td className="py-3.5 px-4">
-                    <p className="font-bold text-slate-900">{item.pacienteNome}</p>
-                    <p className="text-[10px] text-slate-500 italic">{item.observacaoLogistica}</p>
+<p className="font-bold text-slate-900">{item.pacienteNome}</p>
+                {/* observacaoLogistica é opcional no schema: renderizar direto
+                    quebrava a linha da tabela quando vinha vazio. */}
+                {item.observacaoLogistica && (
+                  <p className="text-[10px] text-slate-500 italic">{item.observacaoLogistica}</p>
+                )}
                   </td>
 
                   <td className="py-3.5 px-4">

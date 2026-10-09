@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { api, type ApiPaciente, type ApiAgendamento, type ApiProntuarioPsico } from '../../../services/api';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { api, type ApiPaciente, type ApiAgendamento, type ApiProntuarioPsico, type ApiFichaOdonto, type ApiDemanda } from '../../../services/api';
+import { useAuth } from '../../auth/context/AuthContext';
 
 export type StatusAgendamento = 'AGENDADO' | 'PRESENTE' | 'EM_ATENDIMENTO' | 'CONCLUIDO' | 'FALTOU' | 'CANCELADO';
 export type StatusProntuario = 'EM_ELABORACAO' | 'AGUARDANDO_VALIDACAO' | 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE';
@@ -60,6 +61,21 @@ export interface EvolucaoPsico {
   submetidoEm: string;
 }
 
+export interface FichaOdonto {
+  id: number;
+  pacienteId: number;
+  pacienteNome: string;
+  duplaEstagiarios: string;
+  denteRegiao: string;
+  procedimentoRealizado: string;
+  materiaisUtilizados: string;
+  anestesico?: string;
+  alertaAlergia?: string;
+  parecerSupervisor?: string;
+  status: StatusProntuario;
+  submetidoEm: string;
+}
+
 export interface ItemPlanoTratamento {
   id: number;
   prioridade: 'Urgência' | 'Fase 1 - Restauradora' | 'Fase 2 - Periodontal' | 'Fase 3 - Manutenção';
@@ -69,18 +85,36 @@ export interface ItemPlanoTratamento {
   estagiarioResponsavel: string;
 }
 
+/** Origem dos dados em tela. Permite diferenciar dado real do Postgres de mock. */
+export type OrigemDados = 'mock' | 'api' | 'erro';
+
+/** Resumo de uma sincronizacao com o backend. */
+export interface SyncStatus {
+  estado: 'aguardando-login' | 'sincronizando' | 'sincronizado' | 'parcial' | 'erro';
+  origem: OrigemDados;
+  /** Mensagens de erro por endpoint que falhou (ex.: 403 em prontuarios para recepcao). */
+  falhas: string[];
+  ultimoEm: string | null;
+}
+
 interface ClinicContextType {
   pacientes: Paciente[];
   agendamentos: Agendamento[];
   demandas: DemandaEstagio[];
   evolucoesPsico: EvolucaoPsico[];
+  fichasOdonto: FichaOdonto[];
   planosTratamento: ItemPlanoTratamento[];
-  cadastrarPaciente: (p: Omit<Paciente, 'id' | 'prontuarioAtivo'>) => { success: boolean; message: string; paciente?: Paciente };
-  adicionarAgendamento: (a: Omit<Agendamento, 'id'>) => void;
+  sync: SyncStatus;
+  sincronizar: () => Promise<void>;
+  cadastrarPaciente: (p: Omit<Paciente, 'id' | 'prontuarioAtivo'>) => Promise<{ success: boolean; message: string; paciente?: Paciente }>;
+  adicionarAgendamento: (a: Omit<Agendamento, 'id'>) => Promise<{ success: boolean; message: string; agendamento?: Agendamento }>;
   atualizarStatusAgendamento: (id: number, status: StatusAgendamento) => void;
-  adicionarDemanda: (d: Omit<DemandaEstagio, 'id' | 'status' | 'dataSolicitacao'>) => void;
+  adicionarDemanda: (d: Omit<DemandaEstagio, 'id' | 'status' | 'dataSolicitacao'>) => Promise<{ success: boolean; message: string; demanda?: DemandaEstagio }>;
+  atualizarStatusDemanda: (id: number, status: DemandaEstagio['status']) => void;
   homologarEvolucaoPsico: (id: number, decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE', parecer: string) => void;
-  adicionarEvolucaoPsico: (e: Omit<EvolucaoPsico, 'id' | 'status' | 'submetidoEm'>) => void;
+  adicionarEvolucaoPsico: (e: Omit<EvolucaoPsico, 'id' | 'status' | 'submetidoEm'>) => Promise<{ success: boolean; message: string; evolucao?: EvolucaoPsico }>;
+  adicionarFichaOdonto: (f: Omit<FichaOdonto, 'id' | 'status' | 'submetidoEm'>) => Promise<{ success: boolean; message: string; ficha?: FichaOdonto }>;
+  homologarFichaOdonto: (id: number, decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE', parecer: string) => Promise<{ success: boolean; message: string }>;
 }
 
 const ClinicContext = createContext<ClinicContextType | undefined>(undefined);
@@ -307,6 +341,84 @@ const INITIAL_PLANOS: ItemPlanoTratamento[] = [
 
 const STORAGE_PREFIX = 'unicare_clinic_';
 
+/** Mapeia o wire (snake_case) para o dominio do frontend (camelCase). */
+const mapearPaciente = (p: ApiPaciente): Paciente => ({
+  id: p.id,
+  nome: p.nome,
+  cpf: p.cpf_rg,
+  dataNascimento: p.data_nascimento,
+  telefone: p.telefone,
+  ehMenor: p.eh_menor,
+  nomeResponsavel: p.nome_responsavel,
+  contatoResponsavel: p.contato_responsavel,
+  curso: p.curso,
+  prontuarioAtivo: p.prontuario_ativo,
+});
+
+const mapearAgendamento = (a: ApiAgendamento): Agendamento => ({
+  id: a.id,
+  pacienteId: a.paciente_id,
+  pacienteNome: a.paciente_nome,
+  estagiarioNome: a.estagiario_nome,
+  estagiarioMatricula: a.estagiario_matricula,
+  curso: a.curso,
+  horario: a.horario,
+  turno: a.turno,
+  salaOuCadeira: a.sala_ou_cadeira,
+  tipoConsulta: a.tipo_consulta,
+  status: a.status,
+  observacaoLogistica: a.observacao_logistica,
+});
+
+const mapearEvolucao = (pr: ApiProntuarioPsico): EvolucaoPsico => ({
+  id: pr.id,
+  pacienteId: pr.paciente_id,
+  pacienteNome: pr.paciente_nome,
+  estagiarioNome: pr.estagiario_nome,
+  estagiarioMatricula: pr.estagiario_matricula,
+  supervisorNome: pr.supervisor_nome || '',
+  dataSessao: pr.data_sessao,
+  numeroSessao: pr.numero_sessao,
+  inicioTexto: pr.inicio_sessao_texto,
+  meioTexto: pr.meio_sessao_texto,
+  fimTexto: pr.fim_sessao_texto,
+  parecerSupervisor: pr.parecer_supervisor,
+  status: pr.status,
+  submetidoEm: pr.criado_em ? new Date(pr.criado_em).toLocaleDateString('pt-BR') : 'Hoje',
+});
+
+// A ficha odontológica não guarda o nome do paciente: ele vem por FK. O mapper
+// recebe o nome resolvido pela listagem de pacientes.
+const mapearFichaOdonto = (f: ApiFichaOdonto, nomePorPaciente: Map<number, string>): FichaOdonto => ({
+  id: f.id,
+  pacienteId: f.paciente_id,
+  pacienteNome: nomePorPaciente.get(f.paciente_id) || `Paciente #${f.paciente_id}`,
+  duplaEstagiarios: f.dupla_estagiarios,
+  denteRegiao: f.dente_regiao,
+  procedimentoRealizado: f.procedimento_realizado,
+  materiaisUtilizados: f.materiais_utilizados,
+  anestesico: f.anestesico,
+  alertaAlergia: f.alerta_alergia,
+  parecerSupervisor: f.parecer_supervisor,
+  status: f.status,
+  submetidoEm: f.criado_em ? new Date(f.criado_em).toLocaleDateString('pt-BR') : 'Hoje',
+});
+
+const mapearDemanda = (d: ApiDemanda): DemandaEstagio => ({
+  id: d.id,
+  alunoNome: d.aluno_nome,
+  alunoMatricula: d.aluno_matricula,
+  curso: d.curso,
+  procedimentoDesejado: d.procedimento_desejado,
+  prioridade: d.prioridade,
+  dataSolicitacao: d.data_solicitacao,
+  status: d.status,
+});
+
+/** Extrai a mensagem de erro do envelope do FastAPI ({ detail }). */
+const mensagemDeErro = (err: unknown, padrao: string): string =>
+  err instanceof Error && err.message ? err.message : padrao;
+
 export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [pacientes, setPacientes] = useState<Paciente[]>(() => {
     try {
@@ -344,86 +456,133 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   });
 
+  // Sem mock: a fila de homologação odontológica nascia vazia e a tela de
+  // supervisão ficava sem o que mostrar. Antes de o seed criar fichas, este
+  // estado já refletia o banco.
+  const [fichasOdonto, setFichasOdonto] = useState<FichaOdonto[]>([]);
+
   const [planosTratamento] = useState<ItemPlanoTratamento[]>(INITIAL_PLANOS);
 
-  // Sincronização inicial com o backend FastAPI (se disponível)
-  useEffect(() => {
-    let isMounted = true;
+  const { user, isAuthenticated } = useAuth();
+  const matriculaAutenticada = user?.matricula ?? null;
 
-    async function loadBackendData() {
-      try {
-        const [apiPacientes, apiAgendamentos, apiProntuarios] = await Promise.allSettled([
-          api.getPacientes(),
-          api.getAgendamentos(),
-          api.getProntuariosPsico(),
-        ]);
+  const [sync, setSync] = useState<SyncStatus>({
+    estado: 'aguardando-login',
+    origem: 'mock',
+    falhas: [],
+    ultimoEm: null,
+  });
 
-        if (!isMounted) return;
-
-        if (apiPacientes.status === 'fulfilled' && apiPacientes.value.length > 0) {
-          const mapped: Paciente[] = apiPacientes.value.map((p: ApiPaciente) => ({
-            id: p.id,
-            nome: p.nome,
-            cpf: p.cpf_rg,
-            dataNascimento: p.data_nascimento,
-            telefone: p.telefone,
-            ehMenor: p.eh_menor,
-            nomeResponsavel: p.nome_responsavel,
-            contatoResponsavel: p.contato_responsavel,
-            curso: p.curso,
-            prontuarioAtivo: p.prontuario_ativo,
-          }));
-          setPacientes(mapped);
-        }
-
-        if (apiAgendamentos.status === 'fulfilled' && apiAgendamentos.value.length > 0) {
-          const mapped: Agendamento[] = apiAgendamentos.value.map((a: ApiAgendamento) => ({
-            id: a.id,
-            pacienteId: a.paciente_id,
-            pacienteNome: a.paciente_nome,
-            estagiarioNome: a.estagiario_nome,
-            estagiarioMatricula: a.estagiario_matricula,
-            curso: a.curso,
-            horario: a.horario,
-            turno: a.turno,
-            salaOuCadeira: a.sala_ou_cadeira,
-            tipoConsulta: a.tipo_consulta,
-            status: a.status,
-            observacaoLogistica: a.observacao_logistica,
-          }));
-          setAgendamentos(mapped);
-        }
-
-        if (apiProntuarios.status === 'fulfilled' && apiProntuarios.value.length > 0) {
-          const mapped: EvolucaoPsico[] = apiProntuarios.value.map((pr: ApiProntuarioPsico) => ({
-            id: pr.id,
-            pacienteId: pr.paciente_id,
-            pacienteNome: pr.paciente_nome,
-            estagiarioNome: pr.estagiario_nome,
-            estagiarioMatricula: pr.estagiario_matricula,
-            supervisorNome: pr.supervisor_nome || 'Prof. Dr. Robert Santos do Carmo',
-            dataSessao: pr.data_sessao,
-            numeroSessao: pr.numero_sessao,
-            inicioTexto: pr.inicio_sessao_texto,
-            meioTexto: pr.meio_sessao_texto,
-            fimTexto: pr.fim_sessao_texto,
-            parecerSupervisor: pr.parecer_supervisor,
-            status: pr.status,
-            submetidoEm: pr.criado_em ? new Date(pr.criado_em).toLocaleDateString('pt-BR') : 'Hoje',
-          }));
-          setEvolucoesPsico(mapped);
-        }
-      } catch (err) {
-        console.info('UniCare: operando com cache local/mock ativo.', err);
-      }
+  /**
+   * Sincroniza com o backend FastAPI.
+   *
+   * Antes este carregamento rodava num useEffect com deps: [], o que disparava no
+   * primeiro render — antes de qualquer login. Sem token, as tres chamadas levavam
+   * 401, Promise.allSettled absorvia o erro e a tela ficava nos mocks ate um F5.
+   * Agora a carga depende da matricula autenticada e re-executa a cada login.
+   */
+  const sincronizar = useCallback(async () => {
+    if (!isAuthenticated || !matriculaAutenticada) {
+      setSync({
+        estado: 'aguardando-login',
+        origem: 'mock',
+        falhas: [],
+        ultimoEm: null,
+      });
+      return;
     }
 
-    loadBackendData();
+    setSync((prev) => ({ ...prev, estado: 'sincronizando', falhas: [] }));
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    // 403 em prontuarios e o comportamento esperado para o perfil de recepcao
+    // (RN-001), nao uma falha de infraestrutura. Demais rejeicoes sao registradas.
+    const [apiPacientes, apiAgendamentos, apiProntuarios, apiFichasOdonto, apiDemandas] = await Promise.allSettled([
+      api.getPacientes(),
+      api.getAgendamentos(),
+      api.getProntuariosPsico(),
+      api.getFichasOdonto(),
+      api.getDemandas(),
+    ]);
+
+    const falhas: string[] = [];
+
+    if (apiPacientes.status === 'fulfilled') {
+      if (apiPacientes.value.length > 0) {
+        setPacientes(apiPacientes.value.map(mapearPaciente));
+      }
+    } else {
+      falhas.push(`pacientes: ${apiPacientes.reason?.message ?? 'falhou'}`);
+    }
+
+    if (apiAgendamentos.status === 'fulfilled') {
+      if (apiAgendamentos.value.length > 0) {
+        setAgendamentos(apiAgendamentos.value.map(mapearAgendamento));
+      }
+    } else {
+      falhas.push(`agendamentos: ${apiAgendamentos.reason?.message ?? 'falhou'}`);
+    }
+
+    if (apiProntuarios.status === 'fulfilled') {
+      if (apiProntuarios.value.length > 0) {
+        setEvolucoesPsico(apiProntuarios.value.map(mapearEvolucao));
+      }
+    } else {
+      const msg = apiProntuarios.reason?.message ?? 'falhou';
+      // RN-001: recepcao e supervisor sem prontuarios proprios recebem 403. Isso e
+      // esperado e nao deve aparecer como falha de sistema.
+      const eh403 = msg.includes('403');
+      falhas.push(eh403 ? 'prontuários: 403 (perfil sem acesso — RN-001)' : `prontuários: ${msg}`);
+    }
+
+    if (apiFichasOdonto.status === 'fulfilled') {
+      // Nome do paciente vem por FK: resolvido aqui, uma vez, pelo mapa.
+      const nomePorPaciente = new Map<number, string>(
+        (apiPacientes.status === 'fulfilled' ? apiPacientes.value : []).map((p) => [p.id, p.nome])
+      );
+      setFichasOdonto(apiFichasOdonto.value.map((f) => mapearFichaOdonto(f, nomePorPaciente)));
+    } else {
+      const msg = apiFichasOdonto.reason?.message ?? 'falhou';
+      // Mesma regra do prontuário psicológico: recepção é barrada pelo RN-001.
+      const eh403 = msg.includes('403');
+      falhas.push(eh403 ? 'fichas odonto: 403 (perfil sem acesso — RN-001)' : `fichas odonto: ${msg}`);
+    }
+
+    if (apiDemandas.status === 'fulfilled') {
+      setDemandas(apiDemandas.value.map(mapearDemanda));
+    } else {
+      falhas.push(`demandas: ${apiDemandas.reason?.message ?? 'falhou'}`);
+    }
+
+    if (falhas.length > 0) {
+      console.warn('[UniCare] Sincronização parcial:', falhas);
+    }
+
+    const tudoOk = falhas.length === 0;
+    setSync({
+      estado: tudoOk ? 'sincronizado' : falhas.length < 3 ? 'parcial' : 'erro',
+      origem: tudoOk ? 'api' : 'erro',
+      falhas,
+      ultimoEm: new Date().toISOString(),
+    });
+  }, [isAuthenticated, matriculaAutenticada]);
+
+  // Sincroniza apos o login e re-sincroniza quando o usuario muda (switchUser).
+  useEffect(() => {
+    void sincronizar();
+  }, [sincronizar]);
+
+  // No logout, descarta os dados do usuario anterior em vez de deixa-los na tela.
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setPacientes([]);
+      setAgendamentos([]);
+      setEvolucoesPsico([]);
+      setDemandas([]);
+      localStorage.removeItem(STORAGE_PREFIX + 'pacientes');
+      localStorage.removeItem(STORAGE_PREFIX + 'agendamentos');
+      localStorage.removeItem(STORAGE_PREFIX + 'evolucoes');
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_PREFIX + 'pacientes', JSON.stringify(pacientes));
@@ -441,7 +600,18 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     localStorage.setItem(STORAGE_PREFIX + 'evolucoes', JSON.stringify(evolucoesPsico));
   }, [evolucoesPsico]);
 
-  const cadastrarPaciente = (dados: Omit<Paciente, 'id' | 'prontuarioAtivo'>) => {
+  /**
+   * Cadastra o paciente AGUARDANDO a resposta do backend.
+   *
+   * Antes usava um id temporario (Date.now()) e trocava pelo real depois, num
+   * .then(). Como agendamentos referenciam paciente_id por uma FK real no
+   * PostgreSQL, um agendamento criado nesse intervalo recebia 500 e era engolido
+   * por um console.warn — o registro aparecia na tela e nunca chegava ao banco.
+   * Aguardar a resposta elimina a janela e garante que o id devolvido seja o real.
+   */
+  const cadastrarPaciente = async (
+    dados: Omit<Paciente, 'id' | 'prontuarioAtivo'>
+  ): Promise<{ success: boolean; message: string; paciente?: Paciente }> => {
     // Validação de CPF duplicado (RF-007)
     const limpaCpf = (c: string) => c.replace(/\D/g, '');
     const jaExiste = pacientes.some((p) => limpaCpf(p.cpf) === limpaCpf(dados.cpf));
@@ -454,123 +624,220 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return { success: false, message: 'Para pacientes menores de idade, é obrigatório registrar o Responsável Legal e Contato!' };
     }
 
-    const tempId = Date.now();
-    const novoPaciente: Paciente = {
-      ...dados,
-      id: tempId,
-      prontuarioAtivo: true,
-    };
+    try {
+      const created = await api.createPaciente({
+        nome: dados.nome,
+        cpf_rg: dados.cpf,
+        data_nascimento: dados.dataNascimento,
+        telefone: dados.telefone,
+        eh_menor: dados.ehMenor,
+        nome_responsavel: dados.nomeResponsavel,
+        contato_responsavel: dados.contatoResponsavel,
+        curso: dados.curso,
+      });
 
-    setPacientes((prev) => [novoPaciente, ...prev]);
+      const salvo = mapearPaciente(created);
+      setPacientes((prev) => [salvo, ...prev]);
 
-    // Sincronização assíncrona com o backend FastAPI
-    api.createPaciente({
-      nome: dados.nome,
-      cpf_rg: dados.cpf,
-      data_nascimento: dados.dataNascimento,
-      telefone: dados.telefone,
-      eh_menor: dados.ehMenor,
-      nome_responsavel: dados.nomeResponsavel,
-      contato_responsavel: dados.contatoResponsavel,
-      curso: dados.curso,
-    }).then((created) => {
-      setPacientes((prev) =>
-        prev.map((p) => (p.id === tempId ? { ...p, id: created.id } : p))
-      );
-    }).catch((err) => {
-      console.warn('Backend sync aviso (paciente mantido localmente):', err);
-    });
-
-    return { success: true, message: 'Paciente cadastrado com sucesso!', paciente: novoPaciente };
+      return { success: true, message: 'Paciente cadastrado com sucesso!', paciente: salvo };
+    } catch (err) {
+      const msg = mensagemDeErro(err, 'Falha ao cadastrar paciente no servidor.');
+      console.error('[UniCare] cadastro de paciente falhou:', err);
+      return { success: false, message: msg };
+    }
   };
 
-  const adicionarAgendamento = (novo: Omit<Agendamento, 'id'>) => {
-    const tempId = Date.now();
-    const ag: Agendamento = {
-      ...novo,
-      id: tempId,
-    };
-    setAgendamentos((prev) => [ag, ...prev]);
+  /** Agendamento tambem aguarda o backend: o id so entra na tela quando e real. */
+  const adicionarAgendamento = async (
+    novo: Omit<Agendamento, 'id'>
+  ): Promise<{ success: boolean; message: string; agendamento?: Agendamento }> => {
+    try {
+      const created = await api.createAgendamento({
+        paciente_id: novo.pacienteId,
+        paciente_nome: novo.pacienteNome,
+        estagiario_nome: novo.estagiarioNome,
+        estagiario_matricula: novo.estagiarioMatricula,
+        curso: novo.curso,
+        horario: novo.horario,
+        turno: novo.turno,
+        sala_ou_cadeira: novo.salaOuCadeira,
+        tipo_consulta: novo.tipoConsulta,
+        observacao_logistica: novo.observacaoLogistica,
+      });
 
-    // Sincronização assíncrona com o backend FastAPI
-    api.createAgendamento({
-      paciente_id: novo.pacienteId,
-      paciente_nome: novo.pacienteNome,
-      estagiario_nome: novo.estagiarioNome,
-      estagiario_matricula: novo.estagiarioMatricula,
-      curso: novo.curso,
-      horario: novo.horario,
-      turno: novo.turno,
-      sala_ou_cadeira: novo.salaOuCadeira,
-      tipo_consulta: novo.tipoConsulta,
-      observacao_logistica: novo.observacaoLogistica,
-    }).then((created) => {
-      setAgendamentos((prev) =>
-        prev.map((item) => (item.id === tempId ? { ...item, id: created.id } : item))
-      );
-    }).catch((err) => {
-      console.warn('Backend sync aviso (agendamento mantido localmente):', err);
-    });
+      const salvo = mapearAgendamento(created);
+      setAgendamentos((prev) => [salvo, ...prev]);
+
+      return { success: true, message: 'Agendamento criado com sucesso!', agendamento: salvo };
+    } catch (err) {
+      const msg = mensagemDeErro(err, 'Falha ao criar agendamento no servidor.');
+      console.error('[UniCare] criação de agendamento falhou:', err);
+      return { success: false, message: msg };
+    }
   };
 
+  /**
+   * Atualização otimista com rollback: a interface responde na hora, mas se o
+   * backend recusar (id obsoleto → 404, permissão → 403), o estado local volta ao
+   * anterior em vez de divergir silenciosamente do banco.
+   */
   const atualizarStatusAgendamento = (id: number, status: StatusAgendamento) => {
-    setAgendamentos((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status } : a))
-    );
+    const anterior = agendamentos.find((a) => a.id === id)?.status;
+    if (!anterior) return;
+
+    setAgendamentos((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
 
     api.updateAgendamentoStatus(id, status).catch((err) => {
-      console.warn('Backend sync aviso (status mantido localmente):', err);
+      console.error('[UniCare] atualização de status revertida:', err);
+      setAgendamentos((prev) => prev.map((a) => (a.id === id ? { ...a, status: anterior } : a)));
     });
   };
 
-  const adicionarDemanda = (d: Omit<DemandaEstagio, 'id' | 'status' | 'dataSolicitacao'>) => {
-    const dem: DemandaEstagio = {
-      ...d,
-      id: Date.now(),
-      status: 'Pendente',
-      dataSolicitacao: new Date().toLocaleDateString('pt-BR'),
-    };
-    setDemandas((prev) => [dem, ...prev]);
+  /**
+   * Cria a demanda aguardando o backend. Mesmo padrao da Camada 3: nada entra na
+   * tela antes de o banco confirmar, e o id devolvido e sempre o real.
+   */
+  const adicionarDemanda = async (
+    d: Omit<DemandaEstagio, 'id' | 'status' | 'dataSolicitacao'>
+  ): Promise<{ success: boolean; message: string; demanda?: DemandaEstagio }> => {
+    try {
+      const created = await api.createDemanda({
+        aluno_nome: d.alunoNome,
+        aluno_matricula: d.alunoMatricula,
+        curso: d.curso,
+        procedimento_desejado: d.procedimentoDesejado,
+        prioridade: d.prioridade,
+        data_solicitacao: new Date().toLocaleDateString('pt-BR'),
+      });
+
+      const salva = mapearDemanda(created);
+      setDemandas((prev) => [salva, ...prev]);
+
+      return { success: true, message: 'Demanda registrada com sucesso!', demanda: salva };
+    } catch (err) {
+      const msg = mensagemDeErro(err, 'Falha ao registrar a demanda no servidor.');
+      console.error('[UniCare] criação de demanda falhou:', err);
+      return { success: false, message: msg };
+    }
+  };
+
+  /** Atualização otimista com rollback, no mesmo padrão do status de agendamento. */
+  const atualizarStatusDemanda = (id: number, status: DemandaEstagio['status']) => {
+    const anterior = demandas.find((d) => d.id === id)?.status;
+    if (!anterior) return;
+
+    setDemandas((prev) => prev.map((d) => (d.id === id ? { ...d, status } : d)));
+
+    api.updateDemandaStatus(id, status).catch((err) => {
+      console.error('[UniCare] status da demanda revertido:', err);
+      setDemandas((prev) => prev.map((d) => (d.id === id ? { ...d, status: anterior } : d)));
+    });
   };
 
   const homologarEvolucaoPsico = (id: number, decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE', parecer: string) => {
+    const anterior = evolucoesPsico.find((e) => e.id === id);
+    if (!anterior) return;
+
     setEvolucoesPsico((prev) =>
       prev.map((e) => (e.id === id ? { ...e, status: decisao, parecerSupervisor: parecer } : e))
     );
 
     api.homologarProntuarioPsico(id, decisao, parecer).catch((err) => {
-      console.warn('Backend sync aviso (homologação mantida localmente):', err);
+      console.error('[UniCare] homologação revertida:', err);
+      setEvolucoesPsico((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, status: anterior.status, parecerSupervisor: anterior.parecerSupervisor } : e))
+      );
     });
   };
 
-  const adicionarEvolucaoPsico = (e: Omit<EvolucaoPsico, 'id' | 'status' | 'submetidoEm'>) => {
-    const tempId = Date.now();
-    const nova: EvolucaoPsico = {
-      ...e,
-      id: tempId,
-      status: 'AGUARDANDO_VALIDACAO',
-      submetidoEm: new Date().toLocaleString('pt-BR'),
-    };
-    setEvolucoesPsico((prev) => [nova, ...prev]);
+  const adicionarEvolucaoPsico = async (
+    e: Omit<EvolucaoPsico, 'id' | 'status' | 'submetidoEm'>
+  ): Promise<{ success: boolean; message: string; evolucao?: EvolucaoPsico }> => {
+    try {
+      const created = await api.createProntuarioPsico({
+        paciente_id: e.pacienteId,
+        paciente_nome: e.pacienteNome,
+        estagiario_nome: e.estagiarioNome,
+        estagiario_matricula: e.estagiarioMatricula,
+        supervisor_nome: e.supervisorNome,
+        data_sessao: e.dataSessao,
+        numero_sessao: e.numeroSessao,
+        inicio_sessao_texto: e.inicioTexto,
+        meio_sessao_texto: e.meioTexto,
+        fim_sessao_texto: e.fimTexto,
+      });
 
-    api.createProntuarioPsico({
-      paciente_id: e.pacienteId,
-      paciente_nome: e.pacienteNome,
-      estagiario_nome: e.estagiarioNome,
-      estagiario_matricula: e.estagiarioMatricula,
-      supervisor_nome: e.supervisorNome,
-      data_sessao: e.dataSessao,
-      numero_sessao: e.numeroSessao,
-      inicio_sessao_texto: e.inicioTexto,
-      meio_sessao_texto: e.meioTexto,
-      fim_sessao_texto: e.fimTexto,
-    }).then((created) => {
-      setEvolucoesPsico((prev) =>
-        prev.map((item) => (item.id === tempId ? { ...item, id: created.id } : item))
+      const salva = mapearEvolucao(created);
+      setEvolucoesPsico((prev) => [salva, ...prev]);
+
+      return { success: true, message: 'Síntese submetida com sucesso!', evolucao: salva };
+    } catch (err) {
+      const msg = mensagemDeErro(err, 'Falha ao submeter a síntese no servidor.');
+      console.error('[UniCare] submissão de evolução falhou:', err);
+      return { success: false, message: msg };
+    }
+  };
+
+  const adicionarFichaOdonto = async (
+    f: Omit<FichaOdonto, 'id' | 'status' | 'submetidoEm'>
+  ): Promise<{ success: boolean; message: string; ficha?: FichaOdonto }> => {
+    try {
+      const created = await api.createFichaOdonto({
+        paciente_id: f.pacienteId,
+        dupla_estagiarios: f.duplaEstagiarios,
+        dente_regiao: f.denteRegiao,
+        procedimento_realizado: f.procedimentoRealizado,
+        materiais_utilizados: f.materiaisUtilizados,
+        anestesico: f.anestesico,
+        alerta_alergia: f.alertaAlergia,
+      });
+
+      // Id real do banco, nunca um temporário: a supervisão lista por id.
+      const salva = mapearFichaOdonto(created, new Map([[created.paciente_id, f.pacienteNome]]));
+      setFichasOdonto((prev) => [salva, ...prev]);
+
+      return { success: true, message: 'Ficha submetida com sucesso!', ficha: salva };
+    } catch (err) {
+      const msg = mensagemDeErro(err, 'Falha ao submeter a ficha no servidor.');
+      console.error('[UniCare] submissão de ficha odonto falhou:', err);
+      return { success: false, message: msg };
+    }
+  };
+
+  const homologarFichaOdonto = async (
+    id: number,
+    decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE',
+    parecer: string
+  ): Promise<{ success: boolean; message: string }> => {
+    const anterior = fichasOdonto.find((f) => f.id === id);
+    if (!anterior) {
+      return { success: false, message: 'Ficha não está na fila.' };
+    }
+
+    // Otimista: a fila do supervisor atualiza na hora, e volta atrás se o
+    // servidor recusar. O usuário vê a falha em vez de um visto que não existe.
+    setFichasOdonto((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, status: decisao, parecerSupervisor: parecer } : f))
+    );
+
+    try {
+      await api.homologarFichaOdonto(id, decisao, parecer);
+      return {
+        success: true,
+        message: decisao === 'VALIDADO' ? 'Ficha homologada com visto digital.' : 'Ficha devolvida para ajuste.',
+      };
+    } catch (err) {
+      setFichasOdonto((prev) =>
+        prev.map((f) =>
+          f.id === id
+            ? { ...f, status: anterior.status, parecerSupervisor: anterior.parecerSupervisor }
+            : f
+        )
       );
-    }).catch((err) => {
-      console.warn('Backend sync aviso (evolução mantida localmente):', err);
-    });
+      const msg = mensagemDeErro(err, 'Falha ao homologar a ficha.');
+      console.error('[UniCare] homologação de ficha odonto falhou:', err);
+      return { success: false, message: msg };
+    }
   };
 
   return (
@@ -580,13 +847,19 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         agendamentos,
         demandas,
         evolucoesPsico,
+        fichasOdonto,
         planosTratamento,
+        sync,
+        sincronizar,
         cadastrarPaciente,
         adicionarAgendamento,
         atualizarStatusAgendamento,
         adicionarDemanda,
+        atualizarStatusDemanda,
         homologarEvolucaoPsico,
         adicionarEvolucaoPsico,
+        adicionarFichaOdonto,
+        homologarFichaOdonto,
       }}
     >
       {children}

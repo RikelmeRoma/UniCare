@@ -1,13 +1,13 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session, select
 
 from app.database import get_session
 from app.models.paciente import Paciente
 from app.models.usuario import Usuario, PerfilUsuario
 from app.schemas.paciente import PacienteCreate, PacienteRead
-from app.services.auth_service import get_current_user
-from app.services.auditoria_service import registrar_log
+from app.services.auth_service import get_current_user, cursos_visiveis, validar_curso_do_registro
+from app.services.auditoria_service import registrar_log, ip_do_cliente
 
 router = APIRouter(prefix="/pacientes", tags=["Pacientes"])
 
@@ -18,18 +18,28 @@ def listar_pacientes(
     session: Session = Depends(get_session),
     current_user: Usuario = Depends(get_current_user)
 ):
+    # Vertical slice: a listagem NUNCA depende do parametro do cliente. Sem
+    # isso, basta omitir ?curso= para ver a agenda da outra clinica.
+    visiveis = cursos_visiveis(current_user)
     query = select(Paciente)
-    if curso and curso != "ambos":
-        query = query.where((Paciente.curso == curso) | (Paciente.curso == "ambos"))
+    if visiveis is not None:
+        query = query.where(Paciente.curso.in_(visiveis))
+        # O parametro ainda serve para afinar dentro da propria clinica.
+        if curso and curso in visiveis and curso != "ambos":
+            query = query.where(Paciente.curso == curso)
     return session.exec(query).all()
 
 @router.post("", response_model=PacienteRead, status_code=status.HTTP_201_CREATED)
 @router.post("/", response_model=PacienteRead, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 def cadastrar_paciente(
     dados: PacienteCreate,
+    http_request: Request,
     session: Session = Depends(get_session),
     current_user: Usuario = Depends(get_current_user)
 ):
+    # A recepção cadastra paciente da própria clínica. "ambos" é legítimo:
+    # paciente compartilhado atende nas duas. Qualquer outro curso é 403.
+    validar_curso_do_registro(current_user, dados.curso)
     # Verificação de CPF duplicado (RF-007)
     limpa_cpf = lambda c: "".join(filter(str.isdigit, c))
     cpf_limpo = limpa_cpf(dados.cpf_rg)
@@ -62,6 +72,9 @@ def cadastrar_paciente(
     session.commit()
     session.refresh(paciente)
 
-    registrar_log(session, current_user, "CADASTRO_PACIENTE", "pacientes", paciente.id)
+    registrar_log(
+        session, current_user, "CADASTRO_PACIENTE", "pacientes", paciente.id,
+        endereco_ip=ip_do_cliente(http_request)
+    )
 
     return paciente
