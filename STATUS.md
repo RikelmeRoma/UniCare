@@ -498,9 +498,9 @@ aqui para rastrear a origem, com o estado atual:
 
 1. ~~`ClinicContext` sincroniza com `deps: []`~~ — **corrigido** na Camada 1: a
    carga passou a depender da matrícula autenticada.
-2. ~~`api.getMe()` sem consumidor~~ — **ainda aberto**. O token não é revalidado
-   em nenhuma tela, `user.id` continua `Date.now()` e `registro_profissional` nunca
-   chega ao frontend. Sai junto com o RF-008.
+2. ~~`api.getMe()` sem consumidor~~ — **corrigido no Bloco 4**: o login busca o
+   registro real depois de autenticar. `user.id` é o id do banco (não mais
+   `Date.now()`) e `registro_profissional` chega às telas.
 3. ~~Ids temporários `Date.now()`~~ — **corrigido** na Camada 3: toda escrita
    espera o id real do banco.
 

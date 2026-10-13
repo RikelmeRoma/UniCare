@@ -107,8 +107,276 @@ flowchart TD
 - **Servidor ASGI:** Uvicorn rodando em `http://127.0.0.1:8000`.
 - **Persistência de Dados:** PostgreSQL 16 dockerizado com ORM SQLAlchemy 2.0, schema versionado por Alembic.
 - **Validação de Schemas:** Pydantic v2 com tipagem forte e serialização JSON segura.
-- **Auditoria:** Middleware de interceptação e injeção de logs de auditoria imutáveis.
+- **Auditoria:** Trilha imutável append-only em `logs_auditoria`, gravada explicitamente por `registrar_log()` em cada rota que audita, com o IP real da requisição (`request.client.host`) e o curso de quem praticou o ato. Não há middleware de interceptação.
 - **Testes Automatizados:** Pytest com suíte de conformidade regulatória (`backend/tests/test_compliance.py`).
+
+### Modelo de Dados (PostgreSQL 16)
+
+O schema é versionado por Alembic e possui **7 entidades de negócio** mais a tabela
+técnica `alembic_version`. Existem apenas **3 foreign keys** no banco, todas de
+`paciente_id` para `pacientes.id`.
+
+#### Diagrama Entidade-Relacionamento
+
+```mermaid
+erDiagram
+    PACIENTES ||--o{ AGENDAMENTOS : "paciente_id"
+    PACIENTES ||--o{ PRONTUARIOS_PSICO : "paciente_id"
+    PACIENTES ||--o{ FICHAS_ODONTO : "paciente_id"
+    USUARIOS ||..o{ LOGS_AUDITORIA : "usuario_id (logico, sem FK)"
+
+    USUARIOS {
+        int    id PK "SERIAL"
+        string nome "idx"
+        string email UK "unico, idx"
+        string senha_hash "bcrypt 60 chars"
+        string perfil "ENUM"
+        string curso "ENUM"
+        string matricula UK "unica, idx"
+        string registro_profissional "opcional"
+        bool   ativo "desativacao logica"
+    }
+
+    PACIENTES {
+        int    id PK "SERIAL"
+        string nome "idx"
+        string cpf_rg UK "unico, idx"
+        string data_nascimento "str, nao DATE"
+        string telefone
+        bool   eh_menor
+        string nome_responsavel "se menor"
+        string contato_responsavel "se menor"
+        string curso "clinica ou ambos"
+        bool   prontuario_ativo
+        datetime criado_em
+    }
+
+    AGENDAMENTOS {
+        int    id PK
+        int    paciente_id FK "idx"
+        string paciente_nome "desnormalizado"
+        string estagiario_nome
+        string estagiario_matricula "desnormalizado"
+        string curso
+        string horario
+        string turno
+        string sala_ou_cadeira
+        string tipo_consulta
+        string status "ENUM 6 estados"
+        string observacao_logistica "opcional"
+    }
+
+    PRONTUARIOS_PSICO {
+        int    id PK
+        int    paciente_id FK "idx"
+        string paciente_nome "desnormalizado"
+        string estagiario_nome
+        string estagiario_matricula "desnormalizado"
+        string supervisor_nome "opcional"
+        string data_sessao "str, nao DATE"
+        string numero_sessao
+        text   inicio_sessao_texto "sem aspas, RN-002"
+        text   meio_sessao_texto "sem aspas, RN-002"
+        text   fim_sessao_texto "sem aspas, RN-002"
+        text   parecer_supervisor "do supervisor"
+        string status "ENUM 4 estados"
+        datetime criado_em
+    }
+
+    FICHAS_ODONTO {
+        int    id PK
+        int    paciente_id FK "idx"
+        string dupla_estagiarios
+        string dente_regiao
+        text   procedimento_realizado
+        text   materiais_utilizados
+        string anestesico "opcional"
+        string alerta_alergia "opcional"
+        text   parecer_supervisor "do supervisor"
+        string status "ENUM 4 estados"
+        datetime criado_em
+    }
+
+    DEMANDAS_ESTAGIO {
+        int    id PK
+        string aluno_nome
+        string aluno_matricula "idx"
+        string curso "idx"
+        text   procedimento_desejado
+        string prioridade "ENUM 3 niveis"
+        string data_solicitacao "str"
+        string status "ENUM 2 estados"
+        datetime criado_em
+    }
+
+    LOGS_AUDITORIA {
+        int    id PK
+        int    usuario_id "idx, SEM FK"
+        string usuario_nome "copia para preservar autoria"
+        string acao
+        string tabela_afetada
+        string curso "idx"
+        string endereco_ip "request.client.host"
+        datetime timestamp
+    }
+```
+
+#### Modelo Conceitual (notação crow's foot)
+
+```
+                          ┌──────────────────────────────────────┐
+                          │             USUARIOS                 │
+                          │  PK id                                │
+                          │     nome                              │
+                          │  UK email                             │
+                          │     senha_hash (bcrypt)               │
+                          │     perfil ▸ enum                    │
+                          │     curso   ▸ enum                    │
+                          │  UK matricula                         │
+                          │     registro_profissional             │
+                          │     ativo                             │
+                          └───────────┬──────────────────────────┘
+                                      │
+                       referência lógica│ (SEM foreign key)
+                       para preservar a │ trilha de auditoria
+                                      │ mesmo após desativação ▼
+                          ┌──────────────────────────────────────┐
+                          │          LOGS_AUDITORIA              │
+                          │  PK id                                │
+                          │     usuario_id        (idx)          │
+                          │     usuario_nome      (cópia)        │
+                          │     acao                              │
+                          │     tabela_afetada                   │
+                          │     curso              (idx)         │
+                          │     endereco_ip                       │
+                          │     timestamp        (imutável)       │
+                          └──────────────────────────────────────┘
+
+                          ┌──────────────────────────────────────┐
+                          │             PACIENTES                │
+                          │  PK id                                │
+                          │     nome                              │
+                          │  UK cpf_rg          ← dado sensível │
+                          │     data_nascimento                   │
+                          │     telefone                          │
+                          │     eh_menor                          │
+                          │     nome_responsavel / contato_resp. │
+                          │     curso ▸ psicologia | odontologia  │
+                          │          | ambos                    │
+                          │     prontuario_ativo                  │
+                          │     criado_em                         │
+                          └──┬────────────┬───────────────┬───────┘
+              FK paciente_id  │  FK paciente_id │  FK paciente_id │
+                             │               │               │
+          ┌──────────────────┘ │               └──────────────────┐
+          ▼                                  ▼                                  ▼
+┌───────────────────────┐        ┌───────────────────────┐        ┌───────────────────────┐
+│     AGENDAMENTOS      │        │   PRONTUARIOS_PSICO   │        │     FICHAS_ODONTO     │
+│  PK id                │        │  PK id                │        │  PK id                │
+│  FK paciente_id       │        │  FK paciente_id       │        │  FK paciente_id       │
+│     paciente_nome     │        │     paciente_nome     │        │     dupla_estagiarios │
+│     estagiario_nome   │        │     estagiario_nome   │        │     dente_regiao      │
+│     estag._matricula  │        │     estag._matricula  │        │     procedimento TEXT │
+│     curso             │        │     supervisor_nome   │        │     materiais TEXT    │
+│     horario / turno   │        │     data_sessao       │        │     anestesico        │
+│     sala_ou_cadeira   │        │     numero_sessao     │        │     alerta_alergia    │
+│     tipo_consulta     │        │     inicio_sessao TXT │        │     parecer_sup. TEXT │
+│     status ▸ enum     │        │     meio_sessao   TXT │        │     status    ▸ enum  │
+│     observacao_log.   │        │     fim_sessao     TXT │        │     criado_em         │
+└───────────────────────┘        │     parecer_sup.  TXT │        └───────────────────────┘
+                                 │     status    ▸ enum  │
+                                 │     criado_em         │
+                                 └───────────────────────┘
+
+┌───────────────────────────┐
+│    DEMANDAS_ESTAGIO       │   (fila de trabalho pedagógico)
+│  PK id                    │   sem FK: é um pedido do aluno
+│     aluno_nome            │   na fila, não uma conta
+│     aluno_matricula (idx) │   se liga a USUARIOS só pelo
+│     curso            (idx) │   campo denormalizado
+│     procedimento_desejado │   aluno_matricula
+│     prioridade ▸ enum   │
+│     data_solicitacao      │
+│     status         ▸ enum │
+│     criado_em             │
+└───────────────────────────┘
+```
+
+#### Schema Relacional Compacto
+
+```text
+USUARIOS (id PK, nome, email UQ, senha_hash, perfil, curso, matricula UQ,
+          registro_profissional, ativo)
+
+PACIENTES (id PK, nome, cpf_rg UQ, data_nascimento, telefone, eh_menor,
+           nome_responsavel, contato_responsavel, curso, prontuario_ativo,
+           criado_em)
+
+AGENDAMENTOS (id PK, paciente_id FK->PACIENTES, paciente_nome,
+              estagiario_nome, estagiario_matricula, curso, horario, turno,
+              sala_ou_cadeira, tipo_consulta, status, observacao_logistica)
+
+PRONTUARIOS_PSICO (id PK, paciente_id FK->PACIENTES, paciente_nome,
+                   estagiario_nome, estagiario_matricula, supervisor_nome,
+                   data_sessao, numero_sessao, inicio_sessao_texto,
+                   meio_sessao_texto, fim_sessao_texto, parecer_supervisor,
+                   status, criado_em)
+
+FICHAS_ODONTO (id PK, paciente_id FK->PACIENTES, dupla_estagiarios,
+               dente_regiao, procedimento_realizado, materiais_utilizados,
+               anestesico, alerta_alergia, parecer_supervisor, status,
+               criado_em)
+
+DEMANDAS_ESTAGIO (id PK, aluno_nome, aluno_matricula, curso,
+                  procedimento_desejado, prioridade, data_solicitacao,
+                  status, criado_em)
+
+LOGS_AUDITORIA (id PK, usuario_id, usuario_nome, acao, tabela_afetada,
+                curso, endereco_ip, timestamp)
+
+UQ = unique   FK = foreign key   idx = índice   -> = referencia
+```
+
+#### Tipos ENUM Nativos do PostgreSQL
+
+| Tipo | Valores gravados |
+| :--- | :--- |
+| `perfilusuario` | `estagiario`, `supervisor`, `recepcao`, `rt` |
+| `cursousuario` | `psicologia`, `odontologia`, `geral` |
+| `statusagendamento` | `AGENDADO`, `PRESENTE`, `EM_ATENDIMENTO`, `CONCLUIDO`, `FALTOU`, `CANCELADO` |
+| `statusprontuario` | `EM_ELABORACAO`, `AGUARDANDO_VALIDACAO`, `VALIDADO`, `DEVOLVIDO_PARA_AJUSTE` |
+| `prioridadedemanda` | `Alta`, `Média`, `Normal` |
+| `statusdemanda` | `Pendente`, `Agendado` |
+
+#### Decisões de Modelagem
+
+1. **Somente 3 foreign keys, todas em `paciente_id`.** Todo o resto se liga por
+   campos denormalizados (`estagiario_matricula`, `supervisor_nome`,
+   `aluno_matricula`, `usuario_nome`), que guardam o valor em vez de referenciar
+   `usuarios`. Aclinical é preservada mesmo que o cadastro seja desativado.
+
+2. **`logs_auditoria` não tem FK para `usuarios`, por decisão de projeto.**
+   Com FK, apagar um usuário quebraria a trilha probatória do RF-007. Por isso
+   `DELETE /usuarios/{id}` **desativa** (`ativo = false`) em vez de apagar, e
+   `usuario_nome` fica gravado no log para a autoria sobreviver. Nenhuma rota faz
+   `UPDATE` ou `DELETE` em `logs_auditoria`: a trilha é append-only.
+
+3. **A segregação por clínica é aplicada na camada de aplicação, não por FK.**
+   `usuarios.curso` e `pacientes.curso` não têm vínculo entre si no schema; a
+   regra "só enxergo minha clínica" é aplicada por `cursos_visiveis()` e
+   `validar_curso_do_registro()` em `app/services/auth_service.py`, em leitura e
+   em escrita. `pacientes.curso = 'ambos'` é o valor que torna um paciente
+   compartilhado entre as duas clínicas, e é por isso que as listagens filtram
+   por `curso IN (próprio, 'ambos')`.
+
+4. **Narrativos clínicos em `TEXT` sem limite de tamanho**, com validator de
+   schema impedindo aspas literais (RN-002, CFP 06/2019). Todas as demais colunas
+   têm `max_length` explícito.
+
+5. **Pendências conhecidas do modelo:** `data_nascimento` e `data_sessao` são
+   `str` e não `DATE`, o que impede ordenação e comparação — corrigir exige
+   migração com reformatação dos dados existentes. CPF/RG e contatos de
+   paciente estão em claro, o que não passaria em LGPD para dado real de saúde.
 
 ---
 
@@ -120,12 +388,24 @@ UniCare/
 │   ├── app/
 │   │   ├── config.py             # Configurações e variáveis de ambiente
 │   │   ├── database.py           # Conexão PostgreSQL / SQLAlchemy
-│   │   ├── main.py               # Ponto de entrada FastAPI e middlewares
-│   │   ├── models.py             # Modelos de dados (Pacientes, Prontuários, Logs)
-│   │   ├── schemas.py            # Schemas Pydantic de entrada/saída
-│   │   └── routes/               # Endpoints REST (auth, prontuarios, auditoria)
-│   └── tests/
-│       └── test_compliance.py    # Testes automatizados de conformidade
+│   │   ├── main.py               # Ponto de entrada FastAPI, CORS e lifespan
+│   │   ├── seed.py               # Dados de demonstração, idempotente por tabela
+│   │   ├── models/               # Modelos SQLModel (paciente, prontuario, demanda…)
+│   │   ├── schemas/              # Schemas Pydantic de entrada/saída
+│   │   ├── routers/              # Endpoints REST (auth, usuarios, pacientes,
+│   │   │                         #   agendamentos, prontuarios, demandas,
+│   │   │                         #   auditoria, relatorios)
+│   │   └── services/             # auth_service, crypto_service, auditoria_service
+│   ├── migrations/               # Alembic: fonte autoritativa do schema
+│   │   └── versions/             #   4 revisões aplicadas até o head
+│   ├── tests/
+│   │   ├── conftest.py           # Fixture de migração e seed no unicare_test
+│   │   └── test_compliance.py    # 32 testes de conformidade regulatória
+│   ├── docker/                   # entrypoint.sh e initdb do banco de testes
+│   ├── alembic.ini
+│   ├── docker-compose.yml
+│   ├── requirements.txt
+│   └── pytest.ini
 ├── public/
 │   ├── uninassau-crest.png       # Brasão oficial de alta resolução
 │   └── favicon.ico
@@ -138,18 +418,24 @@ UniCare/
 │   ├── features/
 │   │   ├── auth/                     # Módulo de Autenticação
 │   │   │   ├── components/
-│   │   │   │   ├── AuthHeader.tsx    # Header de login com brasão protegido
-│   │   │   │   ├── LoginForm.tsx     # Formulário com 3 abas por curso
-│   │   │   │   └── LoginInfoPanel.tsx# Painel informativo com heráldica vetorial
-│   │   │   └── context/AuthContext.tsx # Estado global RBAC e CRUD de usuários
+│   │   │   │   ├── LoginForm.tsx     # Formulário de login por matrícula
+│   │   │   │   ├── LoginFields.tsx   # Campos e seletor de curso
+│   │   │   │   └── ProtectedRoute.tsx # Guard de papel e de clínica
+│   │   │   └── context/AuthContext.tsx # Sessão real (getMe) e CRUD de usuários
 │   │   ├── clinic/                   # Contexto de dados clínicos e prontuários
-│   │   ├── dental-record/            # Odontograma e Periodograma
+│   │   ├── dental-record/            # Ficha, Odontograma e Periograma
 │   │   ├── psychology/               # Prontuário CFP 06/2019 e SPA
 │   │   ├── reception/                # Recepção, Triagem e Agendamentos
 │   │   └── supervision/              # Fila de Homologação, Duplas e RT Master
 │   │       └── components/
-│   │           ├── RTStatsDashboard.tsx  # Dashboard RT Master com CRUD de usuários
+│   │           ├── RTStatsDashboard.tsx  # Dashboard RT com CRUD de usuários
 │   │           └── ClinicalPairs.tsx     # Gestão de estagiários de Odontologia
+│   ├── services/
+│   │   └── api.ts                 # Cliente REST: fronteira snake_case ↔ camelCase
+│   ├── App.tsx                     # Rotas com ProtectedRoute por papel e curso
+│   ├── main.tsx
+│   ├── AGENTS.md                   # Comandos e armadilhas do repositório
+│   └── STATUS.md                   # Estado do projeto e pendências
 ├── package.json
 ├── vite.config.ts
 └── README.md
@@ -164,20 +450,31 @@ Todos os usuários abaixo utilizam a senha institucional obrigatória:
 
 | Perfil | Nome do Profissional / Acadêmico | Matrícula | E-mail Institucional | Curso / Área |
 | :--- | :--- | :--- | :--- | :--- |
-| **RT Master** | Dra. Camila (Referência Técnica) | `RT-001` | `camila.rt@uninassau.edu.br` | Controladoria Geral |
+| **RT Odontologia** | Dra. Camila (Referência Técnica) | `RT-001` | `camila.rt@uninassau.edu.br` | Odontologia (RT-ODONTO) |
+| **RT Psicologia** | Dr. Renato (Referência Técnica) | `RT-002` | `renato.rt@uninassau.edu.br` | Psicologia (RT-PSICO) |
 | **Supervisor Psico** | Prof. Dr. Robert Santos do Carmo | `DOC-8821` | `robert.carmo@uninassau.edu.br` | Psicologia (CRP 19/0844) |
 | **Supervisor Odonto** | Profa. Dra. Bianca Nubia | `DOC-9122` | `bianca.silva@uninassau.edu.br` | Odontologia (CRO-SE 4512) |
 | **Estagiário Psico** | Rikelme Roma Santos | `16032935` | `rikelmeroma13@gmail.com` | Psicologia (9º Período SPA) |
 | **Estagiário Odonto** | Augusto Cesar Farias Carvalho | `16024402` | `augustocsar97@gmail.com` | Odontologia (Cadeira 05) |
-| **Recepção** | Recepção Integrada Clínica | `REC-2026-01` | `recepcao@uninassau.edu.br` | Triagem Geral |
+| **Recepção Odonto** | Recepção Integrada Odontologia | `REC-001` | `recepcao@uninassau.edu.br` | Odontologia (Triagem) |
+| **Recepção Psico** | Recepção do Serviço de Psicologia Aplicada | `REC-002` | `recepcao.psi@uninassau.edu.br` | Psicologia (Triagem) |
+
+> A **Recepção é uma conta por clínica**: `REC-001` concilia a agenda de
+> odontologia e `REC-002` a de psicologia. A antiga matrícula institucional
+> `REC-2026-01` continua funcionando como apelido de `REC-001`.
+>
+> As senhas são gravadas com **bcrypt (`rounds=12`)**. Trocar o `.env` ou o
+> algoritmo exige truncar a tabela `usuarios` e deixar o seed rodar de novo.
 
 ---
 
 ## 6. Status de Validação e Próximos Passos
 
 - **Compilação TypeScript & Vite:** 100% OK (0 erros de tipagem).
-- **Testes Backend Pytest:** 8 testes aprovados com 100% de taxa de sucesso.
-- **Repositório Git Remoto:** Sincronizado com branch `main` em [github.com/Gui2761/UniCare](https://github.com/Gui2761/UniCare).
+- **Testes Backend Pytest:** **32 testes aprovados** com 100% de taxa de sucesso (`backend/tests/test_compliance.py`).
+- **Schema do banco:** `alembic check` retorna *"No new upgrade operations detected"* — models e banco em paridade, head na revisão `c81d4e7a9b02`.
+- **Repositório Git Remoto:** Sincronizado com branch `augusto` em [github.com/RikelmeRoma/UniCare](https://github.com/RikelmeRoma/UniCare).
+- **Documentação de acompanhamento:** [`STATUS.md`](./STATUS.md) (estado e pendências) e [`AGENTS.md`](./AGENTS.md) (comandos e armadilhas do repositório).
 - **Servidores Ativos:**
   - Frontend: [http://localhost:5173](http://localhost:5173)
   - Backend API: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
