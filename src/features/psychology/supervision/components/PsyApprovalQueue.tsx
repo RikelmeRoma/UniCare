@@ -17,26 +17,47 @@ export function PsyApprovalQueue() {
     evolucoesPsico.find((e) => e.status === 'AGUARDANDO_VALIDACAO') || evolucoesPsico[0] || null
   );
 
-  const [parecer, setParecer] = useState(
-    'Evolução estruturada com rigor técnico. Ausência de citações literais e adequada aplicação do questionamento socrático em TCC. Visto concedido.'
-  );
-  const [feedbackMsg, setFeedbackMsg] = useState('');
-  const [visualizarParecerId, setVisualizarParecerId] = useState<number | null>(null);
+  // Antes abria com um parecer já redigido ("Evolução estruturada com rigor
+  // técnico..."), e esse texto ia para o PATCH /homologar como se fosse do
+  // supervisor: gravava parecer falso no prontuário. O campo começa vazio e o
+  // servidor exige texto não vazio (RF-004).
+const [parecer, setParecer] = useState('');
+const [feedbackMsg, setFeedbackMsg] = useState('');
+const [feedbackErro, setFeedbackErro] = useState('');
+const [isSaving, setIsSaving] = useState(false);
+const [visualizarParecerId, setVisualizarParecerId] = useState<number | null>(null);
 
-  const pendentes = evolucoesPsico.filter((e) => e.status === 'AGUARDANDO_VALIDACAO');
-  const historico = evolucoesPsico.filter((e) => e.status !== 'AGUARDANDO_VALIDACAO');
+const pendentes = evolucoesPsico.filter((e) => e.status === 'AGUARDANDO_VALIDACAO');
+const historico = evolucoesPsico.filter((e) => e.status !== 'AGUARDANDO_VALIDACAO');
 
-  const handleAprovar = () => {
+const parecerVazio = parecer.trim().length === 0;
+
+const decidir = async (decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE') => {
     if (!selecionado) return;
-    homologarEvolucaoPsico(selecionado.id, 'VALIDADO', parecer);
-    setFeedbackMsg(`Evolução do paciente ${selecionado.pacienteNome} APROVADA com Visto Eletrônico.`);
-    setTimeout(() => setFeedbackMsg(''), 4000);
-  };
 
-  const handleDevolver = () => {
-    if (!selecionado) return;
-    homologarEvolucaoPsico(selecionado.id, 'DEVOLVIDO_PARA_AJUSTE', parecer);
-    setFeedbackMsg(`Evolução devolvida para ajuste do estagiário ${selecionado.estagiarioNome}.`);
+    if (parecerVazio) {
+      setFeedbackErro('Escreva o parecer antes de decidir: a homologação exige autoria docente.');
+      return;
+    }
+
+    setIsSaving(true);
+    setFeedbackErro('');
+    setFeedbackMsg('');
+
+    const resultado = await homologarEvolucaoPsico(selecionado.id, decisao, parecer.trim());
+    setIsSaving(false);
+
+    if (!resultado.success) {
+      setFeedbackErro(resultado.message);
+      return;
+    }
+
+    setFeedbackMsg(
+      decisao === 'VALIDADO'
+        ? `Evolução do paciente ${selecionado.pacienteNome} APROVADA com Visto Eletrônico.`
+        : `Evolução devolvida para ajuste do estagiário ${selecionado.estagiarioNome}.`
+    );
+    setParecer('');
     setTimeout(() => setFeedbackMsg(''), 4000);
   };
 
@@ -180,19 +201,29 @@ export function PsyApprovalQueue() {
           </div>
 
           <div className="pt-4 border-t border-slate-100 space-y-2">
+            {feedbackErro && (
+              <p className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-[11px] font-semibold">
+                {feedbackErro}
+              </p>
+            )}
+            {parecerVazio && selecionado && !feedbackErro && (
+              <p className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[11px]">
+                O parecer é obrigatório: sem ele a decisão fica sem autoria docente no prontuário.
+              </p>
+            )}
             <button
               type="button"
-              onClick={handleAprovar}
-              disabled={!selecionado || selecionado.status === 'VALIDADO'}
+              onClick={() => void decidir('VALIDADO')}
+              disabled={!selecionado || selecionado.status === 'VALIDADO' || isSaving}
               className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-2.5 rounded-xl text-xs transition-colors shadow-xs flex items-center justify-center gap-2 disabled:bg-slate-300 disabled:cursor-not-allowed"
             >
               <CheckCircleIcon className="w-4 h-4" />
-              <span>Homologar com Visto Eletrônico</span>
+              <span>{isSaving ? 'Enviando…' : 'Homologar com Visto Eletrônico'}</span>
             </button>
             <button
               type="button"
-              onClick={handleDevolver}
-              disabled={!selecionado || selecionado.status === 'VALIDADO'}
+              onClick={() => void decidir('DEVOLVIDO_PARA_AJUSTE')}
+              disabled={!selecionado || selecionado.status === 'VALIDADO' || isSaving}
               className="w-full bg-white hover:bg-red-50 text-red-700 border border-red-200 font-bold py-2 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
               <ExclamationTriangleIcon className="w-4 h-4 text-red-600" />
@@ -236,7 +267,7 @@ export function PsyApprovalQueue() {
 
               {visualizarParecerId === h.id && (
                 <div className="w-full mt-2 p-3 bg-blue-50/70 border border-blue-200/80 rounded-xl text-blue-900 italic">
-                  {h.parecerSupervisor || 'Parecer padrão: Homologado com conformidade integral.'}
+                  {h.parecerSupervisor || 'Sem parecer registrado pelo supervisor.'}
                 </div>
               )}
             </div>

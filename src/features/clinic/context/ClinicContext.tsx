@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { api, type ApiPaciente, type ApiAgendamento, type ApiProntuarioPsico, type ApiFichaOdonto, type ApiDemanda } from '../../../services/api';
 import { useAuth } from '../../auth/context/AuthContext';
 
@@ -111,7 +111,7 @@ interface ClinicContextType {
   atualizarStatusAgendamento: (id: number, status: StatusAgendamento) => void;
   adicionarDemanda: (d: Omit<DemandaEstagio, 'id' | 'status' | 'dataSolicitacao'>) => Promise<{ success: boolean; message: string; demanda?: DemandaEstagio }>;
   atualizarStatusDemanda: (id: number, status: DemandaEstagio['status']) => void;
-  homologarEvolucaoPsico: (id: number, decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE', parecer: string) => void;
+  homologarEvolucaoPsico: (id: number, decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE', parecer: string) => Promise<{ success: boolean; message: string }>;
   adicionarEvolucaoPsico: (e: Omit<EvolucaoPsico, 'id' | 'status' | 'submetidoEm'>) => Promise<{ success: boolean; message: string; evolucao?: EvolucaoPsico }>;
   adicionarFichaOdonto: (f: Omit<FichaOdonto, 'id' | 'status' | 'submetidoEm'>) => Promise<{ success: boolean; message: string; ficha?: FichaOdonto }>;
   homologarFichaOdonto: (id: number, decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE', parecer: string) => Promise<{ success: boolean; message: string }>;
@@ -304,40 +304,31 @@ const INITIAL_EVOLUCOES: EvolucaoPsico[] = [
   },
 ];
 
-const INITIAL_PLANOS: ItemPlanoTratamento[] = [
-  {
-    id: 1,
-    prioridade: 'Urgência',
-    denteRegiao: 'Dente 36',
-    procedimento: 'Restauração profunda em resina composta (Classe II MOD)',
-    status: 'Concluído',
-    estagiarioResponsavel: 'Lucas Vasconcelos & Gabriela Prado',
-  },
-  {
-    id: 2,
-    prioridade: 'Fase 1 - Restauradora',
-    denteRegiao: 'Dente 16',
-    procedimento: 'Remoção de cárie oclusal e selante invasivo',
-    status: 'Em Andamento',
-    estagiarioResponsavel: 'Augusto Cesar Farias & Gabriela Prado',
-  },
-  {
-    id: 3,
-    prioridade: 'Fase 2 - Periodontal',
-    denteRegiao: 'Sextante Ântero-Inferior (33 ao 43)',
-    procedimento: 'Raspagem supra e alisamento coronário',
-    status: 'Planejado',
-    estagiarioResponsavel: 'Augusto Cesar Farias',
-  },
-  {
-    id: 4,
-    prioridade: 'Fase 3 - Manutenção',
-    denteRegiao: 'Arcada Completa',
-    procedimento: 'Profilaxia com pasta profilática e aplicação tópica de flúor',
-    status: 'Planejado',
-    estagiarioResponsavel: 'Augusto Cesar Farias',
-  },
-];
+// O plano de tratamento não é uma entidade no banco: é derivado das fichas
+// odontológicas, que já carregam dente, procedimento, dupla e status. Antes
+// eram quatro planos fictícios em código, contados como "Procedimentos
+// Registrados" no painel da RT.
+const planosDasFichas = (fichas: FichaOdonto[]): ItemPlanoTratamento[] =>
+  fichas.map((f) => ({
+    id: f.id,
+    // `prioridade` é a fase de planejamento e `status` é o estado do fluxo:
+    // são eixos diferentes, então o status do banco alimenta os dois campos.
+    prioridade:
+      f.status === 'VALIDADO'
+        ? 'Fase 3 - Manutenção'
+        : f.status === 'DEVOLVIDO_PARA_AJUSTE'
+          ? 'Fase 1 - Restauradora'
+          : 'Fase 2 - Periodontal',
+    denteRegiao: f.denteRegiao,
+    procedimento: f.procedimentoRealizado,
+    status:
+      f.status === 'VALIDADO'
+        ? 'Concluído'
+        : f.status === 'DEVOLVIDO_PARA_AJUSTE'
+          ? 'Em Andamento'
+          : 'Planejado',
+    estagiarioResponsavel: f.duplaEstagiarios,
+  }));
 
 const STORAGE_PREFIX = 'unicare_clinic_';
 
@@ -461,7 +452,8 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // estado já refletia o banco.
   const [fichasOdonto, setFichasOdonto] = useState<FichaOdonto[]>([]);
 
-  const [planosTratamento] = useState<ItemPlanoTratamento[]>(INITIAL_PLANOS);
+  // Derivado das fichas reais, sem mock.
+const planosTratamento = useMemo(() => planosDasFichas(fichasOdonto), [fichasOdonto]);
 
   const { user, isAuthenticated } = useAuth();
   const matriculaAutenticada = user?.matricula ?? null;
@@ -734,20 +726,41 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   };
 
-  const homologarEvolucaoPsico = (id: number, decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE', parecer: string) => {
+  const homologarEvolucaoPsico = async (
+    id: number,
+    decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE',
+    parecer: string
+  ): Promise<{ success: boolean; message: string }> => {
     const anterior = evolucoesPsico.find((e) => e.id === id);
-    if (!anterior) return;
+    if (!anterior) {
+      return { success: false, message: 'A evolução não está na fila.' };
+    }
 
+    // Otimista: a fila do supervisor atualiza na hora e volta atrás se o servidor
+    // recusar. Retorna o resultado porque a tela precisa saber — antes ela
+    // anunciava "APROVADA com Visto Eletrônico" sem esperar resposta, e uma
+    // recusação sumia num console.error.
     setEvolucoesPsico((prev) =>
       prev.map((e) => (e.id === id ? { ...e, status: decisao, parecerSupervisor: parecer } : e))
     );
 
-    api.homologarProntuarioPsico(id, decisao, parecer).catch((err) => {
-      console.error('[UniCare] homologação revertida:', err);
+    try {
+      await api.homologarProntuarioPsico(id, decisao, parecer);
+      return {
+        success: true,
+        message:
+          decisao === 'VALIDADO'
+            ? 'Evolução homologada com visto digital.'
+            : 'Evolução devolvida para ajuste.',
+      };
+    } catch (err) {
       setEvolucoesPsico((prev) =>
         prev.map((e) => (e.id === id ? { ...e, status: anterior.status, parecerSupervisor: anterior.parecerSupervisor } : e))
       );
-    });
+      const msg = mensagemDeErro(err, 'Falha ao homologar a evolução.');
+      console.error('[UniCare] homologação revertida:', err);
+      return { success: false, message: msg };
+    }
   };
 
   const adicionarEvolucaoPsico = async (

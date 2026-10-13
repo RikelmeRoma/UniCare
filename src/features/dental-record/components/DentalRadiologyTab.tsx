@@ -20,35 +20,15 @@ export interface RadiografiaItem {
   responsavel: string;
   status: 'Homologado' | 'Pendente';
   vistoDocente?: string;
-  imagemUrl: string;
+  /** Opcional: sem imagem anexada não existe radiografia exibível. */
+  imagemUrl?: string;
 }
 
-const INITIAL_RADIOGRAFIAS: RadiografiaItem[] = [
-  {
-    id: 1,
-    data: '15/09/2026',
-    tipo: 'Periapical',
-    regiao: 'Dente 36 (Molar Inferior Esquerdo)',
-    laudo: 'Área radiolúcida compatível com lesão cariosa profunda atingindo terço médio de dentina na face ocluso-distal. Espaço do ligamento periodontal e lâmina dura preservados, sem envolvimento periapical.',
-    responsavel: 'Lucas Vasconcelos (Op.) & Gabriela Prado (Aux.)',
-    status: 'Pendente',
-    imagemUrl: 'https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=800',
-  },
-  {
-    id: 2,
-    data: '08/09/2026',
-    tipo: 'Panorâmica',
-    regiao: 'Arcadas Superior e Inferior Completa',
-    laudo: 'Ausência de lesões ósseas patológicas. Presença dos terceiros molares 18 e 28 inclusos verticalmente; 38 e 48 semi-inclusos com angulação mesioangular. Cristas ósseas alveolares íntegras.',
-    responsavel: 'Augusto Cesar Farias (Op.) & Marlon Bruno (Aux.)',
-    status: 'Homologado',
-    vistoDocente: 'Profa. Dra. Bianca Nubia (CRO-SE 4512) • 08/09 17:10',
-    imagemUrl: 'https://images.unsplash.com/photo-1598256989800-fe5f95da9787?auto=format&fit=crop&q=80&w=800',
-  },
-];
-
+// Não há tabela de radiografia no backend. A lista nasce vazia de propósito:
+// as duas entradas anteriores apontavam para imagens do Unsplash apresentadas
+// como radiografia de paciente, com laudo fictício e visto docente fixo.
 export function DentalRadiologyTab() {
-  const [radiografias, setRadiografias] = useState<RadiografiaItem[]>(INITIAL_RADIOGRAFIAS);
+  const [radiografias, setRadiografias] = useState<RadiografiaItem[]>([]);
   const [showNovo, setShowNovo] = useState(false);
   const [selectedImage, setSelectedImage] = useState<RadiografiaItem | null>(null);
 
@@ -77,15 +57,15 @@ export function DentalRadiologyTab() {
 
     const nova: RadiografiaItem = {
       id: Date.now(),
-      data: '15/09/2026',
+      data: new Date().toLocaleDateString('pt-BR'),
       tipo,
       regiao,
       laudo,
       responsavel,
       status: 'Pendente',
-      imagemUrl:
-        imagemPreview ||
-        'https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=800',
+      // Sem imagem anexada fica sem imagem. Antes caía no mesmo fallback do
+      // Unsplash, entao todo exame sem upload exibia foto de terceiro.
+      imagemUrl: imagemPreview || undefined,
     };
 
     setRadiografias([nova, ...radiografias]);
@@ -93,8 +73,10 @@ export function DentalRadiologyTab() {
     setRegiao('');
     setLaudo('');
     setImagemPreview('');
-    setSucessoMsg('Exame radiográfico anexado com sucesso e submetido para validação docente.');
-    setTimeout(() => setSucessoMsg(''), 4000);
+    setSucessoMsg(
+      'Exame registrado apenas nesta sessão: não existe tabela de radiografia no backend, então ele não persiste nem vai para homologação.'
+    );
+    setTimeout(() => setSucessoMsg(''), 6000);
   };
 
   const handleRemover = (id: number) => {
@@ -258,6 +240,12 @@ export function DentalRadiologyTab() {
 
       {/* Grid de Radiografias e Exames */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {radiografias.length === 0 && (
+          <p className="col-span-full text-xs text-slate-500 bg-white p-5 rounded-xl border border-slate-200/80">
+            Nenhum exame radiográfico registrado. Ainda não existe tabela de
+            radiografia no backend, então nada aqui persiste entre sessões.
+          </p>
+        )}
         {radiografias.map((item) => (
           <div
             key={item.id}
@@ -293,11 +281,17 @@ export function DentalRadiologyTab() {
 
               {/* Imagem do Exame */}
               <div className="relative h-44 bg-slate-900 overflow-hidden group">
-                <img
-                  src={item.imagemUrl}
-                  alt={item.tipo}
-                  className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-300"
-                />
+                {item.imagemUrl ? (
+                  <img
+                    src={item.imagemUrl}
+                    alt={item.tipo}
+                    className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-300"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">
+                    Sem imagem anexada
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={() => setSelectedImage(item)}
@@ -370,11 +364,15 @@ export function DentalRadiologyTab() {
             </div>
 
             <div className="max-h-[60vh] overflow-hidden rounded-xl bg-slate-950 flex items-center justify-center">
-              <img
-                src={selectedImage.imagemUrl}
-                alt={selectedImage.tipo}
-                className="max-h-[60vh] w-auto object-contain"
-              />
+              {selectedImage.imagemUrl ? (
+                <img
+                  src={selectedImage.imagemUrl}
+                  alt={selectedImage.tipo}
+                  className="max-h-[60vh] w-auto object-contain"
+                />
+              ) : (
+                <p className="text-slate-400 text-xs py-16">Sem imagem anexada</p>
+              )}
             </div>
 
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs text-slate-800 space-y-1">

@@ -107,11 +107,35 @@ export function RTStatsDashboard() {
   // clínica do solicitante. Ler .psicologia e .odontologia fixos mostraria
   // números de outro curso — ou cairia nos fallbacks inventados (?? 1, ?? 2).
   const cursoPainel = user?.curso === 'odontologia' ? 'odontologia' : 'psicologia';
-  const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
+const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
     | Record<string, number>
     | undefined;
-  // Sem API, assume 0: inventar número é pior que mostrar vazio.
+  // Sem API não se inventa número de tela docente.
   const num = (chave: string) => bloco?.[chave] ?? 0;
+
+  // Antes, quando /relatorios/estatisticas falhava, `stats` ficava null em
+  // silêncio e os cards caíam nos fallbacks locais — que ainda eram os mocks
+  // INITIAL_*. Um painel gerencial exibindo número inventado sem nenhum aviso é
+  // pior do que um painel explicitamente sem dado.
+  const semRelatorio = !stats;
+
+  // A barra tinha largura fixa ('60%', '40%') ao lado de um número real, então
+  // o card mostrava duas verdades diferentes. Agora a largura é a participação
+  // do item no total da própria clínica.
+  const pct = (chave: string) => {
+    const total = (bloco?.prontuarios_submetidos ?? 0) + (bloco?.fichas_clinicas_totais ?? 0);
+    if (!total) return 0;
+    return Math.round((num(chave) / total) * 100);
+  };
+
+  // A barra dos menores reflecte a proporção real de conformidade: o valor fixo
+  // '100%' afirmava que todos os menores têm responsável, o que o relatório não
+  // garante (conta só os que têm).
+  const menoresTotal = pacientes.filter((p) => p.ehMenor).length;
+  const pctMenoresConformidade =
+    menoresTotal === 0
+      ? 100
+      : Math.round(((stats?.conformidade_legal?.pacientes_menores_com_responsavel ?? 0) / menoresTotal) * 100);
 
   const logsFiltrados = logs.filter(
     (l) =>
@@ -440,7 +464,7 @@ export function RTStatsDashboard() {
                     </span>
                   </div>
                   <div className="w-full bg-slate-100 rounded-full h-2">
-                    <div className="bg-emerald-600 h-2 rounded-full" style={{ width: '60%' }}></div>
+                    <div className="bg-emerald-600 h-2 rounded-full" style={{ width: `${pct('prontuarios_validados')}%` }}></div>
                   </div>
                 </div>
 
@@ -452,7 +476,7 @@ export function RTStatsDashboard() {
                     </span>
                   </div>
                   <div className="w-full bg-slate-100 rounded-full h-2">
-                    <div className="bg-indigo-600 h-2 rounded-full" style={{ width: '40%' }}></div>
+                    <div className="bg-indigo-600 h-2 rounded-full" style={{ width: `${pct('prontuarios_aguardando_visto')}%` }}></div>
                   </div>
                 </div>
               </div>
@@ -485,13 +509,19 @@ export function RTStatsDashboard() {
               </div>
 
               <div className="space-y-3">
+                {/* A "Taxa de Ocupação de Cadeiras" foi removida: o relatório não
+                    tem campo nenhum de ocupação, cadeiras ou AMD. Os 85% eram
+                    literais numa tela institucional de guarda legal. */}
                 <div>
                   <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
-                    <span>Taxa de Ocupação de Cadeiras Clínicas</span>
-                    <span className="font-mono text-blue-700">85% Operacional</span>
+                    <span>Fichas Odontológicas Homologadas</span>
+                    <span className="font-mono text-blue-700">{num('fichas_clinicas_totais')}</span>
                   </div>
                   <div className="w-full bg-slate-100 rounded-full h-2">
-                    <div className="bg-blue-700 h-2 rounded-full" style={{ width: '85%' }}></div>
+                    <div
+                      className="bg-blue-700 h-2 rounded-full"
+                      style={{ width: `${pct('fichas_clinicas_totais')}%` }}
+                    ></div>
                   </div>
                 </div>
 
@@ -499,11 +529,13 @@ export function RTStatsDashboard() {
                   <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
                     <span>Pacientes Menores sob Odontopediatria</span>
                     <span className="font-mono text-slate-800">
-                      {stats?.conformidade_legal?.pacientes_menores_com_responsavel ?? 1} (Responsável Legal Vinculado)
+                      {semRelatorio
+                        ? '—'
+                        : `${stats?.conformidade_legal?.pacientes_menores_com_responsavel ?? 0} (Responsável Legal Vinculado)`}
                     </span>
                   </div>
                   <div className="w-full bg-slate-100 rounded-full h-2">
-                    <div className="bg-slate-700 h-2 rounded-full" style={{ width: '100%' }}></div>
+                    <div className="bg-slate-700 h-2 rounded-full" style={{ width: `${pctMenoresConformidade}%` }}></div>
                   </div>
                 </div>
               </div>
@@ -593,11 +625,18 @@ export function RTStatsDashboard() {
                 </div>
 
                 <div className="text-right space-y-1">
+                  {/* O selo afirmava "Autenticidade Verificada (LGPD)" com um
+                      SHA-256 fixo que não existe em nenhum lugar do sistema —
+                      num dossiê de guarda legal. Trocado por identificação
+                      verificável: registro do banco e trilha de auditoria real. */}
                   <span className="px-2.5 py-1 rounded bg-emerald-100 text-emerald-800 text-[11px] font-bold border border-emerald-200 inline-block">
-                    Autenticidade Verificada (LGPD)
+                    Registro Vinculado à Trilha de Auditoria
                   </span>
                   <p className="text-[10px] text-slate-400 font-mono">
-                    SHA-256: 8f4b2e...c901a
+                    paciente_id {pacienteSelecionadoCustodia.id} · LGPD Art. 11
+                  </p>
+                  <p className="text-[10px] text-slate-400 font-mono">
+                    hash de integridade: não implementado
                   </p>
                 </div>
               </div>

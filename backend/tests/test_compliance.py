@@ -788,3 +788,76 @@ def test_rf009_rt_nao_altera_o_proprio_cadastro():
 
     res_del = client.delete(f"/api/v1/usuarios/{eu['id']}", headers=headers)
     assert res_del.status_code == 400
+
+# --- RF-004: o parecer do supervisor e obrigatorio nas DUAS clinicas ---
+
+def test_rf004_homologacao_exige_parecer_na_psicologia():
+    """RF-004: homologar sem parecer recusa com 422
+
+    A tela de psicologia abria o campo de parecer com um texto ja redigido, e
+    esse texto ia para o PATCH. Alem disso o parecer era opcional no schema,
+    entao a regra so existia na interface.
+    """
+    # Cria a propria evolucao: depender de uma pendente do seed torna o teste
+    # sensivel a ordem, porque os testes de homologacao anteriores ja consomem
+    # as duas fichas pendentes.
+    headers_estagiario = {"Authorization": f"Bearer {get_auth_token('16032935')}"}
+    criada = client.post("/api/v1/prontuarios/psico", json={
+        "paciente_id": 1,
+        "paciente_nome": "Paciente Teste Parecer",
+        "estagiario_nome": "Teste",
+        "estagiario_matricula": "16032935",
+        "data_sessao": "10/10/2026",
+        "numero_sessao": "Sessão 99",
+        "inicio_sessao_texto": "Sessão iniciada no horário pactuado.",
+        "meio_sessao_texto": "Intervenção planejada concluída sem intercorrências.",
+        "fim_sessao_texto": "Encerramento com retorno agendado.",
+    }, headers=headers_estagiario)
+    assert criada.status_code == 201
+    pendente = criada.json()
+
+    headers = {"Authorization": f"Bearer {get_auth_token('DOC-8821')}"}
+
+    for parecer in ("", "   ", "\n\t "):
+        res = client.patch(
+            f"/api/v1/prontuarios/psico/{pendente['id']}/homologar",
+            json={"decisao": "VALIDADO", "parecer": parecer},
+            headers=headers,
+        )
+        assert res.status_code == 422, f"parecer {parecer!r} deveria ser recusado"
+
+    # A ficha continua pendente: recusa não pode ter gravado nada.
+    relida = client.get("/api/v1/prontuarios/psico", headers=headers).json()
+    assert next(e for e in relida if e["id"] == pendente["id"])["status"] == "AGUARDANDO_VALIDACAO"
+
+
+def test_rf004_homologacao_exige_parecer_na_odontologia():
+    """RF-004: a mesma exigência vale para a ficha odontológica"""
+    headers_estagiario = {"Authorization": f"Bearer {get_auth_token('16024402')}"}
+    criada = client.post("/api/v1/prontuarios/odonto", json={
+        "paciente_id": 2,
+        "dupla_estagiarios": "Dupla Teste",
+        "dente_regiao": "Dente 16",
+        "procedimento_realizado": "Restauracao classe I.",
+        "materiais_utilizados": "Resina A2.",
+    }, headers=headers_estagiario)
+    assert criada.status_code == 201
+    pendente = criada.json()
+
+    headers = {"Authorization": f"Bearer {get_auth_token('DOC-9122')}"}
+
+    res = client.patch(
+        f"/api/v1/prontuarios/odonto/{pendente['id']}/homologar",
+        json={"decisao": "VALIDADO", "parecer": "  "},
+        headers=headers,
+    )
+    assert res.status_code == 422
+
+    # E com parecer real, o texto vai aparasado para o banco.
+    ok = client.patch(
+        f"/api/v1/prontuarios/odonto/{pendente['id']}/homologar",
+        json={"decisao": "VALIDADO", "parecer": "  Tecnica adequada.  "},
+        headers=headers,
+    )
+    assert ok.status_code == 200
+    assert ok.json()["parecer_supervisor"] == "Tecnica adequada."

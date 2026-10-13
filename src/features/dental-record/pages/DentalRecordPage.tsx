@@ -122,11 +122,12 @@ export function DentalRecordPage() {
                   <span>Alertas Clínicos & Alergias</span>
                 </h3>
                 <ul className="space-y-2 text-xs">
-                  <li className="p-3 bg-red-50 text-red-800 rounded-xl border border-red-200/80 font-medium">
-                    <strong>Alergia Medicamentosa:</strong> Penicilina e derivados.
-                  </li>
-                  <li className="p-3 bg-amber-50 text-amber-800 rounded-xl border border-amber-200/80 font-medium">
-                    <strong>Hipertensão Arterial:</strong> Controlada (Losartana 50mg).
+                  {/* Antes a ficha mostrava "Penicilina e derivados" e
+                      "Hipertensão Arterial: Losartana 50mg" para QUALQUER
+                      paciente selecionado. Dado clínico inventado é o tipo de
+                      falha mais grave numa ficha ativa. */}
+                  <li className="p-3 bg-slate-50 text-slate-500 rounded-xl border border-slate-200/80 font-medium">
+                    Anamnese não registrada para este paciente.
                   </li>
                 </ul>
               </div>
@@ -136,20 +137,23 @@ export function DentalRecordPage() {
                   <ShieldCheckIcon className="w-4 h-4 text-slate-600" />
                   <span>Sinais Vitais da Sessão</span>
                 </h3>
-                <div className="space-y-2.5 text-xs text-slate-700">
-                  <div className="flex justify-between border-b border-slate-100 pb-2">
-                    <span className="text-slate-500">Pressão Arterial (P.A.)</span>
-                    <span className="font-bold text-slate-900 font-mono">120/80 mmHg</span>
-                  </div>
-                  <div className="flex justify-between border-b border-slate-100 pb-2">
-                    <span className="text-slate-500">Glicemia Capilar</span>
-                    <span className="font-bold text-slate-900 font-mono">98 mg/dL</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Frequência Cardíaca</span>
-                    <span className="font-bold text-slate-900 font-mono">74 bpm</span>
-                  </div>
+<div className="space-y-2.5 text-xs text-slate-700">
+                {/* 120/80 mmHg, 98 mg/dL e 74 bpm eram literais: os mesmos para
+                    todo paciente. Vão para "Não registrado" até existir a
+                    tabela de sinais vitais e o formulário de aferição. */}
+                <div className="flex justify-between border-b border-slate-100 pb-2">
+                  <span className="text-slate-500">Pressão Arterial (P.A.)</span>
+                  <span className="font-bold text-slate-400 font-mono">Não registrado</span>
                 </div>
+                <div className="flex justify-between border-b border-slate-100 pb-2">
+                  <span className="text-slate-500">Glicemia Capilar</span>
+                  <span className="font-bold text-slate-400 font-mono">Não registrado</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Frequência Cardíaca</span>
+                  <span className="font-bold text-slate-400 font-mono">Não registrado</span>
+                </div>
+              </div>
               </div>
 
               <div className="bg-slate-100 border border-slate-200 p-4 rounded-2xl text-xs text-slate-800 space-y-1">

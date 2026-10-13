@@ -178,6 +178,21 @@ ou a RT é ato da RT. As telas `ClinicalPairs` e `PsySupervisionPage` são de
 supervisor: se o endpoint não permitir, o compilador não avisa — a tela só passa
 a dar erro em runtime.
 
+**Regra de tela precisa existir no servidor.** Exigir parecer, senha ou qualquer
+campo só no frontend deixa a regra como conveniência: qualquer cliente chama a
+rota direto. `HomologacaoRequest.parecer` recusa texto vazio com 422 nas duas
+clínicas, e dois testes garantem que a recusa não grava nada.
+
+**Teste que consome pendência do seed vira dependente de ordem.** Os testes de
+homologação anteriores já consomem as duas fichas pendentes do seed, então um
+teste que procure "a próxima pendente" passa isolado e falha na suíte. Crie o
+registro dentro do próprio teste em vez de depender do estado deixado por outros.
+
+**Nada de fallback numérico em tela institucional.** O painel da RT usava `?? 1`
+e barras com largura fixa: se a chamada falhasse, exibia número inventado sem
+aviso. Prefira `—` mais um estado de erro visível. Dado clínico inventado
+(sinal vital, alergia, radiografia de banco de imagens) é pior que campo vazio.
+
 **`Promise.allSettled` nunca rejeita.** Um `catch` externo depois dele é código
 morto. Ao absorver 401/403/500 sem log, a falha fica invisível.
 

@@ -31,6 +31,20 @@ class HomologacaoRequest(BaseModel):
     decisao: StatusProntuario  # VALIDADO ou DEVOLVIDO_PARA_AJUSTE
     parecer: str
 
+    @field_validator("parecer")
+    @classmethod
+    def validar_parecer_obrigatorio(cls, v: str) -> str:
+        # Homologação sem parecer grava decisão sem autoria docente no prontuário.
+        # A regra precisa valer no servidor: exigir isso só na tela deixa o 422
+        # como nada, porque qualquer cliente pode chamar a rota direto.
+        texto = v.strip()
+        if not texto:
+            raise ValueError(
+                "O parecer do supervisor é obrigatório: uma decisão de homologação "
+                "sem parecer fica sem autoria docente no prontuário."
+            )
+        return texto
+
 class ProntuarioPsicoRead(BaseModel):
     id: int
     paciente_id: int

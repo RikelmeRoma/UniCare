@@ -489,6 +489,65 @@ travessia entre clínicas, supervisor só gerenciando estagiário, estagiário e
 recepção barrados, duplicata dando 400 em vez de 500, desativação cortando o login
 com o registro preservado, e auto-edição bloqueada.
 
+## ✅ Bloco 5 — Parecer honesto e tela institucional sem dado inventado
+
+Fecha o último ponto que **gravava** dado falso em prontuário e limpa o painel
+gerencial de número sem origem.
+
+**O parecer do supervisor era pré-preenchido.** `PsyApprovalQueue.tsx:20` abria o
+textarea com um texto já redigido ("Evolução estruturada com rigor técnico…") e
+era esse texto que ia no `PATCH /homologar`, gravado no prontuário como se fosse
+autoria docente. Pior: `HomologacaoRequest.parecer` era um `str` sem restrição, e
+`homologarEvolucaoPsico` retornava `void` — então a tela anunciava "APROVADA com
+Visto Eletrônico" sem esperar resposta, e uma recusa sumia num `console.error`.
+
+Agora a exigência vale **no servidor**: `HomologacaoRequest` recusa parecer vazio
+ou só com espaços (422) nas duas clínicas, com dois testes que também verificam
+que a recusa não gravou nada. O campo começa vazio, os botões só decidem com texto
+e o `homologarEvolucaoPsico` devolve `{ success, message }` como o
+`homologarFichaOdonto`. O fallback que mostrava "Parecer padrão: Homologado com
+conformidade integral." em prontuário sem parecer virou "Sem parecer registrado".
+
+**Dado falso removido do painel da RT:**
+- selo "Autenticidade Verificada (LGPD)" com `SHA-256: 8f4b2e...c901a` fixo, que
+  não existe em lugar nenhum do sistema — trocado por identificação verificável
+  (`paciente_id` + LGPD Art. 11) e a declaração explícita de que o hash de
+  integridade não está implementado;
+- "Taxa de Ocupação de Cadeiras: 85%" — o relatório não tem campo nenhum de
+  ocupação, cadeiras ou AMD. Card removido e substituído por "Fichas
+  Odontológicas Homologadas", que tem dado real;
+- barras `60%`/`40%`/`100%` literais ao lado de números reais: a largura agora é
+  a participação do item no total da clínica, e a dos menores é a proporção real
+  de conformidade (a barra fixa afirmava 100% quando o relatório conta só os que
+  têm responsável);
+- `?? 1` em "menores com responsável" virou `—`, e a falha do relatório ficou
+  sinalizada em vez de mascarada por número inventado.
+
+**`INITIAL_PLANOS` eliminado.** Eram quatro planos de tratamento fictícios em
+código, contados como "Procedimentos Registrados" no painel da RT e usados pela
+`TreatmentPlanTab`. Agora são derivados das fichas odontológicas reais, que já
+trazem dente, procedimento, dupla e status.
+
+**Ficha odontológica sem clínico inventado:** alergia "Penicilina e derivados",
+HAS "Losartana 50mg" e sinais vitais `120/80`, `98 mg/dL`, `74 bpm` eram os mesmos
+para qualquer paciente selecionado. Agora é "Não registrado" / "Anamnese não
+registrada" — o estado honesto até a tabela de sinais vitais entrar.
+
+**Radiografia sem imagem de terceiro:** as duas entradas apontavam para fotos do
+Unsplash apresentadas como radiografia de paciente, com laudo fictício e visto
+docente fixo, e o `handleSalvar` caía no mesmo fallback quando não havia upload.
+Agora a lista nasce vazia, `imagemUrl` é opcional, a mensagem de sucesso avisa que
+o registro é só da sessão (não existe tabela de radiografia no backend) e há
+estado vazio explícito.
+
+**Verificado:** `pytest` **34 passed** (era 32); `npm run build` verde; `alembic
+check` limpo (nenhuma migração); lint estável em 13 erros preexistentes.
+
+**Nota de teste:** os dois testes de parecer obrigatório criam o próprio registro
+em vez de consumir uma pendência do seed. Depender do seed os tornava sensíveis à
+ordem — os testes de homologação anteriores já consomem as duas fichas pendentes e
+o teste falhava na suíte, passando isolado.
+
 ### 🔴 Crítico
 
 ### 🟠 Importante
@@ -556,7 +615,7 @@ Conhecimentos que não são dedutíveis do código e que custaram tempo diagnós
 ## Estado verificado
 
 ```
-pytest           → 32 passed (de backend/ e da raiz)
+pytest           → 34 passed (de backend/ e da raiz)
 alembic check    → No new upgrade operations detected
 alembic current  → c81d4e7a9b02 (head)
 /health          → dialect: postgresql, conectado: true
