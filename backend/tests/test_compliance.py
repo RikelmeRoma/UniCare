@@ -955,3 +955,43 @@ def test_anamnese_rececao_bloqueada_pelo_rn001():
     )
     assert res.status_code == 403
     assert "RN-001" in res.json()["detail"]
+
+
+def test_rf004_homologacao_carimba_o_supervisor():
+    """RF-004: quem homologou fica gravado no prontuário
+
+    A coluna supervisor_nome existia e só era preenchida na criação, com o que
+    o cliente mandava. Sem vínculo estagiário↔supervisor no schema, o
+    homologador é a fonte real de autoria docente — e o servidor escreve, não o
+    cliente.
+    """
+    estagiario = {"Authorization": f"Bearer {get_auth_token('16032935')}"}
+    supervisor = {"Authorization": f"Bearer {get_auth_token('DOC-8821')}"}
+
+    criada = client.post("/api/v1/prontuarios/psico", json={
+        "paciente_id": 1,
+        "paciente_nome": "Paciente Teste Carimbo",
+        "estagiario_nome": "Teste",
+        "estagiario_matricula": "16032935",
+        "data_sessao": "10/10/2026",
+        "numero_sessao": "Sessão 98",
+        "inicio_sessao_texto": "Sessão iniciada no horário pactuado.",
+        "meio_sessao_texto": "Intervenção concluída sem intercorrências.",
+        "fim_sessao_texto": "Encerramento com retorno agendado.",
+    }, headers=estagiario)
+    assert criada.status_code == 201
+    # Antes de homologar não há docente: nada é inventado na criação.
+    assert criada.json()["supervisor_nome"] is None
+
+    res = client.patch(
+        f"/api/v1/prontuarios/psico/{criada.json()['id']}/homologar",
+        json={"decisao": "VALIDADO", "parecer": "Síntese adequada. Homologado."},
+        headers=supervisor,
+    )
+    assert res.status_code == 200
+    assert res.json()["supervisor_nome"] == "Prof. Dr. Robert Santos do Carmo"
+
+    # E persiste: a releitura não volta vazia.
+    relida = client.get("/api/v1/prontuarios/psico", headers=supervisor).json()
+    carimbada = next(e for e in relida if e["id"] == criada.json()["id"])
+    assert carimbada["supervisor_nome"] == "Prof. Dr. Robert Santos do Carmo"

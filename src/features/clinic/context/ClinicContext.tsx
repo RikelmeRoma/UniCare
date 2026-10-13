@@ -132,7 +132,7 @@ interface ClinicContextType {
   adicionarAgendamento: (a: Omit<Agendamento, 'id'>) => Promise<{ success: boolean; message: string; agendamento?: Agendamento }>;
   atualizarStatusAgendamento: (id: number, status: StatusAgendamento) => void;
   adicionarDemanda: (d: Omit<DemandaEstagio, 'id' | 'status' | 'dataSolicitacao'>) => Promise<{ success: boolean; message: string; demanda?: DemandaEstagio }>;
-  atualizarStatusDemanda: (id: number, status: DemandaEstagio['status']) => void;
+  atualizarStatusDemanda: (id: number, status: DemandaEstagio['status']) => Promise<{ success: boolean; message: string }>;
   homologarEvolucaoPsico: (id: number, decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE', parecer: string) => Promise<{ success: boolean; message: string }>;
   adicionarEvolucaoPsico: (e: Omit<EvolucaoPsico, 'id' | 'status' | 'submetidoEm'>) => Promise<{ success: boolean; message: string; evolucao?: EvolucaoPsico }>;
   adicionarFichaOdonto: (f: Omit<FichaOdonto, 'id' | 'status' | 'submetidoEm'>) => Promise<{ success: boolean; message: string; ficha?: FichaOdonto }>;
@@ -755,16 +755,36 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
   };
 
   /** Atualização otimista com rollback, no mesmo padrão do status de agendamento. */
-  const atualizarStatusDemanda = (id: number, status: DemandaEstagio['status']) => {
+  const atualizarStatusDemanda = async (
+    id: number,
+    status: DemandaEstagio['status']
+  ): Promise<{ success: boolean; message: string }> => {
     const anterior = demandas.find((d) => d.id === id)?.status;
-    if (!anterior) return;
+    if (!anterior) {
+      return { success: false, message: 'A demanda não está na fila.' };
+    }
 
+    // Otimista: a fila da recepção atualiza na hora e volta atrás se o servidor
+    // recusar. Retorna o resultado porque a tela precisa saber — a conciliação é
+    // o único trabalho da recepção com a fila do RF-009, e ela precisa conseguir
+    // agir nela.
     setDemandas((prev) => prev.map((d) => (d.id === id ? { ...d, status } : d)));
 
-    api.updateDemandaStatus(id, status).catch((err) => {
-      console.error('[UniCare] status da demanda revertido:', err);
+    try {
+      await api.updateDemandaStatus(id, status);
+      return {
+        success: true,
+        message:
+          status === 'Agendado'
+            ? 'Demanda conciliada com a agenda.'
+            : 'Demanda devolvida para pendente.',
+      };
+    } catch (err) {
       setDemandas((prev) => prev.map((d) => (d.id === id ? { ...d, status: anterior } : d)));
-    });
+      const msg = mensagemDeErro(err, 'Falha ao atualizar a demanda.');
+      console.error('[UniCare] status da demanda revertido:', err);
+      return { success: false, message: msg };
+    }
   };
 
   const homologarEvolucaoPsico = async (

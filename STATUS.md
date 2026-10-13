@@ -489,46 +489,6 @@ travessia entre clínicas, supervisor só gerenciando estagiário, estagiário e
 recepção barrados, duplicata dando 400 em vez de 500, desativação cortando o login
 com o registro preservado, e auto-edição bloqueada.
 
-## ✅ Bloco 6 — Anamnese e sinais vitais do paciente
-
-Fecha os dois painéis que ainda afirmavam clínico sem dado: a ficha odontológica
-mostrava "Anamnese não registrada" e "Não registrado" em PA, glicemia e FC.
-
-**Nova tabela `anamneses`** — uma linha por aferição, com o paciente e a data.
-`afetido_em` é `DateTime` e não `str` de propósito: `data_nascimento` e
-`data_sessao` são `str` e por isso não ordenam nem comparam, e a nova tabela não
-deveria repetir o problema. É a **4ª foreign key** do schema.
-
-**Validação de faixa, não decoração.** PA por regex `sistólica/diastólica`,
-glicemia 20–600 mg/dL, frequência 20–250 bpm e temperatura 30–45 °C. Dado
-impossível numa ficha é pior do que ficha sem dado: uma glicemia de 980 quase
-sempre é "98" digitado em campo de três dígitos.
-
-**Rotas `GET/POST /pacientes/{id}/anamnese`**, dentro de `pacientes.py` porque é
-dado do paciente. Reaproveita `cursos_visiveis()` na leitura e confere a clínica
-na escrita, onde o filtro de listagem não protege. Dado clínico: a recepção fica
-de fora pelo RN-001, e a autoria vem do token — o corpo do POST não tem campo de
-responsável, então nenhum cliente registra aferição em nome de outra pessoa.
-
-**`autorizado_clinico` saiu de dentro do `prontuarios.py` para
-`auth_service.py`.** As rotas de anamnese precisam da mesma lista de perfis e duas
-listas divergem em silêncio.
-
-**Frontend** — `api.ts` com `getAnamneses`/`criarAnamnese`, estado no
-`ClinicContext` por id de paciente com escrita retornando `{ success, message }`,
-e o modal de aferição alimentando os três campos e o painel de alergias. A ficha
-mostra a última aferição com autor e hora, e quantas existem no histórico. O 403
-da recepção é absorvido sem virar erro de sistema.
-
-**Verificado:** `pytest` **39 passed** (era 34); `npm run build` verde; `alembic
-check` limpo; ciclo `downgrade -1` → `upgrade head` limpo; lint estável em 13.
-
-**Armadilha encontrada na migração:** `op.create_table` com
-`sa.Column('id', sa.Integer())` e **sem** `sa.PrimaryKeyConstraint('id')` não vira
-`SERIAL` no PostgreSQL — a coluna fica `integer` sem default e todo insert falha
-com `null value in column "id"`. As tabelas existentes declaram a constraint
-explícita, e o sintoma só aparece no primeiro insert, não no `alembic check`.
-
 ## ✅ Bloco 5 — Parecer honesto e tela institucional sem dado inventado
 
 Fecha o último ponto que **gravava** dado falso em prontuário e limpa o painel
@@ -609,6 +569,77 @@ aqui para rastrear a origem, com o estado atual:
 
 ---
 
+## ✅ Bloco 6 — Anamnese e sinais vitais do paciente
+
+Fecha os dois painéis que ainda afirmavam clínico sem dado: a ficha odontológica
+mostrava "Anamnese não registrada" e "Não registrado" em PA, glicemia e FC.
+
+**Nova tabela `anamneses`** — uma linha por aferição, com o paciente e a data.
+`afetido_em` é `DateTime` e não `str` de propósito: `data_nascimento` e
+`data_sessao` são `str` e por isso não ordenam nem comparam, e a nova tabela não
+deveria repetir o problema. É a **4ª foreign key** do schema.
+
+**Validação de faixa, não decoração.** PA por regex `sistólica/diastólica`,
+glicemia 20–600 mg/dL, frequência 20–250 bpm e temperatura 30–45 °C. Dado
+impossível numa ficha é pior do que ficha sem dado: uma glicemia de 980 quase
+sempre é "98" digitado em campo de três dígitos.
+
+**Rotas `GET/POST /pacientes/{id}/anamnese`**, dentro de `pacientes.py` porque é
+dado do paciente. Reaproveita `cursos_visiveis()` na leitura e confere a clínica
+na escrita, onde o filtro de listagem não protege. Dado clínico: a recepção fica
+de fora pelo RN-001, e a autoria vem do token — o corpo do POST não tem campo de
+responsável, então nenhum cliente registra aferição em nome de outra pessoa.
+
+**`autorizado_clinico` saiu de dentro do `prontuarios.py` para
+`auth_service.py`.** As rotas de anamnese precisam da mesma lista de perfis e duas
+listas divergem em silêncio.
+
+**Frontend** — `api.ts` com `getAnamneses`/`criarAnamnese`, estado no
+`ClinicContext` por id de paciente com escrita retornando `{ success, message }`,
+e o modal de aferição alimentando os três campos e o painel de alergias. A ficha
+mostra a última aferição com autor e hora, e quantas existem no histórico. O 403
+da recepção é absorvido sem virar erro de sistema.
+
+**Verificado:** `pytest` **39 passed** (era 34); `npm run build` verde; `alembic
+check` limpo; ciclo `downgrade -1` → `upgrade head` limpo; lint estável em 13.
+
+**Armadilha encontrada na migração:** `op.create_table` com
+`sa.Column('id', sa.Integer())` e **sem** `sa.PrimaryKeyConstraint('id')` não vira
+`SERIAL` no PostgreSQL — a coluna fica `integer` sem default e todo insert falha
+com `null value in column "id"`. As tabelas existentes declaram a constraint
+explícita, e o sintoma só aparece no primeiro insert, não no `alembic check`.
+
+## ✅ Bloco 7 — Conciliação da fila de demandas + carimbo de autoria docente
+Fecha a única feature já entregue que não era usável de ponta a ponta, e cria a
+fonte real de "quem viu" o prontuário.
+**A recepção via a fila do RF-009 e não conseguia agir nela.**
+`PATCH /demandas/{id}/status` existia no backend e tinha método no cliente, mas
+**nenhum componente o chamava** — zero chamadores em todo o `src/`. Agora o
+`StudentDemandPanel` tem o botão **Conciliar** nas linhas pendentes, com estado por
+linha para que só o botão clicado mostre "Conciliando…". O componente é
+compartilhado pelas duas recepções (`ReceptionDashboard.tsx:52` com
+`cursoFiltro="odontologia"` e `PsyReceptionDashboard.tsx:54` com `"psicologia"`),
+então a mudança serve as duas clínicas de uma vez.
+**`atualizarStatusDemanda` passou a devolver resultado.** Era `void`, com update
+otimista e rollback engolido em `console.error` — o mesmo defeito já corrigido em
+`homologarEvolucaoPsico`. Agora é `async` com `{ success, message }`, e a falha
+aparece na linha em vez de sumir.
+**O supervisor passa a ser carimbado pelo servidor.** A coluna
+`prontuario.supervisor_nome` existia desde o schema inicial, mas só era
+preenchida na criação, com o que o cliente mandava — que desde o Bloco 4 é string
+vazia. Não existe vínculo estagiário↔supervisor no schema, então a homologação
+agora grava `current_user.nome`: o próprio homologador, no momento do ato, com o
+mesmo nome que já vai para a trilha de auditoria. É o que permite à ficha dizer
+"visto por X" com dado verificável em vez do literal "Prof. Dr. Robert Santos do
+Carmo (CRP 19/0844)".
+**Pendência deliberada:** o vínculo formal estagiário ↔ turma ↔ supervisor, que o
+relatório menciona ("supervisores de psicologia podem gerenciar acadêmicos
+vinculados à sua turma de SPA"), exige tabela nova e pertence ao RF-005.
+**Verificado:** `pytest` **40 passed** (era 39); `npm run build` verde; `alembic
+check` limpo (**nenhuma migração**); lint estável em 13 erros preexistentes. O
+PATCH de conciliação já tinha cobertura de teste; a novidade de backend é o teste
+do carimbo, que confere as três etapas — vazio na criação, preenchido na
+homologação, persistente na releitura.
 ## Decisões e armadilhas
 
 Conhecimentos que não são dedutíveis do código e que custaram tempo diagnóstico:
@@ -655,7 +686,7 @@ Conhecimentos que não são dedutíveis do código e que custaram tempo diagnós
 ## Estado verificado
 
 ```
-pytest           → 39 passed (de backend/ e da raiz)
+pytest           → 40 passed (de backend/ e da raiz)
 alembic check    → No new upgrade operations detected
 alembic current  → d7f2a9c4e1b8 (head)
 /health          → dialect: postgresql, conectado: true

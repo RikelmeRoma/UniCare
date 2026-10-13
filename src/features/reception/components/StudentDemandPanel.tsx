@@ -12,7 +12,7 @@ interface StudentDemandPanelProps {
 }
 
 export function StudentDemandPanel({ cursoFiltro }: StudentDemandPanelProps) {
-  const { demandas, adicionarDemanda } = useClinic();
+  const { demandas, adicionarDemanda, atualizarStatusDemanda } = useClinic();
   // A matricula e de quem ESTA criando a demanda (o estagiario logado), nao de
   // um aluno fixo no codigo — antes enviava sempre '16032935'.
   const { user } = useAuth();
@@ -22,6 +22,26 @@ export function StudentDemandPanel({ cursoFiltro }: StudentDemandPanelProps) {
   const [prioridade, setPrioridade] = useState<'Alta' | 'Média' | 'Normal'>('Média');
   const [errorMsg, setErrorMsg] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Conciliação: o PATCH /demandas/{id}/status existia e não tinha botão em
+  // lugar nenhum — a recepção via a fila do RF-009 e não conseguia agir nela.
+  // Estado por linha para que só o botão clicado fique em "Conciliando…".
+  const [conciliandoId, setConciliandoId] = useState<number | null>(null);
+  const [conciliacaoMsg, setConciliacaoMsg] = useState<{ id: number; texto: string; ok: boolean } | null>(null);
+
+  const conciliar = async (id: number) => {
+    setConciliandoId(id);
+    setConciliacaoMsg(null);
+
+    const resultado = await atualizarStatusDemanda(id, 'Agendado');
+    setConciliandoId(null);
+
+    setConciliacaoMsg({
+      id,
+      texto: resultado.success ? 'Demanda conciliada com a agenda.' : resultado.message,
+      ok: resultado.success,
+    });
+  };
 
   const demandasFiltradas = demandas.filter(
     (d) => !cursoFiltro || d.curso === cursoFiltro
@@ -155,10 +175,31 @@ export function StudentDemandPanel({ cursoFiltro }: StudentDemandPanelProps) {
               </p>
               <div className="flex justify-between items-center text-[10px] text-slate-400 pt-1 font-mono">
                 <span>Solicitado em: {d.dataSolicitacao}</span>
-                <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
-                  {d.status}
+                <span className="flex items-center gap-1.5">
+                  <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
+                    {d.status}
+                  </span>
+                  {d.status === 'Pendente' ? (
+                    <button
+                      type="button"
+                      onClick={() => void conciliar(d.id)}
+                      disabled={conciliandoId === d.id}
+                      className="font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 px-2 py-0.5 rounded disabled:opacity-60"
+                    >
+                      {conciliandoId === d.id ? 'Conciliando…' : 'Conciliar'}
+                    </button>
+                  ) : null}
                 </span>
               </div>
+              {conciliacaoMsg?.id === d.id && (
+                <p
+                  className={`text-[10px] font-semibold ${
+                    conciliacaoMsg.ok ? 'text-emerald-700' : 'text-rose-700'
+                  }`}
+                >
+                  {conciliacaoMsg.texto}
+                </p>
+              )}
             </div>
           ))
         )}

@@ -130,6 +130,12 @@ def homologar_prontuario_psico(
 
     prontuario.status = body.decisao
     prontuario.parecer_supervisor = body.parecer
+    # Carimbo de autoria docente, gravado pelo servidor a partir do token. A coluna
+    # já existia e só era preenchida na criação, com o que o cliente mandava —
+    # que desde o Bloco 4 é string vazia. Sem vínculo estagiário↔supervisor no
+    # schema, esta é a fonte real de "quem viu": é o próprio homologador, no
+    # momento do ato, e o mesmo nome já vai para a trilha de auditoria.
+    prontuario.supervisor_nome = current_user.nome
     session.add(prontuario)
     session.commit()
     session.refresh(prontuario)
