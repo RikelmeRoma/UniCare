@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { api, type ApiPaciente, type ApiAgendamento, type ApiProntuarioPsico, type ApiFichaOdonto, type ApiDemanda } from '../../../services/api';
+import { api, type ApiPaciente, type ApiAgendamento, type ApiProntuarioPsico, type ApiFichaOdonto, type ApiDemanda, type ApiAnamnese } from '../../../services/api';
 import { useAuth } from '../../auth/context/AuthContext';
 
 export type StatusAgendamento = 'AGENDADO' | 'PRESENTE' | 'EM_ATENDIMENTO' | 'CONCLUIDO' | 'FALTOU' | 'CANCELADO';
@@ -76,6 +76,21 @@ export interface FichaOdonto {
   submetidoEm: string;
 }
 
+export interface Anamnese {
+  id: number;
+  pacienteId: number;
+  afetidoEm: string;
+  pressaoArterial?: string;
+  glicemiaCapilar?: number;
+  frequenciaCardiaca?: number;
+  temperatura?: number;
+  alergias?: string;
+  condicoesCronicas?: string;
+  medicacoesEmUso?: string;
+  responsavelNome: string;
+  responsavelMatricula: string;
+}
+
 export interface ItemPlanoTratamento {
   id: number;
   prioridade: 'Urgência' | 'Fase 1 - Restauradora' | 'Fase 2 - Periodontal' | 'Fase 3 - Manutenção';
@@ -103,6 +118,13 @@ interface ClinicContextType {
   demandas: DemandaEstagio[];
   evolucoesPsico: EvolucaoPsico[];
   fichasOdonto: FichaOdonto[];
+  /** Anamneses por id de paciente. Carregadas sob demanda pela ficha. */
+  anamnesesPorPaciente: Record<number, Anamnese[]>;
+  registrarAnamnese: (
+    pacienteId: number,
+    dados: Omit<Anamnese, 'id' | 'pacienteId' | 'afetidoEm' | 'responsavelNome' | 'responsavelMatricula'>
+  ) => Promise<{ success: boolean; message: string; anamnese?: Anamnese }>;
+  carregarAnamneses: (pacienteId: number) => Promise<void>;
   planosTratamento: ItemPlanoTratamento[];
   sync: SyncStatus;
   sincronizar: () => Promise<void>;
@@ -308,6 +330,23 @@ const INITIAL_EVOLUCOES: EvolucaoPsico[] = [
 // odontológicas, que já carregam dente, procedimento, dupla e status. Antes
 // eram quatro planos fictícios em código, contados como "Procedimentos
 // Registrados" no painel da RT.
+// A anamnese é dado clínico por paciente: o histórico vem sob demanda, do id
+// do paciente, e não na carga global — a recepção toma 403 nela (RN-001).
+const mapearAnamnese = (a: ApiAnamnese): Anamnese => ({
+  id: a.id,
+  pacienteId: a.paciente_id,
+  afetidoEm: a.afetido_em,
+  pressaoArterial: a.pressao_arterial,
+  glicemiaCapilar: a.glicemia_capilar,
+  frequenciaCardiaca: a.frequencia_cardiaca,
+  temperatura: a.temperatura,
+  alergias: a.alergias,
+  condicoesCronicas: a.condicoes_cronicas,
+  medicacoesEmUso: a.medicacoes_em_uso,
+  responsavelNome: a.responsavel_nome,
+  responsavelMatricula: a.responsavel_matricula,
+});
+
 const planosDasFichas = (fichas: FichaOdonto[]): ItemPlanoTratamento[] =>
   fichas.map((f) => ({
     id: f.id,
@@ -454,6 +493,8 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Derivado das fichas reais, sem mock.
 const planosTratamento = useMemo(() => planosDasFichas(fichasOdonto), [fichasOdonto]);
+
+const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, Anamnese[]>>({});
 
   const { user, isAuthenticated } = useAuth();
   const matriculaAutenticada = user?.matricula ?? null;
@@ -791,6 +832,50 @@ const planosTratamento = useMemo(() => planosDasFichas(fichasOdonto), [fichasOdo
     }
   };
 
+  const carregarAnamneses = useCallback(async (pacienteId: number) => {
+    try {
+      const lista = await api.getAnamneses(pacienteId);
+      setAnamnesesPorPaciente((prev) => ({ ...prev, [pacienteId]: lista.map(mapearAnamnese) }));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      // 403 é o esperado para quem não é clínico (recepção, RN-001): a ficha fica
+      // sem anamnese em vez de virar erro de sistema.
+      if (!msg.includes('403')) {
+        console.error('[UniCare] falha ao carregar anamnese:', err);
+      }
+    }
+  }, []);
+
+  const registrarAnamnese = async (
+    pacienteId: number,
+    dados: Omit<Anamnese, 'id' | 'pacienteId' | 'afetidoEm' | 'responsavelNome' | 'responsavelMatricula'>
+  ): Promise<{ success: boolean; message: string; anamnese?: Anamnese }> => {
+    try {
+      const criada = await api.criarAnamnese(pacienteId, {
+        pressao_arterial: dados.pressaoArterial,
+        glicemia_capilar: dados.glicemiaCapilar,
+        frequencia_cardiaca: dados.frequenciaCardiaca,
+        temperatura: dados.temperatura,
+        alergias: dados.alergias,
+        condicoes_cronicas: dados.condicoesCronicas,
+        medicacoes_em_uso: dados.medicacoesEmUso,
+      });
+
+      const salva = mapearAnamnese(criada);
+      // Mais recente primeiro, como o backend devolve.
+      setAnamnesesPorPaciente((prev) => ({
+        ...prev,
+        [pacienteId]: [salva, ...(prev[pacienteId] ?? [])],
+      }));
+
+      return { success: true, message: 'Aferição registrada na ficha do paciente.', anamnese: salva };
+    } catch (err) {
+      const msg = mensagemDeErro(err, 'Falha ao registrar a aferição.');
+      console.error('[UniCare] registro de anamnese falhou:', err);
+      return { success: false, message: msg };
+    }
+  };
+
   const adicionarFichaOdonto = async (
     f: Omit<FichaOdonto, 'id' | 'status' | 'submetidoEm'>
   ): Promise<{ success: boolean; message: string; ficha?: FichaOdonto }> => {
@@ -861,6 +946,9 @@ const planosTratamento = useMemo(() => planosDasFichas(fichasOdonto), [fichasOdo
         demandas,
         evolucoesPsico,
         fichasOdonto,
+        anamnesesPorPaciente,
+        registrarAnamnese,
+        carregarAnamneses,
         planosTratamento,
         sync,
         sincronizar,

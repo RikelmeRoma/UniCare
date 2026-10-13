@@ -112,15 +112,16 @@ flowchart TD
 
 ### Modelo de Dados (PostgreSQL 16)
 
-O schema é versionado por Alembic e possui **7 entidades de negócio** mais a tabela
-técnica `alembic_version`. Existem apenas **3 foreign keys** no banco, todas de
-`paciente_id` para `pacientes.id`.
+O schema é versionado por Alembic e possui **8 entidades de negócio** mais a tabela
+técnica `alembic_version`. Existem apenas **4 foreign keys** no banco, três de
+`paciente_id` para `pacientes.id` e uma da anamnese.
 
 #### Diagrama Entidade-Relacionamento
 
 ```mermaid
 erDiagram
     PACIENTES ||--o{ AGENDAMENTOS : "paciente_id"
+    PACIENTES ||--o{ ANAMNESES : "paciente_id"
     PACIENTES ||--o{ PRONTUARIOS_PSICO : "paciente_id"
     PACIENTES ||--o{ FICHAS_ODONTO : "paciente_id"
     USUARIOS ||..o{ LOGS_AUDITORIA : "usuario_id (logico, sem FK)"
@@ -194,6 +195,22 @@ erDiagram
         string alerta_alergia "opcional"
         text   parecer_supervisor "do supervisor"
         string status "ENUM 4 estados"
+        datetime criado_em
+    }
+
+    ANAMNESES {
+        int    id PK
+        int    paciente_id FK "idx"
+        datetime afetido_em "idx, ordenavel"
+        string pressao_arterial "opcional"
+        int    glicemia_capilar "opcional"
+        int    frequencia_cardiaca "opcional"
+        float  temperatura "opcional"
+        text   alergias "opcional"
+        text   condicoes_cronicas "opcional"
+        text   medicacoes_em_uso "opcional"
+        string responsavel_nome
+        string responsavel_matricula
         datetime criado_em
     }
 
@@ -327,6 +344,11 @@ FICHAS_ODONTO (id PK, paciente_id FK->PACIENTES, dupla_estagiarios,
                anestesico, alerta_alergia, parecer_supervisor, status,
                criado_em)
 
+ANAMNESES (id PK, paciente_id FK->PACIENTES, afetido_em, pressao_arterial,
+          glicemia_capilar, frequencia_cardiaca, temperatura, alergias,
+          condicoes_cronicas, medicacoes_em_uso, responsavel_nome,
+          responsavel_matricula, criado_em)
+
 DEMANDAS_ESTAGIO (id PK, aluno_nome, aluno_matricula, curso,
                   procedimento_desejado, prioridade, data_solicitacao,
                   status, criado_em)
@@ -350,7 +372,7 @@ UQ = unique   FK = foreign key   idx = índice   -> = referencia
 
 #### Decisões de Modelagem
 
-1. **Somente 3 foreign keys, todas em `paciente_id`.** Todo o resto se liga por
+1. **Somente 4 foreign keys, todas em `paciente_id`.** Todo o resto se liga por
    campos denormalizados (`estagiario_matricula`, `supervisor_nome`,
    `aluno_matricula`, `usuario_nome`), que guardam o valor em vez de referenciar
    `usuarios`. Aclinical é preservada mesmo que o cadastro seja desativado.

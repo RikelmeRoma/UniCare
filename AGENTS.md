@@ -178,6 +178,22 @@ ou a RT é ato da RT. As telas `ClinicalPairs` e `PsySupervisionPage` são de
 supervisor: se o endpoint não permitir, o compilador não avisa — a tela só passa
 a dar erro em runtime.
 
+**`op.create_table` sem `PrimaryKeyConstraint('id')` não cria SERIAL.**
+`sa.Column('id', sa.Integer(), nullable=False)` sozinho vira `integer` sem default
+e o primeiro insert falha com `null value in column "id"` — o `alembic check`
+continua limpo, porque o comparador só olha o tipo. Sempre declare
+`sa.PrimaryKeyConstraint('id')`, como nas migrações anteriores.
+
+**Nova coluna de data: use DateTime, não `str`.** `data_nascimento` e
+`data_sessao` são `str` e por isso não ordenam nem comparam — a pendência de
+corrigir isso ainda está aberta. `anamneses.afetido_em` foi criada como DateTime
+para não repetir o defeito.
+
+**A autoria de registro clínico vem do token, não do corpo.** O POST de anamnese
+não tem campo de responsável: o backend preenche com `current_user`. Se o corpo
+aceitasse o responsável, qualquer cliente registraria aferição em nome de outra
+pessoa.
+
 **Regra de tela precisa existir no servidor.** Exigir parecer, senha ou qualquer
 campo só no frontend deixa a regra como conveniência: qualquer cliente chama a
 rota direto. `HomologacaoRequest.parecer` recusa texto vazio com 422 nas duas

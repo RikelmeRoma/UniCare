@@ -861,3 +861,97 @@ def test_rf004_homologacao_exige_parecer_na_odontologia():
     )
     assert ok.status_code == 200
     assert ok.json()["parecer_supervisor"] == "Tecnica adequada."
+
+# --- Anamnese e sinais vitais do paciente ---
+
+def test_anamnese_registra_e_persiste():
+    """Aferição gravada volta na releitura, com autoria vinda do token"""
+    headers = {"Authorization": f"Bearer {get_auth_token('16024402')}"}
+
+    payload = {
+        "pressao_arterial": "120/80",
+        "glicemia_capilar": 98,
+        "frequencia_cardiaca": 74,
+        "temperatura": 36.5,
+        "alergias": "Penicilina e derivados",
+        "condicoes_cronicas": "Hipertensão controlada",
+        "medicacoes_em_uso": "Losartana 50mg",
+    }
+    res = client.post("/api/v1/pacientes/2/anamnese", json=payload, headers=headers)
+    assert res.status_code == 201
+    criada = res.json()
+
+    # A autoria é do token: o corpo não tem campo de responsável.
+    assert criada["responsavel_matricula"] == "16024402"
+    assert criada["pressao_arterial"] == "120/80"
+    assert criada["alergias"] == "Penicilina e derivados"
+    assert criada["afetido_em"] is not None
+
+    relida = client.get("/api/v1/pacientes/2/anamnese", headers=headers).json()
+    assert any(a["id"] == criada["id"] for a in relida)
+
+
+def test_anamnese_rejeita_valor_fora_de_faixa():
+    """Dado impossível é pior que dado ausente: erro de digitação tem de aparecer"""
+    headers = {"Authorization": f"Bearer {get_auth_token('16024402')}"}
+
+    casos = {
+        "pressao mal formatada": {"pressao_arterial": "120 por 80"},
+        "glicemia absurda": {"glicemia_capilar": 980},
+        "frequencia baixa": {"frequencia_cardiaca": 5},
+        "temperatura impossivel": {"temperatura": 52.0},
+    }
+    for descricao, corpo in casos.items():
+        res = client.post(
+            "/api/v1/pacientes/2/anamnese", json=corpo, headers=headers
+        )
+        assert res.status_code == 422, f"{descricao} deveria dar 422"
+
+
+def test_anamnese_respeita_a_clinica_do_paciente():
+    """Anamnese é dado clínico: só a clínica do paciente lê e grava"""
+    headers_psi = {"Authorization": f"Bearer {get_auth_token('DOC-8821')}"}
+
+    # Paciente 2 é de odontologia: a supervisora de psicologia não chega nele.
+    assert client.get("/api/v1/pacientes/2/anamnese", headers=headers_psi).status_code == 403
+    assert client.post(
+        "/api/v1/pacientes/2/anamnese",
+        json={"pressao_arterial": "120/80"},
+        headers=headers_psi,
+    ).status_code == 403
+
+    # Paciente 1 é de psicologia e a supervisora de odontologia é barrada.
+    headers_odonto = {"Authorization": f"Bearer {get_auth_token('DOC-9122')}"}
+    assert client.get("/api/v1/pacientes/1/anamnese", headers=headers_odonto).status_code == 403
+
+
+def test_anamnese_paciente_compartilhado_veem_as_duas_clinicas():
+    """Paciente de curso "ambos" tem anamnese visível para as duas clínicas"""
+    reg_psi = {"Authorization": f"Bearer {get_auth_token('16032935')}"}
+    res = client.post(
+        "/api/v1/pacientes/3/anamnese",
+        json={"pressao_arterial": "118/76", "frequencia_cardiaca": 70},
+        headers=reg_psi,
+    )
+    assert res.status_code == 201
+
+    # Visível na psicologia (quem registrou) e na odontologia.
+    assert client.get("/api/v1/pacientes/3/anamnese", headers=reg_psi).status_code == 200
+    assert client.get(
+        "/api/v1/pacientes/3/anamnese",
+        headers={"Authorization": f"Bearer {get_auth_token('DOC-9122')}"}
+    ).status_code == 200
+
+
+def test_anamnese_rececao_bloqueada_pelo_rn001():
+    """RN-001: a recepção não toca dado clínico, nem registra aferição"""
+    headers = {"Authorization": f"Bearer {get_auth_token('REC-001')}"}
+
+    assert client.get("/api/v1/pacientes/2/anamnese", headers=headers).status_code == 403
+    res = client.post(
+        "/api/v1/pacientes/2/anamnese",
+        json={"pressao_arterial": "120/80"},
+        headers=headers,
+    )
+    assert res.status_code == 403
+    assert "RN-001" in res.json()["detail"]

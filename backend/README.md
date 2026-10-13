@@ -175,6 +175,7 @@ duas clínicas. `CursoUsuario.GERAL` existe no ENUM por compatibilidade mas
 |---|---|---|
 | Auth | `POST /auth/login`, `GET /auth/me` | público / autenticado |
 | Pacientes | `GET /pacientes`, `POST /pacientes` | autenticado, escopado ao curso |
+| **Anamnese / sinais vitais** | `GET /pacientes/{id}/anamnese`, `POST /pacientes/{id}/anamnese` | clínico (RN-001 bloqueia recepção), escopado ao curso |
 | Agendamentos | `GET /agendamentos`, `POST /agendamentos`, `PATCH /agendamentos/{id}/status` | autenticado, escopado ao curso |
 | Prontuáriofinder | `GET/POST /prontuarios/psico`, `PATCH /prontuarios/psico/{id}/homologar` | clínico, restrito ao curso |
 | Ficha odonto | `GET/POST /prontuarios/odonto`, `PATCH /prontuarios/odonto/{id}/homologar` | clínico, restrito ao curso |

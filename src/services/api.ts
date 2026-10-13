@@ -26,6 +26,22 @@ export interface ApiUsuario {
   ativo: boolean;
 }
 
+export interface ApiAnamnese {
+  id: number;
+  paciente_id: number;
+  afetido_em: string;
+  pressao_arterial?: string;
+  glicemia_capilar?: number;
+  frequencia_cardiaca?: number;
+  temperatura?: number;
+  alergias?: string;
+  condicoes_cronicas?: string;
+  medicacoes_em_uso?: string;
+  responsavel_nome: string;
+  responsavel_matricula: string;
+  criado_em: string;
+}
+
 export interface ApiPaciente {
   id: number;
   nome: string;
@@ -235,6 +251,30 @@ async getUsuarios(): Promise<ApiUsuario[]> {
     return this.request<ApiPaciente>('/pacientes', {
       method: 'POST',
       body: JSON.stringify(paciente),
+    });
+  }
+
+  // --- Anamnese e sinais vitais (dado clínico, escopo por clínica) ---
+  /** Histórico do mais recente para o mais antigo. */
+  async getAnamneses(pacienteId: number): Promise<ApiAnamnese[]> {
+    return this.request<ApiAnamnese[]>(`/pacientes/${pacienteId}/anamnese`);
+  }
+
+  async criarAnamnese(
+    pacienteId: number,
+    dados: {
+      pressao_arterial?: string;
+      glicemia_capilar?: number;
+      frequencia_cardiaca?: number;
+      temperatura?: number;
+      alergias?: string;
+      condicoes_cronicas?: string;
+      medicacoes_em_uso?: string;
+    }
+  ): Promise<ApiAnamnese> {
+    return this.request<ApiAnamnese>(`/pacientes/${pacienteId}/anamnese`, {
+      method: 'POST',
+      body: JSON.stringify(dados),
     });
   }
 

@@ -13,18 +13,14 @@ from app.schemas.prontuario import (
     FichaOdontoRead,
     HomologacaoRequest
 )
-from app.services.auth_service import require_roles, require_curso
+from app.services.auth_service import require_roles, require_curso, autorizado_clinico
 from app.services.auditoria_service import registrar_log, ip_do_cliente
 
 router = APIRouter(prefix="/prontuarios", tags=["Prontuários Clínicos & Homologação"])
 
 # Proteção Universal RN-001: Perfis de Recepção são terminantemente bloqueados
-# nesta rota.
-autorizado_clinico = require_roles([
-    PerfilUsuario.ESTAGIARIO,
-    PerfilUsuario.SUPERVISOR,
-    PerfilUsuario.RT
-])
+# nesta rota. A lista de perfis clínicos vive em auth_service.autorizado_clinico,
+# compartilhada com as rotas de anamnese em pacientes.py.
 
 autorizado_homologacao = require_roles([PerfilUsuario.SUPERVISOR, PerfilUsuario.RT])
 

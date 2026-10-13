@@ -58,6 +58,16 @@ def require_roles(allowed_roles: List[PerfilUsuario]):
     return role_checker
 
 
+# Perfis que podem acessar dado clínico. A recepção fica de fora pelo RN-001.
+# Vive aqui e não duplicado em cada router: `prontuarios.py` e `pacientes.py`
+# (rotas de anamnese) precisam da mesma lista, e duas listas divergem em silêncio.
+autorizado_clinico = require_roles([
+    PerfilUsuario.ESTAGIARIO,
+    PerfilUsuario.SUPERVISOR,
+    PerfilUsuario.RT
+])
+
+
 # Cursos clínicos. "geral" existe no ENUM por compatibilidade, mas NENHUM
 # cadastro o usa: a recepção deixou de ser institucional e passou a ser uma
 # conta por clínica (REC-001 odontologia, REC-002 psicologia).

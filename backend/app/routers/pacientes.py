@@ -4,9 +4,16 @@ from sqlmodel import Session, select
 
 from app.database import get_session
 from app.models.paciente import Paciente
+from app.models.anamnese import Anamnese
 from app.models.usuario import Usuario, PerfilUsuario
 from app.schemas.paciente import PacienteCreate, PacienteRead
-from app.services.auth_service import get_current_user, cursos_visiveis, validar_curso_do_registro
+from app.schemas.anamnese import AnamneseCreate, AnamneseRead
+from app.services.auth_service import (
+    get_current_user,
+    cursos_visiveis,
+    validar_curso_do_registro,
+    autorizado_clinico,
+)
 from app.services.auditoria_service import registrar_log, ip_do_cliente
 
 router = APIRouter(prefix="/pacientes", tags=["Pacientes"])
@@ -78,3 +85,84 @@ def cadastrar_paciente(
     )
 
     return paciente
+
+
+def _paciente_visivel(session: Session, paciente_id: int, current_user: Usuario) -> Paciente:
+    """Busca o paciente e garante que ele é da clínica de quem pediu.
+
+    Usado pelas rotas de anamnese: filtrar a listagem de pacientes não impede
+    pedir o histórico pelo id, e paciente "ambos" é visível para as duas
+    clínicas de propósito.
+    """
+    paciente = session.get(Paciente, paciente_id)
+    if not paciente:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Paciente não localizado."
+        )
+
+    visiveis = cursos_visiveis(current_user)
+    if visiveis is not None and paciente.curso not in visiveis:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Acesso negado: paciente pertence à clínica de {paciente.curso}. "
+                   f"Seu cadastro é da clínica de {current_user.curso.value}."
+        )
+    return paciente
+
+
+@router.get("/{paciente_id}/anamnese", response_model=List[AnamneseRead])
+def listar_anamneses(
+    paciente_id: int,
+    session: Session = Depends(get_session),
+    current_user: Usuario = Depends(autorizado_clinico)
+):
+    """Histórico de anamneses e aferições, do mais recente para o mais antigo."""
+    _paciente_visivel(session, paciente_id, current_user)
+
+    return session.exec(
+        select(Anamnese)
+        .where(Anamnese.paciente_id == paciente_id)
+        .order_by(Anamnese.afetido_em.desc())
+    ).all()
+
+
+@router.post("/{paciente_id}/anamnese", response_model=AnamneseRead, status_code=status.HTTP_201_CREATED)
+def registrar_anamnese(
+    paciente_id: int,
+    dados: AnamneseCreate,
+    http_request: Request,
+    session: Session = Depends(get_session),
+    current_user: Usuario = Depends(autorizado_clinico)
+):
+    """Registra uma aferição de sinais vitais e/ou atualiza a anamnese.
+
+    Dado clínico: a recepção fica de fora pelo RN-001, e a clínica do paciente é
+    conferida na escrita, onde o filtro de listagem não protege.
+    """
+    _paciente_visivel(session, paciente_id, current_user)
+
+    anamnese = Anamnese(
+        paciente_id=paciente_id,
+        pressao_arterial=dados.pressao_arterial,
+        glicemia_capilar=dados.glicemia_capilar,
+        frequencia_cardiaca=dados.frequencia_cardiaca,
+        temperatura=dados.temperatura,
+        alergias=dados.alergias,
+        condicoes_cronicas=dados.condicoes_cronicas,
+        medicacoes_em_uso=dados.medicacoes_em_uso,
+        # Autoria vem do token, nunca do corpo: um cliente não registra aferição
+        # em nome de outra pessoa.
+        responsavel_nome=current_user.nome,
+        responsavel_matricula=current_user.matricula
+    )
+    session.add(anamnese)
+    session.commit()
+    session.refresh(anamnese)
+
+    registrar_log(
+        session, current_user, "REGISTRO_ANAMNESE", "anamneses", anamnese.id,
+        endereco_ip=ip_do_cliente(http_request)
+    )
+
+    return anamnese

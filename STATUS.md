@@ -489,6 +489,46 @@ travessia entre clínicas, supervisor só gerenciando estagiário, estagiário e
 recepção barrados, duplicata dando 400 em vez de 500, desativação cortando o login
 com o registro preservado, e auto-edição bloqueada.
 
+## ✅ Bloco 6 — Anamnese e sinais vitais do paciente
+
+Fecha os dois painéis que ainda afirmavam clínico sem dado: a ficha odontológica
+mostrava "Anamnese não registrada" e "Não registrado" em PA, glicemia e FC.
+
+**Nova tabela `anamneses`** — uma linha por aferição, com o paciente e a data.
+`afetido_em` é `DateTime` e não `str` de propósito: `data_nascimento` e
+`data_sessao` são `str` e por isso não ordenam nem comparam, e a nova tabela não
+deveria repetir o problema. É a **4ª foreign key** do schema.
+
+**Validação de faixa, não decoração.** PA por regex `sistólica/diastólica`,
+glicemia 20–600 mg/dL, frequência 20–250 bpm e temperatura 30–45 °C. Dado
+impossível numa ficha é pior do que ficha sem dado: uma glicemia de 980 quase
+sempre é "98" digitado em campo de três dígitos.
+
+**Rotas `GET/POST /pacientes/{id}/anamnese`**, dentro de `pacientes.py` porque é
+dado do paciente. Reaproveita `cursos_visiveis()` na leitura e confere a clínica
+na escrita, onde o filtro de listagem não protege. Dado clínico: a recepção fica
+de fora pelo RN-001, e a autoria vem do token — o corpo do POST não tem campo de
+responsável, então nenhum cliente registra aferição em nome de outra pessoa.
+
+**`autorizado_clinico` saiu de dentro do `prontuarios.py` para
+`auth_service.py`.** As rotas de anamnese precisam da mesma lista de perfis e duas
+listas divergem em silêncio.
+
+**Frontend** — `api.ts` com `getAnamneses`/`criarAnamnese`, estado no
+`ClinicContext` por id de paciente com escrita retornando `{ success, message }`,
+e o modal de aferição alimentando os três campos e o painel de alergias. A ficha
+mostra a última aferição com autor e hora, e quantas existem no histórico. O 403
+da recepção é absorvido sem virar erro de sistema.
+
+**Verificado:** `pytest` **39 passed** (era 34); `npm run build` verde; `alembic
+check` limpo; ciclo `downgrade -1` → `upgrade head` limpo; lint estável em 13.
+
+**Armadilha encontrada na migração:** `op.create_table` com
+`sa.Column('id', sa.Integer())` e **sem** `sa.PrimaryKeyConstraint('id')` não vira
+`SERIAL` no PostgreSQL — a coluna fica `integer` sem default e todo insert falha
+com `null value in column "id"`. As tabelas existentes declaram a constraint
+explícita, e o sintoma só aparece no primeiro insert, não no `alembic check`.
+
 ## ✅ Bloco 5 — Parecer honesto e tela institucional sem dado inventado
 
 Fecha o último ponto que **gravava** dado falso em prontuário e limpa o painel
@@ -615,11 +655,11 @@ Conhecimentos que não são dedutíveis do código e que custaram tempo diagnós
 ## Estado verificado
 
 ```
-pytest           → 34 passed (de backend/ e da raiz)
+pytest           → 39 passed (de backend/ e da raiz)
 alembic check    → No new upgrade operations detected
-alembic current  → c81d4e7a9b02 (head)
+alembic current  → d7f2a9c4e1b8 (head)
 /health          → dialect: postgresql, conectado: true
-unicare_db       → usuarios=8 pacientes=4 agendamentos=4 prontuarios_psico=2 fichas_odonto=4
+unicare_db       → usuarios=8 pacientes=4 agendamentos=4 prontuarios_psico=2 fichas_odonto=4 anamneses=0
 unicare_test     → banco dedicado da suíte, nunca tocado em dev
 GET /prontuarios/odonto → 4 fichas do seed (a tabela nascia vazia)
 POST /prontuarios/odonto → id real, AGUARDANDO_VALIDACAO
