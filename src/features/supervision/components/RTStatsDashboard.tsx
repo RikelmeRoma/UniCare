@@ -868,7 +868,6 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                   <th className="py-3 px-3">Perfil RBAC</th>
                   <th className="py-3 px-3">Curso / Módulo</th>
                   <th className="py-3 px-3">Registro Profissional</th>
-                  <th className="py-3 px-3">Origem</th>
                   <th className="py-3 px-3">Status de Autenticação</th>
                   <th className="py-3 px-3 text-right">Ações</th>
                 </tr>
@@ -876,7 +875,7 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
               <tbody className="divide-y divide-slate-100">
                 {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-slate-400 text-xs">
+                    <td colSpan={7} className="py-8 text-center text-slate-400 text-xs">
                       Nenhum perfil de usuário localizado com os critérios informados.
                     </td>
                   </tr>
@@ -944,23 +943,30 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                         )}
                       </td>
                       <td className="py-3 px-3 font-mono text-slate-600 text-[11px]">
-                        {u.registro_profissional || 'Acadêmico'}
+                        {u.registro_profissional || '—'}
                       </td>
+                      {/* A coluna "Origem" saiu: prometia distinguir "Criado na
+                          Sessão" de "Padrão UNINASSAU", mas o campo `custom`
+                          nunca era definido pelo wire — então todo mundo
+                          aparecia como "Padrão UNINASSAU", inclusive quem a RT
+                          tinha acabado de cadastrar. Usuario não tem criado_em,
+                          então não há dado real para substituí-la. */}
                       <td className="py-3 px-3">
-                        {u.custom ? (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800">
-                            Criado na Sessão
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600">
-                            Padrão UNINASSAU
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-3">
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                          <CheckCircleIcon className="w-3 h-3 text-emerald-600" />
-                          <span>Habilitado (Senha)</span>
+                        <span
+                          className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border ${
+                            u.ativo
+                              ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                              : 'text-slate-500 bg-slate-100 border-slate-300'
+                          }`}
+                        >
+                          {u.ativo ? (
+                            <CheckCircleIcon className="w-3 h-3 text-emerald-600" />
+                          ) : (
+                            <ExclamationTriangleIcon className="w-3 h-3 text-slate-500" />
+                          )}
+                          {/* O "(Senha)" foi embora: a tabela não tem a senha e
+                              não pode exibi-la. */}
+                          <span>{u.ativo ? 'Habilitado' : 'Desativado'}</span>
                         </span>
                       </td>
                       <td className="py-3 px-3 text-right">

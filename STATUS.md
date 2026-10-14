@@ -801,6 +801,41 @@ devolvido, confirmado em chamada real); `npm run build` verde; `alembic check`
 limpo; **lint caiu de 13 para 12**, porque o filtro `.custom` morto levava um
 `'_' is defined but never used` junto.
 
+## ✅ F(b) — A senha fixa no código era código morto
+
+`AuthContext` tinha `syncBackendToken`, que fazia
+`api.login(matricula, 'unicare123')` com `catch {}` vazio. À primeira vista parecia
+buraco de segurança ativo; não era. O caminho inteiro — `switchUser` → `login` →
+`syncBackendToken` — **não tinha chamador nenhum**. `switchUser` aparecia quatro
+vezes no código: declaração de tipo, implementação, valor do contexto e uma
+menção em comentário no `ClinicContext`. `loginCustom` também não tinha chamador,
+e `PRESET_USERS` era um export vazio que ninguém importava.
+
+Sobrava de um "card rápido" de login por usuário que saiu da tela e deixou o
+caminho órfão. O `catch {}` quetratava senha trocada como "backend offline" era
+problema só do caminho morto: o vivo, `loginWithCredentials`, já separa falha de
+rede de erro do servidor. Removidos os quatro, mais o export.
+
+**O campo `custom` saiu do tipo `User`.** Só existia para alimentar badges "Novo"
+e "Criado na Sessão", e nunca era definido pelo wire.
+
+**A tabela da RT tinha as mesmas mentiras das outras telas.** "Habilitado (Senha)"
+fixo, e a coluna "Origem" — "Criado na Sessão" / "Padrão UNINASSAU" — movida por
+`custom`. Como o campo nunca vinha preenchido, **todo mundo aparecia como "Padrão
+UNINASSAU"**, inclusive quem a RT tinha acabado de cadastrar. A coluna saiu: `Usuario`
+não tem `criado_em`, então não há dado real para substituí-la sem migration. O
+`colSpan` da tabela desceu de 8 para 7 junto.
+
+O "(Senha)" também foi embora das três telas: nenhuma delas tem a senha, e não
+podem exibi-la.
+
+**Para o futuro:** se um dia houver acesso rápido na tela de login, ele tem que
+pedir a senha. Não reconstruir esse caminho.
+
+**Verificado:** `pytest` 41 passed (sem mudança de backend); `npm run build` verde;
+`alembic check` limpo; **lint caiu de 12 para 11**. Login por credencial conferido
+ao vivo: `16032935` / `unicare123` continua emitindo token.
+
 ## Decisões e armadilhas
 
 Conhecimentos que não são dedutíveis do código e que custaram tempo diagnóstico:
@@ -861,5 +896,5 @@ GET /demandas    → OK (RF-009, Bloco 1)
 imagem api       → 418 MB (era 1.06 GB; sem .env e sem .venv)
 container api    → healthy; token cruza com o dev local nos dois sentidos
 npm run build    → VERDE
-npm run lint     → 12 erros preexistentes (o 13º caiu no Bloco 8/Fatia D; nenhum novo)
+npm run lint     → 11 erros preexistentes (13 → 12 na Fatia D, 12 → 11 no F(b); nenhum novo)
 ```

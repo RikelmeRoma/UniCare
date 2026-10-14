@@ -20,21 +20,15 @@ export interface User {
    * estagiário podem mostrar o estado real.
    */
   ativo: boolean;
-  custom?: boolean;
 }
-
-export const PRESET_USERS: Record<string, User> = {};
 
 interface AuthContextType {
   user: User | null;
   allUsers: Record<string, User>;
   carregarUsuarios: () => Promise<void>;
   isAuthenticated: boolean;
-  login: (key: string) => Promise<void>;
-  loginCustom: (user: User) => void;
   loginWithCredentials: (emailOuMatricula: string, senha: string) => Promise<{ success: boolean; user?: User; message?: string }>;
   logout: () => void;
-  switchUser: (key: string) => Promise<void>;
   createUser: (userData: Omit<User, 'id' | 'registro_profissional' | 'ativo'> & { registro_profissional?: string; senha: string }) => Promise<{ success: boolean; message: string }>;
   updateUser: (key: string, updatedData: Partial<User> & { senha?: string }) => Promise<{ success: boolean; message: string }>;
   deleteUser: (key: string) => Promise<{ success: boolean; message: string }>;
@@ -73,30 +67,15 @@ const [allUsers, setAllUsers] = useState<Record<string, User>>({});
     }
   }, [user]);
 
-  const syncBackendToken = async (matricula: string) => {
-    try {
-      await api.login(matricula, 'unicare123');
-    } catch {
-      // Backend offline
-    }
-  };
+// Não há atalho de login por usuário. Existiu um "card rápido" na tela que
+  // chamava switchUser → login → syncBackendToken, e esse último fazia
+  // api.login(matricula, 'unicare123') com a senha fixa em código e um catch
+  // vazio que reportava senha trocada como "backend offline". O caminho ficou
+  // órfão quando o card saiu da tela. Login é só por credencial, com senha
+  // digitada: se um dia houver acesso rápido, ele tem que pedir a senha, nunca
+  // reconstruir esse caminho.
 
-  const login = async (key: string) => {
-    const selected = allUsers[key];
-    if (selected) {
-      setUser(selected);
-      await syncBackendToken(selected.matricula);
-    }
-  };
-
-  const loginCustom = (newUser: User) => {
-    setUser(newUser);
-  };
-
-  // Antes o CRUD vivia só no localStorage: a aba "Usuários RBAC" do painel da
-// RT nascia vazia e a senha prometida na tela nunca chegava ao banco. Agora a
-// fonte é a API (RF-009) e a chave do registro é o id numérico do usuário.
-const mapearUsuario = (u: ApiUsuario): User => ({
+  const mapearUsuario = (u: ApiUsuario): User => ({
   id: u.id,
   nome: u.nome,
   email: u.email,
@@ -245,21 +224,14 @@ try {
     api.clearToken();
   };
 
-  const switchUser = async (key: string) => {
-    await login(key);
-  };
-
   return (
     <AuthContext.Provider
       value={{
         user,
         allUsers,
         isAuthenticated: !!user,
-        login,
-        loginCustom,
         loginWithCredentials,
         logout,
-        switchUser,
         createUser,
         updateUser,
         deleteUser,

@@ -599,7 +599,9 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
     });
   }, [isAuthenticated, matriculaAutenticada]);
 
-  // Sincroniza apos o login e re-sincroniza quando o usuario muda (switchUser).
+  // Sincroniza quando a matrícula autenticada muda (login e logout). Não cita
+  // mais switchUser: o atalho de troca de usuário foi removido com o caminho
+  // da senha fixa.
   useEffect(() => {
     void sincronizar();
   }, [sincronizar]);
