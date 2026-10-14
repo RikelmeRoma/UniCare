@@ -640,6 +640,44 @@ check` limpo (**nenhuma migração**); lint estável em 13 erros preexistentes. 
 PATCH de conciliação já tinha cobertura de teste; a novidade de backend é o teste
 do carimbo, que confere as três etapas — vazio na criação, preenchido na
 homologação, persistente na releitura.
+
+## ✅ Bloco 8 (Fatia A) — A ficha clínica não nasce preenchida
+
+O item mais grave da paridade de psicologia: **evolução clínica inventada,
+gravada no banco**.
+
+`PsyRecordPage` abria com os três campos da síntese tripartite já preenchidos por
+uma redação fixa — "paciente relata manutenção do quadro de sobrecarga em período
+de avaliações acadêmicas", "sem indicadores de risco autolesivo" — e
+`handleSalvarEnviar` gravava exatamente esse texto. O estagiário não precisava
+escrever nada para que um supervisor homologasse uma sessão que ele não
+conductiu, com avaliação de risco que ninguém fez. Não era placeholder: era
+`useState` com valor inicial, num `value={}` controlado.
+
+Agora os três nascem vazios e o registro é de quem redige. O aviso é explícito
+sobre **qual** fase falta, porque travar o botão sem dizer o quê obriga o estagiário
+a caçar o campo.
+
+**A regra precisou ir para o servidor no mesmo passo.** `validar_vedacao_aspas`
+só recusava aspas e aceitava string vazia — esvaziar os defaults sem isso abriria
+caminho para ficha em branco chegar na fila de homologação, por qualquer cliente
+que chamasse a rota direto. Virou `validar_texto_clinico` e agora recusa também o
+branco, citando `RNF-003`. `RN-002` continua sendo só o das aspas: reaproveitar o
+identificador errado faria os testes de conformidade affirmarem por uma regra que
+não é a que foi violada.
+
+O teste confere os três campos × três formatos de vazio (`""`, `"   "`,
+`"\n\t "`), que a fila não cresceu e que o caminho válido continua aceito.
+
+**Verificado:** `pytest` **41 passed** (era 40); `npm run build` verde; `alembic
+check` limpo (**nenhuma migração**); lint estável em 13 erros preexistentes.
+
+**Ainda pendente na paridade de psicologia** (mesmo bloco, faturas B, C e D):
+badge "Homologado" aplicado a evolução devolvida, badge verde de anti-aspas sem
+teste, 8 contagens literais nos dois painéis de psicologia, `User.ativo` não
+mapeado, nome/CRP/turma literais no cabeçalho docente, e a afirmação falsa de que
+o estagiário é criado com senha padrão. E o F(b), a senha fixa em `AuthContext`.
+
 ## Decisões e armadilhas
 
 Conhecimentos que não são dedutíveis do código e que custaram tempo diagnóstico:
@@ -686,7 +724,7 @@ Conhecimentos que não são dedutíveis do código e que custaram tempo diagnós
 ## Estado verificado
 
 ```
-pytest           → 40 passed (de backend/ e da raiz)
+pytest           → 41 passed (de backend/ e da raiz)
 alembic check    → No new upgrade operations detected
 alembic current  → d7f2a9c4e1b8 (head)
 /health          → dialect: postgresql, conectado: true

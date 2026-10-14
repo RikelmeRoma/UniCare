@@ -42,15 +42,15 @@ export function PsyRecordPage() {
   const [dataSessao, setDataSessao] = useState(new Date().toISOString().split('T')[0]);
 
   // Tripartite (RNF-003: Início, Meio e Fim)
-  const [evolucaoInicio, setEvolucaoInicio] = useState(
-    'Acolhimento pontual e receptivo. Paciente relata manutenção do quadro de sobrecarga em período de avaliações acadêmicas.'
-  );
-  const [evolucaoMeio, setEvolucaoMeio] = useState(
-    'Aplicação da técnica de reestruturação cognitiva sobre pensamentos automáticos de autoexigência. Paciente externalizou estratégias adaptativas prévias com boa adesão às reflexões.'
-  );
-  const [evolucaoFim, setEvolucaoFim] = useState(
-    'Fechamento com pactuação de registro de pensamentos disfuncionais (RPD) até a próxima sessão. Sem indicadores de risco autolesivo.'
-  );
+  // Nascem VAZIOS de propósito. Antes cada textarea vinha com uma evolução
+  // clínica redigida ("paciente relata manutenção do quadro de sobrecarga…",
+  // "sem indicadores de risco autolesivo") e handleSalvarEnviar gravava
+  // exatamente esse texto: dado clínico falso, escrevido por quem não
+  // acompanhou a sessão, seguindo para a fila de homologação. Quem redige a
+  // síntese é o estagiário, a partir do que aconteceu.
+  const [evolucaoInicio, setEvolucaoInicio] = useState('');
+  const [evolucaoMeio, setEvolucaoMeio] = useState('');
+  const [evolucaoFim, setEvolucaoFim] = useState('');
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [registroGerado, setRegistroGerado] = useState<number | null>(null);
@@ -64,6 +64,16 @@ export function PsyRecordPage() {
   const temAspasFim = quoteRegex.test(evolucaoFim);
   const temViolacaoAspas = temAspasInicio || temAspasMeio || temAspasFim;
 
+  // RNF-003: a síntese é tripartite e os três campos são obrigatórios. O
+  // servidor também recusa texto em branco (validar_texto_clinico) — a tela
+  // avisa antes para o estagiário não tomar 422 depois de escrever tudo.
+  const camposVazios = [
+    !evolucaoInicio.trim() && 'Fase 1 (Início)',
+    !evolucaoMeio.trim() && 'Fase 2 (Meio)',
+    !evolucaoFim.trim() && 'Fase 3 (Fim)',
+  ].filter(Boolean) as string[];
+  const faltaSintese = camposVazios.length > 0;
+
   const removerAspasAutomaticamente = () => {
     setEvolucaoInicio((prev) => prev.replace(/["“”«»]/g, ''));
     setEvolucaoMeio((prev) => prev.replace(/["“”«»]/g, ''));
@@ -71,7 +81,7 @@ export function PsyRecordPage() {
   };
 
   const handleSalvarEnviar = async () => {
-    if (temViolacaoAspas || !pacienteSelecionado || isSaving) return;
+    if (temViolacaoAspas || faltaSintese || !pacienteSelecionado || isSaving) return;
 
     setIsSaving(true);
     setErroMsg('');
@@ -384,10 +394,10 @@ export function PsyRecordPage() {
               </button>
               <button
                 type="button"
-                disabled={temViolacaoAspas || isSaving}
+                disabled={temViolacaoAspas || faltaSintese || !pacienteSelecionado || isSaving}
                 onClick={handleSalvarEnviar}
                 className={`px-6 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-xs ${
-                  temViolacaoAspas || isSaving
+                  temViolacaoAspas || faltaSintese || !pacienteSelecionado || isSaving
                     ? 'bg-slate-400 cursor-not-allowed opacity-60'
                     : 'bg-blue-700 hover:bg-blue-800'
                 }`}
@@ -395,6 +405,15 @@ export function PsyRecordPage() {
                 {isSaving ? 'Enviando…' : 'Submeter para Homologação Docente'}
               </button>
             </div>
+
+            {/* Faltou preencher: dizer qual fase, não só travar o botão. */}
+            {faltaSintese && (
+              <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-900 text-xs rounded-xl">
+                A síntese técnica é obrigatória nas três fases (RNF-003). Ainda falta:{' '}
+                <span className="font-bold">{camposVazios.join(', ')}</span>. O registro
+                precisa descrever a sessão de quem a conductuiu.
+              </div>
+            )}
 
             {/* Falha de escrita não pode ser engolida: o rascunho continua na tela
                 para o estagiário corrigir e tentar de novo. */}

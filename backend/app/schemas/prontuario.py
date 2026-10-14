@@ -20,7 +20,16 @@ class ProntuarioPsicoCreate(BaseModel):
 
     @field_validator("inicio_sessao_texto", "meio_sessao_texto", "fim_sessao_texto")
     @classmethod
-    def validar_vedacao_aspas(cls, v: str) -> str:
+    def validar_texto_clinico(cls, v: str) -> str:
+        # A síntese é tripartite (RNF-003) e os três campos são obrigatórios.
+        # Aceitar string vazia deixava passar ficha em branco para homologação:
+        # a tela preenchia por conta própria, mas qualquer cliente chamando a
+        # rota direto mandava os três vazios e o banco aceitava.
+        if not v.strip():
+            raise ValueError(
+                "Síntese técnica incompleta (RNF-003): os campos Início, Meio e Fim "
+                "são obrigatórios e não podem ficar em branco."
+            )
         if QUOTE_REGEX.search(v):
             raise ValueError(
                 "Violação à Resolução CFP nº 06/2019 (RN-002): O prontuário psicológico não pode conter falas literais ou citações diretas entre aspas."

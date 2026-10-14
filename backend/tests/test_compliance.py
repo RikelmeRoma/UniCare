@@ -105,6 +105,54 @@ def test_rn002_evolucao_psico_sintese_conforme():
 
     PRONTUARIO_SUBMETIDO_ID["id"] = prontuario["id"]
 
+
+def test_rnf003_sintese_clinica_recusa_campo_em_branco():
+    """RNF-003: a síntese tripartite não aceita nenhum dos três campos vazio
+
+    O validador existia só para aspas (RN-002) e aceitava string vazia. A tela
+    preenchia os três campos por conta própria, mas qualquer cliente chamando a
+    rota direto mandava os três em branco e o banco aceitava — ficha clínica
+    vazia entrando na fila de homologação.
+    """
+    headers_estagiario = {"Authorization": f"Bearer {get_auth_token('16032935')}"}
+    headers_supervisor = {"Authorization": f"Bearer {get_auth_token('DOC-8821')}"}
+
+    # Conta a fila dentro do próprio teste: depender do seed tornaria a
+    # asserção sensível à ordem em que os testes anteriores criaram registros.
+    antes = len(client.get("/api/v1/prontuarios/psico", headers=headers_supervisor).json())
+
+    base = {
+        "paciente_id": 1,
+        "paciente_nome": "Paciente Teste Sintese Vazia",
+        "estagiario_nome": "Teste",
+        "estagiario_matricula": "16032935",
+        "data_sessao": "10/10/2026",
+        "numero_sessao": "Sessão 97",
+        "inicio_sessao_texto": "Sessão iniciada no horário pactuado.",
+        "meio_sessao_texto": "Intervenção concluída sem intercorrências.",
+        "fim_sessao_texto": "Encerramento com retorno agendado.",
+    }
+
+    for campo in ("inicio_sessao_texto", "meio_sessao_texto", "fim_sessao_texto"):
+        for vazio in ("", "   ", "\n\t "):
+            res = client.post(
+                "/api/v1/prontuarios/psico",
+                json=dict(base, **{campo: vazio}),
+                headers=headers_estagiario,
+            )
+            assert res.status_code == 422, f"{campo}={vazio!r} deveria ser recusado"
+
+    # Recusa não pode ter gravado nada: a fila não cresceu e o nome fictício não existe.
+    depois = client.get("/api/v1/prontuarios/psico", headers=headers_supervisor).json()
+    assert len(depois) == antes
+    assert not any(e["paciente_nome"] == base["paciente_nome"] for e in depois)
+
+    # E o caminho válido continua aceito — a regra é preenchimento, não recusa geral.
+    assert client.post(
+        "/api/v1/prontuarios/psico", json=base, headers=headers_estagiario
+    ).status_code == 201
+
+
 def test_rn004_menor_de_idade_obrigatoriedade_responsavel():
     """RN-004 & UC-03: Menor de idade exige obrigatoriamente nome e contato do responsável legal"""
     token_recepcao = get_auth_token("REC-001")
