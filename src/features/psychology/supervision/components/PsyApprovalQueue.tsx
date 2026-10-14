@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useClinic } from '../../../clinic/context/ClinicContext';
-import type { EvolucaoPsico } from '../../../clinic/context/ClinicContext';
+import type { EvolucaoPsico, StatusProntuario } from '../../../clinic/context/ClinicContext';
 import {
   DocumentTextIcon,
   ShieldCheckIcon,
@@ -9,6 +9,39 @@ import {
   XMarkIcon,
   ExclamationTriangleIcon,
 } from '../../../../components/icons/CorporateIcons';
+
+// RN-002 / CFP nº 06/2019: o mesmo teste que a ficha do estagiário usa na
+// digitação. A fila exibia "Conformidade Anti-Aspas CFP" em verde sem rodar
+// teste nenhum — era um selo fixo, não uma verificação.
+// Escrita com escapes porque a diferença é a regra inteira: o backend usa
+// /["“”«»]/. Perder “ e ” aqui faria a tela dar selo verde de conformidade
+// numa síntese que o servidor recusa.
+const ASPAS = /["“”«»]/;
+const temAspas = (e: EvolucaoPsico) =>
+  ASPAS.test(e.inicioTexto) || ASPAS.test(e.meioTexto) || ASPAS.test(e.fimTexto);
+
+// O histórico NÃO é só de homologados: `historico` é tudo que saiu da fila de
+// pendentes, e isso inclui DEVOLVIDO_PARA_AJUSTE. Com o rótulo fixo, uma
+// evolução devolvida aparecia ao supervisor como "Homologado (CRP)" — o item
+// mais perigoso da tela, porque é a decisão que o supervisor precisa confiar.
+const ROTULO_STATUS: Record<StatusProntuario, { texto: string; classe: string }> = {
+  VALIDADO: {
+    texto: 'Homologado',
+    classe: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+  },
+  DEVOLVIDO_PARA_AJUSTE: {
+    texto: 'Devolvido para ajuste',
+    classe: 'bg-amber-50 text-amber-900 border-amber-200',
+  },
+  EM_ELABORACAO: {
+    texto: 'Em elaboração',
+    classe: 'bg-slate-100 text-slate-700 border-slate-200',
+  },
+  AGUARDANDO_VALIDACAO: {
+    texto: 'Aguardando',
+    classe: 'bg-slate-100 text-slate-700 border-slate-200',
+  },
+};
 
 export function PsyApprovalQueue() {
   const { evolucoesPsico, homologarEvolucaoPsico } = useClinic();
@@ -134,10 +167,20 @@ const decidir = async (decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE') => {
                       <strong>Estagiário:</strong> {item.estagiarioNome} ({item.estagiarioMatricula})
                     </p>
                     <p className="text-right">
-                      <span className="text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 text-[10px] inline-flex items-center gap-1">
-                        <CheckIcon className="w-3 h-3 text-emerald-600" />
-                        Conformidade Anti-Aspas CFP
-                      </span>
+                      {temAspas(item) ? (
+                        <span
+                          className="text-amber-900 font-semibold bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 text-[10px] inline-flex items-center gap-1"
+                          title="A síntese contém aspas. O servidor recusa por RN-002."
+                        >
+                          <ExclamationTriangleIcon className="w-3 h-3 text-amber-700" />
+                          Aspas na síntese — reprovada no servidor (RN-002)
+                        </span>
+                      ) : (
+                        <span className="text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 text-[10px] inline-flex items-center gap-1">
+                          <CheckIcon className="w-3 h-3 text-emerald-600" />
+                          Conformidade Anti-Aspas CFP
+                        </span>
+                      )}
                     </p>
                   </div>
 
@@ -237,7 +280,10 @@ const decidir = async (decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE') => {
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6">
         <h4 className="font-bold text-slate-900 text-sm mb-4 flex items-center gap-2">
           <ShieldCheckIcon className="w-4 h-4 text-blue-700" />
-          <span>Histórico de Atendimentos Homologados na Semana (Custódia RT)</span>
+          {/* Sem "na Semana": `historico` não filtra por período, e `dataSessao` é texto
+          livre. O título afirmava um recorte que a lista não faz. Também não é
+          só de homologados — traz também as devolvidas. */}
+          <span>Histórico de Decisões de Homologação (Custódia RT)</span>
         </h4>
         <div className="divide-y divide-slate-100 text-xs">
           {historico.map((h) => (
@@ -250,10 +296,16 @@ const decidir = async (decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE') => {
                 <span className="text-slate-500">Estagiário: {h.estagiarioNome}</span>
               </div>
               <div className="flex items-center gap-3">
-                <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-md inline-flex items-center gap-1">
-                  <CheckIcon className="w-3 h-3 text-emerald-600" />
-                  Homologado (CRP)
+                <span className={`border text-[10px] font-bold px-2 py-0.5 rounded-md inline-flex items-center gap-1 ${ROTULO_STATUS[h.status].classe}`}>
+                  {ROTULO_STATUS[h.status].texto}
                 </span>
+                {/* Autoridade real: o nome gravado na homologação (Bloco 7). O
+                    antigo "(CRP)" prometia assinatura digital sem registro. */}
+                {h.supervisorNome && (
+                  <span className="text-[10px] text-slate-500 font-semibold">
+                    por {h.supervisorNome}
+                  </span>
+                )}
                 <button
                   type="button"
                   onClick={() =>

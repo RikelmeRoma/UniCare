@@ -672,11 +672,42 @@ O teste confere os três campos × três formatos de vazio (`""`, `"   "`,
 **Verificado:** `pytest` **41 passed** (era 40); `npm run build` verde; `alembic
 check` limpo (**nenhuma migração**); lint estável em 13 erros preexistentes.
 
-**Ainda pendente na paridade de psicologia** (mesmo bloco, faturas B, C e D):
-badge "Homologado" aplicado a evolução devolvida, badge verde de anti-aspas sem
-teste, 8 contagens literais nos dois painéis de psicologia, `User.ativo` não
-mapeado, nome/CRP/turma literais no cabeçalho docente, e a afirmação falsa de que
-o estagiário é criado com senha padrão. E o F(b), a senha fixa em `AuthContext`.
+**Ainda pendente na paridade de psicologia:** 8 contagens literais nos dois painéis
+de psicologia, `User.ativo` não mapeado, nome/CRP/turma literais no cabeçalho
+docente, e a afirmação falsa de que o estagiário é criado com senha padrão. E o
+F(b), a senha fixa em `AuthContext`.
+
+## ✅ Bloco 8 (Fatia B) — A fila de homologação não carimba decisão errada
+
+**Uma evolução devolvida aparecia como homologada.** O badge era fixo em "Homologado
+(CRP)" e entrava em tudo que não estava na fila de pendentes — e `historico` é
+`status !== 'AGUARDANDO_VALIDACAO'`, que inclui `DEVOLVIDO_PARA_AJUSTE`. Era o item
+mais perigoso da tela, porque é a decisão que o supervisor confia: ele vê "Homologado"
+numa ficha que ele mesmo devolveu, e um registro devolvido vira documento clínico
+validado por leitura de tela.
+
+O rótulo agora vem do `status` de cada item: homologado em verde, devolvido em
+âmbar, em elaboração em cinza. O `(CRP)` saiu — prometia assinatura digital sem
+registro nenhum — e no lugar aparece `por {supervisorNome}`, o nome que o Bloco 7
+grava no ato da homologação.
+
+**O selo de conformidade anti-aspas era decorativo.** O badge verde "Conformidade
+Anti-Aspas CFP" aparecia sem rodar teste nenhum; a verificação existia só na
+digitação, no `PsyRecordPage`. Agora a fila testa os três textos da síntese e, se
+houver aspa, mostra **reprovada no servidor (RN-002)** em vez do selo verde — o
+que evita o supervisor aprovar por conferência visual algo que o `POST` recusa.
+
+O teste do regex precisa bater caractere a caractere com o do backend:
+`/["“”«»]/`. Na primeira escrita as aspas curvas viraram retas e o selo voltaria a
+ser verde justamente na nota que o servidor rejeita. `PsyRecordPage` e
+`PsyApprovalQueue` devem ter o mesmo conjunto — `"`, `“`, `”`, `«`, `»`.
+
+**"na Semana" saiu do título**, porque `historico` não filtra por período e
+`dataSessao` é texto livre. O título também dizia "Atendimentos Homologados" para
+uma lista que não é só de homologados.
+
+**Verificado:** `pytest` 41 passed (sem mudança de backend); `npm run build` verde;
+`alembic check` limpo; lint nos 13 de baseline, nenhum deles neste arquivo.
 
 ## Decisões e armadilhas
 
