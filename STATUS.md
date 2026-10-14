@@ -914,6 +914,52 @@ logout.
 **Verificado:** `pytest` 41 passed; `npm run build` verde; `alembic check`
 limpo; lint nos 11 de baseline. **Nenhuma mudança de backend.**
 
+## ✅ Bloco 11 — As telas de acesso pararam de prometer o que o servidor não faz
+
+Duas telas linkadas do login eram decorativas, e uma delas prometia um mecanismo
+inexistente.
+
+**`/recuperar-senha`** — a página tinha 194 linhas, campo de e-mail ou CPF,
+seletor de perfil e botão, e **nenhum `<form>`, nenhum handler e nenhuma chamada
+de API**. Campo que aceita digitação e não faz nada é pior que campo ausente. O
+rodapé do formulário afirmava **"Emissão de Token Criptográfico"** e que um código
+de 15 minutos "será gerado e enviado ao e-mail institucional registrado sob
+conformidade com a LGPD". Não existe geração de token, não existe envio (a
+aplicação não tem biblioteca de e-mail nem SMTP configurado) e não existe rota de
+recuperação — a única rota pública do backend é `POST /auth/login`.
+
+Alegar conformidade LGPD para um mecanismo que não existe é o tipo de afirmação
+que não pode ficar numa tela que trata dado de saúde. A tela agora diz o que é
+verdade: não há recuperação automática, e o caminho é a coordenação da
+clínica-escola. O rodapé de conformidade do layout continua, porque o
+tratamento de dado sensível existe de fato — só não o mecanismo de recuperação.
+
+**`/cadastro`** — `RegisterForm` fazia
+`alert('Solicitação de credenciamento enviada para validação da Diretoria Técnica!')`.
+Um `alert` do navegador dizendo "enviada", sem envio nenhum: `POST /usuarios`
+exige `autorizado_gestao`, ou seja, só RT e supervisor cadastram alguém, e não há
+rota pública nem fila de solicitações. O formulário continua preenchível — o
+processo real, solicitar credencial à coordenação, é legítimo — mas o botão diz
+"Revisar dados do pedido" e devolve um aviso âmbar dizendo que nada foi enviado.
+
+**Uma decisão que não tomei sozinho:** a orientação inicial era implementar a
+recuperação de verdade. Antes de decidir, verifiquei a infraestrutura e ela não
+existe — sem lib de e-mail, sem SMTP, sem tabela de token. Construir metade disso
+seria criar uma feature que parece real e não entrega token. Então este bloco
+tira a mentira e **não** inventa o fluxo.
+
+Também verifiquei se havia um caminho de reset para onde apontar: o backend
+aceita `senha` no `PATCH /usuarios/{id}` (`usuarios.py:163-164`), mas **nenhum
+modal de edição tem campo de senha**. Dizer "peça ao supervisor para resetar" só
+trocaria uma mentira por outra, então a tela não promete nem isso.
+
+**O que continua pendente, e é decisão de produto:** a troca de senha pelo próprio
+usuário — a rota com senha atual + JWT e a tela correspondente. O backend tem tudo
+(`verify_password` e `get_current_user`), falta o endpoint e a tela.
+
+**Verificado:** `pytest` 41 passed (**sem mudança de backend**); `npm run build`
+verde; `alembic check` limpo; lint nos 11 de baseline. Nenhuma migration.
+
 ## Decisões e armadilhas
 
 Conhecimentos que não são dedutíveis do código e que custaram tempo diagnóstico:

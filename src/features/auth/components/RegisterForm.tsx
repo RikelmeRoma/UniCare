@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { ProfileSelector } from './ProfileSelector';
 import { PersonalInfoFields } from './PersonalInfoFields';
 import { CredentialsFields } from './CredentialsFields';
@@ -10,9 +11,23 @@ import {
 } from '../../../components/icons/CorporateIcons';
 
 export function RegisterForm() {
+  const [aviso, setAviso] = useState('');
+
+  // Antes isto era `alert('Solicitação de credenciamento enviada...')`: nada era
+  // enviado. Não há rota pública de cadastro no backend — `POST /usuarios`
+  // exige `autorizado_gestao`, só RT e supervisor cadastram alguém — e nenhuma
+  // fila de solicitações é criada. Um `alert` dizendo "enviada" afirmava um
+  // envio que não existe.
+  //
+  // O formulário continua preenchível porque o processo real — solicitar
+  // credencial à coordenação da clínica-escola — é legítimo; o que não pode
+  // continuar é a confirmação falsa.
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    alert('Solicitação de credenciamento enviada para validação da Diretoria Técnica!');
+    setAviso(
+      'Nenhuma solicitação foi enviada: o UniCare ainda não tem canal digital de solicitação de credencial. ' +
+        'Leve seus dados à coordenação da sua clínica-escola, que é quem autoriza o acesso.'
+    );
   };
 
   return (
@@ -23,7 +38,8 @@ export function RegisterForm() {
         </span>
         <h1 className="text-2xl font-bold text-slate-900 mt-2 tracking-tight">Cadastro Institucional UniCare</h1>
         <p className="text-xs text-slate-500 mt-1">
-          Preencha os dados abaixo para solicitar acesso ao sistema hospitalar sob conformidade ética e LGPD.
+          O UniCare ainda não recebe solicitações por esta tela: preencha os dados para
+          levar o pedido à coordenação da sua clínica-escola.
         </p>
       </div>
 
@@ -80,13 +96,21 @@ export function RegisterForm() {
           <a href="/login" className="text-xs text-blue-700 font-semibold hover:underline flex items-center gap-1">
             ← Já possuo cadastro institucional
           </a>
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             className="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-white px-8 py-3 rounded-xl text-xs font-bold transition-all shadow-xs"
           >
-            Submeter Solicitação de Cadastro
+            Revisar dados do pedido
           </button>
         </div>
+
+        {/* Falha de escrita não pode ser engolida nem vestida de sucesso: o que
+            aconteceu aqui é que nada foi enviado, e a tela precisa dizer isso. */}
+        {aviso && (
+          <p className="mt-4 p-3.5 bg-amber-50 border border-amber-200 text-amber-900 text-xs rounded-xl">
+            {aviso}
+          </p>
+        )}
       </form>
     </div>
   );
