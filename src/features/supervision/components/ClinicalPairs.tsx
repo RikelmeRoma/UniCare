@@ -66,7 +66,6 @@ export function ClinicalPairs() {
       matricula: cleanMatricula,
       email: email.trim(),
       perfil: 'estagiario',
-      curso: 'odontologia',
       registro_profissional: cadeira.trim() || undefined,
       senha,
     });

@@ -8,6 +8,7 @@ import { LoginPage } from './features/auth/pages/LoginPage';
 import { RegisterPage } from './features/auth/pages/RegisterPage';
 import { ForgotPasswordPage } from './features/auth/pages/ForgotPasswordPage';
 import { UnauthorizedPage } from './features/auth/pages/UnauthorizedPage';
+import { AlterarSenhaPage } from './features/auth/pages/AlterarSenhaPage';
 
 // Odontologia
 import { ReceptionDashboard } from './features/reception/pages/ReceptionDashboard';
@@ -101,6 +102,19 @@ export default function App() {
               element={
                 <ProtectedRoute allowedRoles={['rt', 'supervisor']}>
                   <RTManagementPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Conta do próprio usuário, nas duas clínicas. Sem allowedRoles e
+                sem allowedCourses de propósito: trocar a própria senha é
+                direito de qualquer perfil logado, e o servidor exige a senha
+                atual antes de gravar. */}
+            <Route
+              path="/conta/senha"
+              element={
+                <ProtectedRoute>
+                  <AlterarSenhaPage />
                 </ProtectedRoute>
               }
             />

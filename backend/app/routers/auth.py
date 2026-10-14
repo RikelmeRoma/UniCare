@@ -3,8 +3,8 @@ from sqlmodel import Session, select
 
 from app.database import get_session
 from app.models.usuario import Usuario
-from app.schemas.auth import LoginRequest, Token, UsuarioRead
-from app.services.crypto_service import verify_password
+from app.schemas.auth import LoginRequest, Token, TrocaSenhaRequest, UsuarioRead
+from app.services.crypto_service import verify_password, get_password_hash, SenhaLongaError
 from app.services.auth_service import create_access_token, get_current_user
 from app.services.auditoria_service import registrar_log, ip_do_cliente
 
@@ -67,4 +67,52 @@ def login(
 @router.get("/me", response_model=UsuarioRead)
 def get_me(current_user: Usuario = Depends(get_current_user)):
     return current_user
+
+
+@router.patch("/senha")
+def trocar_senha(
+    dados: TrocaSenhaRequest,
+    http_request: Request,
+    session: Session = Depends(get_session),
+    current_user: Usuario = Depends(get_current_user)
+):
+    """Troca a senha de quem está autenticado, exigindo a senha atual.
+
+    A senha atual não é enfeite: sem ela, qualquer sessão aberta trocaria a
+    senha do dono. `verify_password` não tem caminho alternativo — hash
+    malformado ou senha acima do limite devolvem False, nunca True.
+    """
+    if not verify_password(dados.senha_atual, current_user.senha_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Senha atual incorreta."
+        )
+
+    if dados.nova_senha == dados.senha_atual:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A nova senha precisa ser diferente da senha atual."
+        )
+
+    try:
+        # Nova senha nova: salt novo a cada chamada, nunca reaproveitado.
+        current_user.senha_hash = get_password_hash(dados.nova_senha)
+    except SenhaLongaError as exc:
+        # O `max_length=72` do schema já barra isso, mas um 422 é melhor que o
+        # 500 que a exceção viraria se escapasse daqui.
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc)
+        )
+
+    session.add(current_user)
+    session.commit()
+
+    registrar_log(
+        session, current_user, "SENHA_ALTERADA", "usuarios", current_user.id,
+        endereco_ip=ip_do_cliente(http_request)
+    )
+
+    # Nem a senha nem o hash entram na resposta nem na trilha.
+    return {"message": "Senha alterada com sucesso."}
 

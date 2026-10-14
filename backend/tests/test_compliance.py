@@ -1043,3 +1043,133 @@ def test_rf004_homologacao_carimba_o_supervisor():
     relida = client.get("/api/v1/prontuarios/psico", headers=supervisor).json()
     carimbada = next(e for e in relida if e["id"] == criada.json()["id"])
     assert carimbada["supervisor_nome"] == "Prof. Dr. Robert Santos do Carmo"
+
+# --- Troca de senha pelo próprio usuário (RF-009 / segurança de conta) ---
+
+
+def test_troca_de_senha_exige_a_senha_atual():
+    """Trocar a senha sem a senha atual é recusado"""
+    headers = {"Authorization": f"Bearer {get_auth_token('16024402')}"}
+
+    # Senha atual vazia é campo obrigatório: 422 na validação, como já acontece
+    # com o parecer de homologação. Senha preenchida e errada é 401.
+    vazia = client.patch(
+        "/api/v1/auth/senha",
+        json={"senha_atual": "", "nova_senha": "novasenha123"},
+        headers=headers,
+    )
+    assert vazia.status_code == 422
+
+    for errada in ("senha-errada", "unicare1234"):
+        res = client.patch(
+            "/api/v1/auth/senha",
+            json={"senha_atual": errada, "nova_senha": "novasenha123"},
+            headers=headers,
+        )
+        assert res.status_code == 401, f"senha_atual={errada!r} deveria ser recusada"
+
+    # A senha da conta não foi alterada por nenhuma das tentativas.
+    assert client.post("/api/v1/auth/login", json={
+        "email_ou_matricula": "16024402", "senha": "unicare123"
+    }).status_code == 200
+
+
+def test_troca_de_senha_troca_o_hash_e_invalida_a_antiga():
+    """Senha correta troca o hash: a antiga deixa de funcionar, a nova passa"""
+    estagiario = {"Authorization": f"Bearer {get_auth_token('16032935')}"}
+
+    res = client.patch(
+        "/api/v1/auth/senha",
+        json={"senha_atual": "unicare123", "nova_senha": "senha-trocada-456"},
+        headers=estagiario,
+    )
+    assert res.status_code == 200
+    # Nem a senha nem o hash podem aparecer na resposta.
+    corpo = res.text
+    assert "senha-trocada-456" not in corpo
+    assert "senha_hash" not in corpo
+
+    # A antiga não entra mais...
+    barrada = client.post("/api/v1/auth/login", json={
+        "email_ou_matricula": "16032935", "senha": "unicare123"
+    })
+    assert barrada.status_code == 401
+
+    # ... e a nova entra.
+    liberada = client.post("/api/v1/auth/login", json={
+        "email_ou_matricula": "16032935", "senha": "senha-trocada-456"
+    })
+    assert liberada.status_code == 200
+
+    # Restaura o hash do seed: os testes seguintes dependem desta conta.
+    restaura = client.patch(
+        "/api/v1/auth/senha",
+        json={"senha_atual": "senha-trocada-456", "nova_senha": "unicare123"},
+        headers={"Authorization": f"Bearer {liberada.json()['access_token']}"},
+    )
+    assert restaura.status_code == 200
+
+
+def test_troca_de_senha_recusa_valor_fora_de_faixa():
+    """Nova senha curta ou acima do limite do bcrypt não pode virar 500"""
+    headers = {"Authorization": f"Bearer {get_auth_token('REC-002')}"}
+
+    # Abaixo do mínimo de 6 caracteres.
+    curta = client.patch(
+        "/api/v1/auth/senha",
+        json={"senha_atual": "unicare123", "nova_senha": "12345"},
+        headers=headers,
+    )
+    assert curta.status_code == 422
+
+    # Acima dos 72 bytes do bcrypt. `max_length` do schema barra; o `except`
+    # SenhaLongaError da rota é a segunda rede, não a primeira.
+    longa = client.patch(
+        "/api/v1/auth/senha",
+        json={"senha_atual": "unicare123", "nova_senha": "x" * 73},
+        headers=headers,
+    )
+    assert longa.status_code == 422, "senha acima de 72 bytes deve ser 422, não 500"
+
+    # E a senha antiga continua valendo: recusa não pode ter gravado nada.
+    assert client.post("/api/v1/auth/login", json={
+        "email_ou_matricula": "REC-002", "senha": "unicare123"
+    }).status_code == 200
+
+
+def test_troca_de_senha_registra_a_trilha_de_auditoria():
+    """A troca de senha deixa rastro na trilha, com IP real"""
+    headers = {"Authorization": f"Bearer {get_auth_token('DOC-9122')}"}
+
+    client.patch(
+        "/api/v1/auth/senha",
+        json={"senha_atual": "unicare123", "nova_senha": "auditoria-trocada-1"},
+        headers=headers,
+    )
+
+    rt = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
+    res = client.get("/api/v1/auditoria/", headers=rt)
+    assert res.status_code == 200
+    assert any(
+        log["acao"] == "SENHA_ALTERADA" for log in res.json()
+    ), "a troca de senha precisa aparecer na trilha de auditoria"
+
+    # Restaura a senha desta conta também.
+    login = client.post("/api/v1/auth/login", json={
+        "email_ou_matricula": "DOC-9122", "senha": "auditoria-trocada-1"
+    })
+    assert login.status_code == 200
+    client.patch(
+        "/api/v1/auth/senha",
+        json={"senha_atual": "auditoria-trocada-1", "nova_senha": "unicare123"},
+        headers={"Authorization": f"Bearer {login.json()['access_token']}"},
+    )
+
+
+def test_troca_de_senha_exige_sessao_autenticada():
+    """Rota de troca de senha é autenticada: sem token, nem chega na validação"""
+    res = client.patch(
+        "/api/v1/auth/senha",
+        json={"senha_atual": "unicare123", "nova_senha": "qualquer-coisa-1"},
+    )
+    assert res.status_code == 401

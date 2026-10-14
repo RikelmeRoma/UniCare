@@ -9,6 +9,7 @@ import {
   ArrowRightOnRectangleIcon,
   BuildingOfficeIcon,
   LockClosedIcon,
+  KeyIcon,
 } from '../icons/CorporateIcons';
 
 export function AppSidebar() {
@@ -315,6 +316,15 @@ export function AppSidebar() {
           </div>
 
           <div className="flex items-center gap-1">
+            {/* Troca de senha: vale para todo perfil logado, nas duas
+                clínicas. Sem `allowedRoles` na rota de propósito. */}
+            <NavLink
+              to="/conta/senha"
+              className="p-1.5 text-slate-400 hover:text-blue-700 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer"
+              title="Alterar minha senha"
+            >
+              <KeyIcon className="w-4 h-4" />
+            </NavLink>
             <button
               onClick={handleLogout}
               className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"

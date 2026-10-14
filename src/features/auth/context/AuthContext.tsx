@@ -28,8 +28,9 @@ interface AuthContextType {
   carregarUsuarios: () => Promise<void>;
   isAuthenticated: boolean;
   loginWithCredentials: (emailOuMatricula: string, senha: string) => Promise<{ success: boolean; user?: User; message?: string }>;
+  trocarSenha: (senhaAtual: string, novaSenha: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
-  createUser: (userData: Omit<User, 'id' | 'registro_profissional' | 'ativo'> & { registro_profissional?: string; senha: string }) => Promise<{ success: boolean; message: string }>;
+  createUser: (userData: Omit<User, 'id' | 'registro_profissional' | 'ativo' | 'curso'> & { registro_profissional?: string; senha: string }) => Promise<{ success: boolean; message: string }>;
   updateUser: (key: string, updatedData: Partial<User> & { senha?: string }) => Promise<{ success: boolean; message: string }>;
   deleteUser: (key: string) => Promise<{ success: boolean; message: string }>;
 }
@@ -105,7 +106,7 @@ const carregarUsuarios = useCallback(async () => {
 }, []);
 
 const createUser = async (
-  userData: Omit<User, 'id' | 'registro_profissional' | 'ativo'> & { registro_profissional?: string; senha: string }
+  userData: Omit<User, 'id' | 'registro_profissional' | 'ativo' | 'curso'> & { registro_profissional?: string; senha: string }
 ): Promise<{ success: boolean; message: string }> => {
   try {
     const criado = await api.createUsuario({
@@ -224,6 +225,27 @@ try {
     api.clearToken();
   };
 
+  /**
+   * Troca a senha de quem está logado.
+   *
+   * Espera o servidor responder: sem `await`, a tela anunciaria senha trocada
+   * para uma gravação que o backend podia ter recusado — que é o que acontecia
+   * nos modais de edição de usuário, corrigidos no Bloco 8.
+   */
+  const trocarSenha = async (
+    senhaAtual: string,
+    novaSenha: string
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      const resposta = await api.trocarSenha(senhaAtual, novaSenha);
+      return { success: true, message: resposta.message };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Não foi possível trocar a senha.';
+      console.error('[UniCare] troca de senha falhou:', err);
+      return { success: false, message: msg };
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -231,6 +253,7 @@ try {
         allUsers,
         isAuthenticated: !!user,
         loginWithCredentials,
+        trocarSenha,
         logout,
         createUser,
         updateUser,

@@ -36,7 +36,9 @@ export function RTStatsDashboard() {
   const [formMatricula, setFormMatricula] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formPerfil, setFormPerfil] = useState<RoleType>('supervisor');
-  const [formCurso, setFormCurso] = useState<CourseType>('psicologia');
+  // O curso não tem estado: o servidor define pela clínica da RT, e a tela
+  // mostra isso travado. Antes havia um `formCurso` com default 'psicologia'
+  // que não era usado em lugar nenhum do fluxo.
   const [formRegistro, setFormRegistro] = useState('');
   // O backend exige senha no cadastro: antes a tela prometia "unicare123" sem
   // pedir nada e o banco nunca recebia hash nenhum.
@@ -162,8 +164,8 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
     e.preventDefault();
     setUserErrorMsg('');
 
-    if (!formNome.trim() || !formMatricula.trim()) {
-      setUserErrorMsg('Nome completo e Matrícula são obrigatórios.');
+    if (!formNome.trim() || !formMatricula.trim() || !formEmail.trim()) {
+      setUserErrorMsg('Nome completo, Matrícula e E-mail institucional são obrigatórios.');
       return;
     }
     if (formSenha.length < 6) {
@@ -172,17 +174,21 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
     }
 
     const cleanMatricula = formMatricula.trim();
-    const cleanEmail =
-      formEmail.trim() ||
-      `${formNome.trim().toLowerCase().split(' ')[0]}.${cleanMatricula}@uninassau.edu.br`;
 
-    // O curso não é escolhido: o backend usa o da RT que está cadastrando.
+    // O e-mail deixa de ser fabricado. Campo em branco virava
+    // nome.matricula@uninassau.edu.br e ia para o banco como se a RT tivesse
+    // digitado — e `UsuarioCreate.email` é EmailStr obrigatório, então o
+    // servidor recusaria o vazio de qualquer forma.
+    //
+    // E o curso não é escolhido: o backend usa o da RT que está cadastrando
+    // (`usuarios.py`, `curso=current_user.curso`). A tela mostrava um seletor
+    // que não fazia nada, com "Psicologia" pré-selecionado para a RT de
+    // odontologia. Agora a clínica aparece travada.
     const resultado = await createUser({
       nome: formNome.trim(),
       matricula: cleanMatricula,
-      email: cleanEmail,
+      email: formEmail.trim(),
       perfil: formPerfil,
-      curso: formCurso,
       registro_profissional: formRegistro.trim() || undefined,
       senha: formSenha,
     });
@@ -221,19 +227,16 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
   const handleSaveUserEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     setUserErrorMsg('');
-    if (!editingUserKey || !editNome.trim() || !editMatricula.trim()) {
-      setUserErrorMsg('Nome completo e Matrícula são obrigatórios.');
+    if (!editingUserKey || !editNome.trim() || !editMatricula.trim() || !editEmail.trim()) {
+      setUserErrorMsg('Nome completo, Matrícula e E-mail institucional são obrigatórios.');
       return;
     }
 
     const resultado = await updateUser(editingUserKey, {
       nome: editNome.trim(),
       matricula: editMatricula.trim(),
-      email:
-        editEmail.trim() ||
-        `${editNome.trim().toLowerCase().split(' ')[0]}.${editMatricula.trim()}@uninassau.edu.br`,
+      email: editEmail.trim(),
       perfil: editPerfil,
-      curso: editCurso,
       registro_profissional: editRegistro.trim() || undefined,
     });
 
@@ -1040,21 +1043,19 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Curso / Área de Atuação *
-                  </label>
-                  <select
-                    value={formCurso}
-                    disabled={formPerfil === 'recepcao'}
-                    onChange={(e) => setFormCurso(e.target.value as CourseType)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-[#002B49] disabled:opacity-50"
-                  >
-                    <option value="psicologia">Psicologia (SPA)</option>
-                    <option value="odontologia">Odontologia Integrada</option>
-                  </select>
-                </div>
+<div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Clínica de Atuação
+              </label>
+              {/* Antes era um <select> com "Psicologia" e "Odontologia" que não
+                  fazia nada: o `curso` era descartado no cliente e o servidor
+                  usa o da RT. A RT de odontologia via "Psicologia" marcado. */}
+              <div className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-700 font-semibold flex items-center justify-between">
+                <span>{user?.curso === 'psicologia' ? 'Psicologia (SPA)' : 'Odontologia Integrada'}</span>
+                <span className="text-[10px] font-mono text-slate-500">travada pela sua RT</span>
               </div>
+            </div>
+          </div>
 
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
@@ -1093,9 +1094,9 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                     value={formRegistro}
                     onChange={(e) => setFormRegistro(e.target.value)}
                     placeholder={
-                      formPerfil === 'supervisor' && formCurso === 'psicologia'
+                      formPerfil === 'supervisor' && user?.curso === 'psicologia'
                         ? 'Ex: CRP 19/1234'
-                        : formPerfil === 'supervisor' && formCurso === 'odontologia'
+                        : formPerfil === 'supervisor' && user?.curso === 'odontologia'
                         ? 'Ex: CRO-SE 5678'
                         : 'Ex: 9º Período / Cadeira 02'
                     }
@@ -1106,15 +1107,16 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
 
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  E-mail Institucional (Opcional)
+                  E-mail Institucional *
                 </label>
-                <input
+<input
                   type="email"
                   value={formEmail}
                   onChange={(e) => setFormEmail(e.target.value)}
-placeholder="Ex: claudia.martins@uninassau.edu.br"
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-[#002B49] font-mono text-[11px]"
-              />
+                  placeholder="Ex: claudia.martins@uninassau.edu.br"
+                  required
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-[#002B49] font-mono text-[11px]"
+                />
             </div>
 
             <div>
@@ -1213,17 +1215,16 @@ placeholder="Ex: claudia.martins@uninassau.edu.br"
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Curso / Área de Atuação *
+                    Clínica de Atuação
                   </label>
-                  <select
-                    value={editCurso}
-                    disabled={editPerfil === 'recepcao'}
-                    onChange={(e) => setEditCurso(e.target.value as CourseType)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-[#002B49] disabled:opacity-50"
-                  >
-                    <option value="psicologia">Psicologia (SPA)</option>
-                    <option value="odontologia">Odontologia Integrada</option>
-                  </select>
+                  {/* Mesmo no editor: `UsuarioUpdate` não tem `curso` e o
+                      `api.updateUsuario` nem envia. O seletor era inerte. */}
+                  <div className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-700 font-semibold flex items-center justify-between">
+                    <span>
+                      {editCurso === 'psicologia' ? 'Psicologia (SPA)' : 'Odontologia Integrada'}
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-500">não é editável</span>
+                  </div>
                 </div>
               </div>
 

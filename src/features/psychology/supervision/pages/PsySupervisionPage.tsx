@@ -68,7 +68,6 @@ export function PsySupervisionPage() {
       matricula: cleanMatricula,
       email: email.trim(),
       perfil: 'estagiario',
-      curso: 'psicologia',
       // Anotação livre do supervisor. Só entra o que ele preencheu: campo vazio
       // não vira "Turma Terça Tarde (SPA)" na base.
       registro_profissional: [periodo.trim(), turma.trim()].filter(Boolean).join(' • ') || undefined,

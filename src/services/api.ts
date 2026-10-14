@@ -178,6 +178,20 @@ class ApiService {
     return res;
   }
 
+  /**
+   * Troca a senha de quem está autenticado.
+   *
+   * A senha atual vai junto porque o servidor exige: sem ela, qualquer sessão
+   * aberta trocaria a senha do dono. O token continua válido depois da troca —
+   * não há blacklist no projeto, então revogar exigiria outra tabela.
+   */
+  async trocarSenha(senhaAtual: string, novaSenha: string) {
+    return this.request<{ message: string }>('/auth/senha', {
+      method: 'PATCH',
+      body: JSON.stringify({ senha_atual: senhaAtual, nova_senha: novaSenha }),
+    });
+  }
+
   async getMe() {
     return this.request<{
       id: number;

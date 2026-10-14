@@ -960,6 +960,67 @@ usuário — a rota com senha atual + JWT e a tela correspondente. O backend tem
 **Verificado:** `pytest` 41 passed (**sem mudança de backend**); `npm run build`
 verde; `alembic check` limpo; lint nos 11 de baseline. Nenhuma migration.
 
+## ✅ Bloco 12 — Troca de senha pelo próprio usuário + o painel da RT em paz
+
+### A feature que faltava
+
+Não existia troca de senha em nenhuma das duas formas. Agora existe a que o
+usuário pediu: **cada pessoa troca a própria senha**, com a senha atual.
+
+`PATCH /auth/senha`, autenticado, exige `senha_atual` — não é enfeite de tela:
+sem ela, qualquer sessão aberta trocaria a senha de quem estivesse logado.
+`verify_password` não tem caminho alternativo, então hash malformado devolve
+`False`, nunca `True`. A nova senha passa por `get_password_hash` (salt novo a
+cada troca) e o `SenhaLongaError` é convertido em 422 — o `max_length=72` do
+schema já barra, e o `except` é a segunda rede, não a primeira. A troca entra na
+trilha como `SENHA_ALTERADA`, com IP real, e nem a senha nem o hash aparecem na
+resposta nem no log.
+
+A tela (`/conta/senha`, link no rodapé do `AppSidebar` ao lado do botão de sair)
+avisa que **a sessão continua ativa**: o token emitido no login segue válido e
+revogá-lo exigiria uma tabela de invalidação que o projeto não tem. A caixa
+explica que a senha é guardada só como hash bcrypt e que ninguém, nem a
+coordenação, consegue consultá-la.
+
+Cinco testes (41 → 46): senha atual vazia dá 422, senha errada dá 401 e o hash
+permanece; a troca correta invalida a antiga e libera a nova; fora de faixa dá
+422 e nunca 500; a trilha grava `SENHA_ALTERADA`; e a rota exige sessão.
+
+Um teste meu estava errado e o backend estava certo: eu esperava 401 para senha
+atual **vazia**, mas campo obrigatório é 422 na validação — 401 é para senha
+*errada*. O teste passou a documentar os dois casos, como o parecer de
+homologação já fazia.
+
+### O painel da RT tinha os defeitos que o Bloco 8 deixou passar
+
+O Bloco 8 corrigiu o e-mail fabricado e o badge de status em `PsySupervisionPage`
+e `ClinicalPairs`, e **não conferiu `RTStatsDashboard`**, que é a terceira tela de
+gestão de usuário. Ela tinha:
+
+- **e-mail `@uninassau.edu.br` fabricado** no cadastro e na edição;
+- **seletor de curso inerte** com default `psicologia` — o `curso` era descartado
+  no cliente e o servidor usa o da RT, então a RT de odontologia via "Psicologia"
+  pré-selecionado com asterisco de obrigatório;
+- **"E-mail Institucional (Opcional)"** sendo que `UsuarioCreate.email` é
+  `EmailStr` obrigatório: campo vazio dava 422 com a tela dizendo o contrário.
+
+O seletor saiu e no lugar aparece a clínica travada, com o texto de que a RT só
+cadastra na própria clínica. O placeholder do registro profissional passou a
+derivar de `user.curso`, o que preserva o CRP/CRO correto que o formulário já
+acertava. O e-mail virou obrigatório e não é mais fabricado.
+
+**O tipo do `createUser` também estava errado**, e corrigi-lo expôs o problema
+nas três telas: `curso` fazia parte do payload aceito pelo TypeScript, sendo que
+o servidor nunca o lê. Agora `curso` sai do `Omit<>` — o compilador passou a
+rejeitar as três chamadas, e as linhas mortas foram removidas. A regra ficou
+escrita no tipo, não só no servidor.
+
+**Verificado:** `pytest` 46 passed; `npm run build` verde; `alembic check` limpo
+(**nenhuma migration** — `senha_hash` já existia); lint nos 11 de baseline. O
+ciclo completo foi conferido ao vivo e a senha do seed foi **restaurada**:
+trocar, relogar com a nova, confirmar que a antiga falha, e voltar para
+`unicare123`.
+
 ## Decisões e armadilhas
 
 Conhecimentos que não são dedutíveis do código e que custaram tempo diagnóstico:
