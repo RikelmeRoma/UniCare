@@ -709,6 +709,41 @@ uma lista que não é só de homologados.
 **Verificado:** `pytest` 41 passed (sem mudança de backend); `npm run build` verde;
 `alembic check` limpo; lint nos 13 de baseline, nenhum deles neste arquivo.
 
+## ✅ Bloco 8 (Fatia C) — Os painéis de psicologia param de exibir número inventado
+
+Oito contagens literais saíram: `28`, `04`, `07`, `02` na recepção e `06`, `24`,
+`02`, `10` na supervisão. Nenhuma delas vinha de consulta nenhuma.
+
+**Recepção** (`PsyReceptionStats`): agora derivam de `agendamentos` filtrado por
+`curso === 'psicologia'`, por `status`. O pior era o rodapé do terceiro cartão,
+**"7 de 10 consultórios em uso"** — não existe cadastro de consultórios no
+schema, então o 10 não tinha onde vir. Virou quantas salas distintas estão em
+atendimento agora, que é o que dá para saber.
+
+**Supervisão** (`PsySupervisionStats`): três cartões saem do `status` das
+evoluções; o quarto conta os estagiários da clínica a partir de `allUsers`, o
+mesmo filtro que `PsySupervisionPage` já usava.
+
+**Os rótulos perderam "Hoje", "do Dia" e "na Semana".** `Agendamento` não tem
+campo de data — só `horario` e `turno` — e `submetidoEm` guarda data sem hora,
+então recorte temporal é incalculável. Dizer "hoje" com o schema atual é afirmar
+algo que a tela não pode saber. Volta a ser possível quando houver data de
+agendamento, que é migration própria.
+
+Os dois painéis adotam o mesmo `—` com "sem dado da API" que a recepção de
+odontologia já usava.
+
+**Um limite que ficou explícito:** o cartão de estagiários mostra `—` quando
+`allUsers` está vazia, em vez de `0`. `carregarUsuarios` engole a falha e deixa a
+lista vazia no 403, e um supervisor **não aparece na própria lista** — a rota
+devolve só `perfil == ESTAGIARIO` — então "vazia" pode ser clínica sem estagiário
+ou chamada que não voltou. Sem estado de erro no `AuthContext`, afirmar `0` seria
+afirmar que não se sabe. Resolver exige expor o estado da chamada lá.
+
+**Verificado:** `pytest` 41 passed (sem mudança de backend); `npm run build`
+verde; `alembic check` limpo; lint nos 13 de baseline, nenhum deles nestes dois
+arquivos.
+
 ## Decisões e armadilhas
 
 Conhecimentos que não são dedutíveis do código e que custaram tempo diagnóstico:
