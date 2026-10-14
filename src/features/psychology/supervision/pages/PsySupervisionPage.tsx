@@ -23,7 +23,10 @@ export function PsySupervisionPage() {
   // Senha obrigatoria: o backend grava com bcrypt e nao aceita usuario sem ela.
   const [senha, setSenha] = useState('');
   const [periodo, setPeriodo] = useState('9º Período');
-  const [turma, setTurma] = useState('Turma Terça Tarde (SPA)');
+  // Antes vinha preenchida com 'Turma Terça Tarde (SPA)' e era gravada em
+  // registro_profissional: um nome de turma que ninguém escolheu, e que ainda
+  // aparecia no cabeçalho como se fosse a turma real da clínica.
+  const [turma, setTurma] = useState('');
   const [feedbackSuccess, setFeedbackSuccess] = useState('');
   const [validationError, setValidationError] = useState('');
 
@@ -45,8 +48,8 @@ export function PsySupervisionPage() {
     e.preventDefault();
     setValidationError('');
 
-    if (!nome.trim() || !matricula.trim()) {
-      setValidationError('Nome completo e Matrícula são obrigatórios.');
+    if (!nome.trim() || !matricula.trim() || !email.trim()) {
+      setValidationError('Nome completo, Matrícula e E-mail institucional são obrigatórios.');
       return;
     }
     if (senha.length < 6) {
@@ -55,17 +58,20 @@ export function PsySupervisionPage() {
     }
 
     const cleanMatricula = matricula.trim();
-    const cleanEmail =
-      email.trim() ||
-      `${nome.trim().toLowerCase().split(' ')[0]}.${cleanMatricula}@uninassau.edu.br`;
 
+    // O e-mail deixa de ser fabricado: antes, campo em branco virava
+    // nome.matricula@uninassau.edu.br e ia para o banco como se o supervisor
+    // tivesse digitado. Endereço que ninguém preencheu e que ninguém consegue
+    // distinguir de real é dado falso persistido.
     const resultado = await createUser({
       nome: nome.trim(),
       matricula: cleanMatricula,
-      email: cleanEmail,
+      email: email.trim(),
       perfil: 'estagiario',
       curso: 'psicologia',
-      registro_profissional: `${periodo} • ${turma}`,
+      // Anotação livre do supervisor. Só entra o que ele preencheu: campo vazio
+      // não vira "Turma Terça Tarde (SPA)" na base.
+      registro_profissional: [periodo.trim(), turma.trim()].filter(Boolean).join(' • ') || undefined,
       senha,
     });
 
@@ -91,37 +97,55 @@ export function PsySupervisionPage() {
     setEditNome(intern.nome);
     setEditMatricula(intern.matricula);
     setEditEmail(intern.email);
-    setEditRegistro(intern.registro_profissional || '9º Período • Turma Terça Tarde (SPA)');
+    setEditRegistro(intern.registro_profissional || '');
     setValidationError('');
     setShowEditModal(true);
   };
 
-  const handleSaveEdit = (e: React.FormEvent) => {
+  const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingKey || !editNome.trim() || !editMatricula.trim()) {
-      setValidationError('Nome completo e Matrícula são obrigatórios.');
+    setValidationError('');
+    if (!editingKey || !editNome.trim() || !editMatricula.trim() || !editEmail.trim()) {
+      setValidationError('Nome completo, Matrícula e E-mail institucional são obrigatórios.');
       return;
     }
 
-    updateUser(editingKey, {
+    // Antes disparava o update e anunciava sucesso na sequência, sem esperar:
+    // a tela dizia "atualizado com sucesso" para uma gravação que o servidor
+    // podia ter recusado.
+    const resultado = await updateUser(editingKey, {
       nome: editNome.trim(),
       matricula: editMatricula.trim(),
-      email:
-        editEmail.trim() ||
-        `${editNome.trim().toLowerCase().split(' ')[0]}.${editMatricula.trim()}@uninassau.edu.br`,
+      email: editEmail.trim(),
       registro_profissional: editRegistro.trim() || undefined,
     });
 
-    setFeedbackSuccess(`Estagiário ${editNome.trim()} atualizado com sucesso!`);
+    if (!resultado.success) {
+      setValidationError(resultado.message);
+      return;
+    }
+
+    setFeedbackSuccess(resultado.message);
     setShowEditModal(false);
     setEditingKey(null);
     setTimeout(() => setFeedbackSuccess(''), 5000);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!internToDelete) return;
-    deleteUser(internToDelete.key);
-    setFeedbackSuccess(`Estagiário ${internToDelete.nome} excluído com sucesso.`);
+    setValidationError('');
+
+    // Não é exclusão: DELETE /usuarios/{id} marca ativo = false e preserva a
+    // linha para a trilha de auditoria. A mensagem vem do contexto, que já
+    // dizia a coisa certa — a tela sobrescrevia com "excluído".
+    const resultado = await deleteUser(internToDelete.key);
+
+    if (!resultado.success) {
+      setValidationError(resultado.message);
+      return;
+    }
+
+    setFeedbackSuccess(resultado.message);
     setInternToDelete(null);
     setTimeout(() => setFeedbackSuccess(''), 5000);
   };
@@ -162,10 +186,12 @@ export function PsySupervisionPage() {
             <div>
               <h4 className="font-bold text-slate-900 text-xs flex items-center gap-2 uppercase tracking-wider">
                 <UserGroupIcon className="w-4 h-4 text-blue-700" />
-                <span>Estagiários sob Orientação Docente ({turma} • RF-004)</span>
+                <span>Estagiários sob Orientação Docente (Clínica de Psicologia • RF-004)</span>
               </h4>
               <p className="text-xs text-slate-500 mt-0.5">
-                Segregação por orientação: o supervisor visualiza e valida exclusivamente prontuários dos acadêmicos vinculados à sua turma.
+                Segregação por clínica: o supervisor gerencia exclusivamente os
+                estagiários de psicologia. O vínculo por turma não existe no schema — é
+                o que o relatório descreve e está por implementar.
               </p>
             </div>
 
@@ -192,30 +218,31 @@ export function PsySupervisionPage() {
               <div
                 key={key}
                 className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
-                  intern.custom
-                    ? 'border-blue-300 bg-blue-50/40 shadow-2xs'
-                    : 'border-slate-200/80 bg-slate-50/50 hover:bg-slate-50'
+                  intern.ativo
+                    ? 'border-slate-200/80 bg-slate-50/50 hover:bg-slate-50'
+                    : 'border-slate-200/80 bg-white opacity-70'
                 }`}
               >
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <p className="font-bold text-slate-900 truncate">{intern.nome}</p>
-                    {intern.custom && (
-                      <span className="text-[8px] bg-blue-100 text-blue-800 font-bold px-1.5 py-0.5 rounded">
-                        Novo
-                      </span>
-                    )}
                   </div>
                   <p className="text-slate-500 text-[11px] font-mono">
                     Matrícula: {intern.matricula}
                   </p>
                   <p className="text-[10px] text-slate-400 mt-0.5 truncate">
-                    {intern.registro_profissional || '9º Período • Turma Terça'}
+                    {intern.registro_profissional || '—'}
                   </p>
                 </div>
                 <div className="mt-3 pt-2.5 border-t border-slate-200/60 flex items-center justify-between">
-                  <div className="text-[10px] text-blue-700 font-bold bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200 inline-block font-mono">
-                    Habilitado
+                  <div
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md border font-mono inline-block ${
+                      intern.ativo
+                        ? 'text-blue-700 bg-blue-50 border-blue-200'
+                        : 'text-slate-500 bg-slate-100 border-slate-300'
+                    }`}
+                  >
+                    {intern.ativo ? 'Habilitado' : 'Desativado'}
                   </div>
                   <div className="flex items-center gap-1">
                     <button
@@ -361,7 +388,9 @@ export function PsySupervisionPage() {
                   <span>Autenticação & Segurança (RBAC)</span>
                 </div>
                 <p className="text-[10px] text-slate-600">
-                  O estagiário será criado com a senha padrão <code className="font-mono font-bold bg-white px-1 py-0.5 rounded border border-blue-200">unicare123</code>. Ele aparecerá no card rápido de Psicologia, mas precisará digitar a senha para acessar.
+                  A senha é a que você definir agora: o servidor grava com bcrypt e ela
+                  não fica visível depois. Passe ao estagiário — ele entra com a matrícula e
+                  essa senha.
                 </p>
               </div>
 
@@ -520,7 +549,7 @@ export function PsySupervisionPage() {
               </button>
               <button
                 type="button"
-                onClick={handleConfirmDelete}
+                onClick={() => void handleConfirmDelete()}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
               >
                 <TrashIcon className="w-4 h-4" />

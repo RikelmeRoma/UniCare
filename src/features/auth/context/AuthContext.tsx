@@ -13,6 +13,13 @@ export interface User {
   curso: CourseType;
   matricula: string;
   registro_profissional?: string;
+  /**
+   * `ativo` já vinha no wire (`ApiUsuario.ativo`) e era descartado aqui, então
+   * desativar alguém não mudava nada na tela: o card seguia exibindo
+   * "Habilitado". Agora que o campo existe no estado, os dois cards de
+   * estagiário podem mostrar o estado real.
+   */
+  ativo: boolean;
   custom?: boolean;
 }
 
@@ -28,7 +35,7 @@ interface AuthContextType {
   loginWithCredentials: (emailOuMatricula: string, senha: string) => Promise<{ success: boolean; user?: User; message?: string }>;
   logout: () => void;
   switchUser: (key: string) => Promise<void>;
-  createUser: (userData: Omit<User, 'id' | 'registro_profissional'> & { registro_profissional?: string; senha: string }) => Promise<{ success: boolean; message: string }>;
+  createUser: (userData: Omit<User, 'id' | 'registro_profissional' | 'ativo'> & { registro_profissional?: string; senha: string }) => Promise<{ success: boolean; message: string }>;
   updateUser: (key: string, updatedData: Partial<User> & { senha?: string }) => Promise<{ success: boolean; message: string }>;
   deleteUser: (key: string) => Promise<{ success: boolean; message: string }>;
 }
@@ -95,9 +102,10 @@ const mapearUsuario = (u: ApiUsuario): User => ({
   email: u.email,
   perfil: u.perfil as RoleType,
   curso: u.curso as CourseType,
-  matricula: u.matricula,
-  registro_profissional: u.registro_profissional,
-});
+matricula: u.matricula,
+      registro_profissional: u.registro_profissional,
+      ativo: u.ativo,
+    });
 
 const carregarUsuarios = useCallback(async () => {
   try {
@@ -118,7 +126,7 @@ const carregarUsuarios = useCallback(async () => {
 }, []);
 
 const createUser = async (
-  userData: Omit<User, 'id' | 'registro_profissional'> & { registro_profissional?: string; senha: string }
+  userData: Omit<User, 'id' | 'registro_profissional' | 'ativo'> & { registro_profissional?: string; senha: string }
 ): Promise<{ success: boolean; message: string }> => {
   try {
     const criado = await api.createUsuario({
@@ -202,6 +210,7 @@ try {
         curso: eu.curso as CourseType,
         matricula: eu.matricula,
         registro_profissional: eu.registro_profissional,
+        ativo: eu.ativo,
       };
       setUser(newUser);
 

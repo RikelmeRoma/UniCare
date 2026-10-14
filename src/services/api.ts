@@ -187,6 +187,7 @@ class ApiService {
       curso: string;
       matricula: string;
       registro_profissional?: string;
+      ativo: boolean;
     }>('/auth/me');
   }
 

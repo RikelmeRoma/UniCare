@@ -744,6 +744,63 @@ afirmar que não se sabe. Resolver exige expor o estado da chamada lá.
 verde; `alembic check` limpo; lint nos 13 de baseline, nenhum deles nestes dois
 arquivos.
 
+## ✅ Bloco 8 (Fatia D) — A gestão de estagiários para de mentir nas duas clínicas
+
+Os defeitos da Fatia D eram **cópia um do outro** em `PsySupervisionPage` e
+`ClinicalPairs`. Corrigir só a psicologia deixaria a mesma mentira na odontologia,
+então foram as duas — mesma regra nas duas clínicas, como vale para o parecer de
+homologação.
+
+**"Habilitado" aparecia para quem tinha sido desativado.** `ativo` já vinha no
+wire e era **descartado** em `mapearUsuario`; o tipo `User` nem declarava o
+campo. Desativar alguém não mudava a tela — o badge era texto puro. Agora `ativo`
+entra no estado e os dois cards mostram Habilitado/Desativado.
+
+**O e-mail era fabricado e gravado.** Campo em branco virava
+`nome.matricula@uninassau.edu.br` e ia para o banco passando pela validação, porque
+endereço sintaticamente válido é indistinguível de um real. Virou campo obrigatório
+nas duas telas, de cadastro e de edição.
+
+**O texto da senha padrão era falso e divulgava o seed.** As duas telas diziam que
+o estagiário "será criado com a senha padrão `unicare123`", num modal que exige a
+senha digitada (`:52` valida 6 caracteres). O texto descreve comportamento removido
+do código — e expõe a senha do seed para qualquer supervisor que abra o modal.
+
+**A tela afirmava uma segregação que não existe.** O cabeçalho dizia "Estagiários
+sob Orientação Docente (Turma Terça Tarde (SPA))" e a linha seguinte afirmava que o
+supervisor valida "exclusivamente" prontuários dos acadêmicos **vinculados à sua
+turma**. Não existe vínculo estagiário↔turma↔supervisor no schema: a segregação
+real é por **curso**, em `GET /usuarios/`. A frase "exclusivamente" descrevia um
+controle de acesso inexistente, e a `{turma}` era um `useState` cujo default era
+uma string que ninguém escolheu — que ainda ia para `registro_profissional`.
+
+**"Excluir" era desativar, mas a tela dizia excluir.** `DELETE /usuarios/{id}`
+marca `ativo = false` e preserva a linha para auditoria; o `deleteUser` devolvia a
+mensagem certa e a tela sobrescrevia com "excluído com sucesso". Agora usa a
+mensagem do contexto, e título, botão e ícone de lixeira passaram a "Desativar
+acesso" — a lixeira era o último ponto do fluxo que ainda prometia exclusão.
+
+**Dois bugs de escrita engolida, encontrados no caminho.** `handleSaveEdit` e
+`handleConfirmDelete` disparavam `updateUser`/`deleteUser` e anunciavam sucesso na
+sequência, **sem `await`**: a tela confirmava alteração que o servidor podia ter
+recusado. É a armadilha de `AGENTS.md` ("falha de escrita não pode ser engolida").
+Agora esperam o retorno e exibem a falha.
+
+**Limpeza:** o badge "Novo" (condicional a `intern.custom`, que `mapearUsuario`
+nunca define) saiu dos dois arquivos, junto com o termo morto
+`odontoInterns.filter(([_, u]) => u.custom).length` que, somado em `ClinicalPairs`,
+fazia o rótulo "Ativas" prometer uma contagem que nunca incluía ninguém. Os
+defaults `turma = 'Turma Terça Tarde (SPA)'` e `cadeira = 'Cadeira 05 • Dupla 09'`
+sairam, junto com os fallbacks inventados — que ainda divergiam entre si. E
+`PsyTeacherHeader` passou a usar `user.nome`/`user.registro_profissional`; no seed os
+literais por acaso conferem com `DOC-8821`, com qualquer outro supervisor a tela
+anunciava o nome errado.
+
+**Verificado:** `pytest` 41 passed (**sem mudança de backend** — `ativo` já era
+devolvido, confirmado em chamada real); `npm run build` verde; `alembic check`
+limpo; **lint caiu de 13 para 12**, porque o filtro `.custom` morto levava um
+`'_' is defined but never used` junto.
+
 ## Decisões e armadilhas
 
 Conhecimentos que não são dedutíveis do código e que custaram tempo diagnóstico:
@@ -804,5 +861,5 @@ GET /demandas    → OK (RF-009, Bloco 1)
 imagem api       → 418 MB (era 1.06 GB; sem .env e sem .venv)
 container api    → healthy; token cruza com o dev local nos dois sentidos
 npm run build    → VERDE
-npm run lint     → 13 erros preexistentes (era 14; nenhum novo)
+npm run lint     → 12 erros preexistentes (o 13º caiu no Bloco 8/Fatia D; nenhum novo)
 ```

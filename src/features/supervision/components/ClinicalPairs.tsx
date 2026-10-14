@@ -20,7 +20,9 @@ export function ClinicalPairs() {
   const [nome, setNome] = useState('');
   const [matricula, setMatricula] = useState('');
   const [email, setEmail] = useState('');
-  const [cadeira, setCadeira] = useState('Cadeira 05 • Dupla 09');
+  // Antes vinha preenchida com 'Cadeira 05 • Dupla 09' e ia para a base como
+  // se o supervisor tivesse escolhido aquela cadeira.
+  const [cadeira, setCadeira] = useState('');
   // Senha é obrigatória no cadastro: o backend grava com bcrypt e não aceita
   // usuário sem senha.
   const [senha, setSenha] = useState('');
@@ -46,8 +48,8 @@ export function ClinicalPairs() {
     e.preventDefault();
     setValidationError('');
 
-    if (!nome.trim() || !matricula.trim()) {
-      setValidationError('Nome completo e Matrícula são obrigatórios.');
+    if (!nome.trim() || !matricula.trim() || !email.trim()) {
+      setValidationError('Nome completo, Matrícula e E-mail institucional são obrigatórios.');
       return;
     }
     if (senha.length < 6) {
@@ -56,17 +58,16 @@ export function ClinicalPairs() {
     }
 
     const cleanMatricula = matricula.trim();
-    const cleanEmail =
-      email.trim() ||
-      `${nome.trim().toLowerCase().split(' ')[0]}.${cleanMatricula}@uninassau.edu.br`;
 
+    // Sem fabricação de e-mail: campo em branco não vira
+    // nome.matricula@uninassau.edu.br na base. Mesma regra da psicologia.
     const resultado = await createUser({
       nome: nome.trim(),
       matricula: cleanMatricula,
-      email: cleanEmail,
+      email: email.trim(),
       perfil: 'estagiario',
       curso: 'odontologia',
-      registro_profissional: `${cadeira} • Clínica Integrada`,
+      registro_profissional: cadeira.trim() || undefined,
       senha,
     });
 
@@ -91,37 +92,53 @@ export function ClinicalPairs() {
     setEditNome(intern.nome);
     setEditMatricula(intern.matricula);
     setEditEmail(intern.email);
-    setEditRegistro(intern.registro_profissional || 'Cadeira 05 • Dupla 09');
+    setEditRegistro(intern.registro_profissional || '');
     setValidationError('');
     setShowEditModal(true);
   };
 
-  const handleSaveEdit = (e: React.FormEvent) => {
+  const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingKey || !editNome.trim() || !editMatricula.trim()) {
-      setValidationError('Nome completo e Matrícula são obrigatórios.');
+    setValidationError('');
+    if (!editingKey || !editNome.trim() || !editMatricula.trim() || !editEmail.trim()) {
+      setValidationError('Nome completo, Matrícula e E-mail institucional são obrigatórios.');
       return;
     }
 
-    updateUser(editingKey, {
+    // Esperava o retorno antes de anunciar sucesso: a tela confirmava
+    // atualização que o servidor podia ter recusado.
+    const resultado = await updateUser(editingKey, {
       nome: editNome.trim(),
       matricula: editMatricula.trim(),
-      email:
-        editEmail.trim() ||
-        `${editNome.trim().toLowerCase().split(' ')[0]}.${editMatricula.trim()}@uninassau.edu.br`,
+      email: editEmail.trim(),
       registro_profissional: editRegistro.trim() || undefined,
     });
 
-    setFeedbackSuccess(`Estagiário(a) ${editNome.trim()} atualizado(a) com sucesso!`);
+    if (!resultado.success) {
+      setValidationError(resultado.message);
+      return;
+    }
+
+    setFeedbackSuccess(resultado.message);
     setShowEditModal(false);
     setEditingKey(null);
     setTimeout(() => setFeedbackSuccess(''), 5000);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!internToDelete) return;
-    deleteUser(internToDelete.key);
-    setFeedbackSuccess(`Estagiário(a) ${internToDelete.nome} excluído(a) com sucesso.`);
+    setValidationError('');
+
+    // DELETE /usuarios/{id} desativa e preserva a linha para auditoria; não
+    // exclui. A mensagem vem do contexto em vez de "excluído(a) com sucesso".
+    const resultado = await deleteUser(internToDelete.key);
+
+    if (!resultado.success) {
+      setValidationError(resultado.message);
+      return;
+    }
+
+    setFeedbackSuccess(resultado.message);
     setInternToDelete(null);
     setTimeout(() => setFeedbackSuccess(''), 5000);
   };
@@ -181,7 +198,7 @@ const filteredPairs = pairs.filter(
         <div>
           <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
             <UserGroupIcon className="w-5 h-5 text-emerald-800" />
-            <span>Duplas Clínicas sob Orientação Docente ({pairs.length + odontoInterns.filter(([_, u]) => u.custom).length} Ativas)</span>
+            <span>Duplas Clínicas sob Orientação Docente ({pairs.length} com ficha registrada)</span>
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
             Acompanhamento de carga horária prática, procedimentos odontológicos homologados e biossegurança.
@@ -242,26 +259,34 @@ const filteredPairs = pairs.filter(
                 <div>
                   <div className="flex justify-between items-start">
                     <p className="font-bold text-slate-900 truncate">{intern.nome}</p>
-                    {intern.custom ? (
-                      <span className="text-[8px] bg-rose-100 text-[#881337] font-bold px-1.5 py-0.5 rounded font-mono">
-                        Novo
-                      </span>
-                    ) : (
-                      <span className="text-[8px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded font-mono">
-                        Ativo
-                      </span>
-                    )}
+                    {/* Vem de `ativo`, que o wire já trazia e o estado descartava:
+                        o cartão dizia "Ativo" mesmo depois de desativar. */}
+                    <span
+                      className={`text-[8px] font-bold px-1.5 py-0.5 rounded font-mono ${
+                        intern.ativo
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      {intern.ativo ? 'Ativo' : 'Desativado'}
+                    </span>
                   </div>
                   <p className="text-[10px] text-slate-500 font-mono mt-0.5">
                     Matrícula: {intern.matricula}
                   </p>
                   <p className="text-[10px] text-[#881337] font-semibold mt-1 truncate">
-                    {intern.registro_profissional || 'Cadeira Clínica Integrada'}
+                    {intern.registro_profissional || '—'}
                   </p>
                 </div>
                 <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[9px] text-emerald-700 font-mono font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                    Habilitado (Senha)
+                  <span
+                    className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${
+                      intern.ativo
+                        ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                        : 'text-slate-500 bg-slate-100 border-slate-300'
+                    }`}
+                  >
+                    {intern.ativo ? 'Habilitado' : 'Desativado'}
                   </span>
                   <div className="flex items-center gap-1">
                     <button
@@ -276,7 +301,7 @@ const filteredPairs = pairs.filter(
                       type="button"
                       onClick={() => setInternToDelete({ key, nome: intern.nome })}
                       className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                      title="Excluir estagiário"
+                      title="Desativar acesso do estagiário"
                     >
                       <TrashIcon className="w-3.5 h-3.5" />
                     </button>
@@ -436,7 +461,9 @@ const filteredPairs = pairs.filter(
                   <span>Autenticação & Segurança (RBAC)</span>
                 </div>
                 <p className="text-[10px] text-slate-600">
-                  O estagiário será criado com a senha padrão <code className="font-mono font-bold bg-white px-1 py-0.5 rounded border border-rose-200">unicare123</code>. Ele aparecerá no card rápido de Odontologia, mas precisará digitar a senha para acessar.
+                  A senha é a que você definir agora: o servidor grava com bcrypt e ela
+                  não fica visível depois. Passe ao estagiário — ele entra com a matrícula e
+                  essa senha.
                 </p>
               </div>
 
@@ -578,12 +605,14 @@ const filteredPairs = pairs.filter(
                 <TrashIcon className="w-5 h-5 text-red-600" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Excluir Estagiário</h3>
+                <h3 className="text-sm font-bold text-slate-900">Desativar Acesso</h3>
                 <p className="text-[11px] text-slate-500">Revogação de acesso de estagiário</p>
               </div>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Deseja realmente remover o estagiário <strong className="text-slate-900">{internToDelete.nome}</strong>? Ele não conseguirá mais efetuar login no módulo de Odontologia.
+              Desativar o acesso de <strong className="text-slate-900">{internToDelete.nome}</strong>?
+              Ele não conseguirá mais entrar no módulo de Odontologia. O cadastro e o
+              histórico de auditoria são preservados — a conta pode ser reativada depois.
             </p>
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
               <button
@@ -595,11 +624,11 @@ const filteredPairs = pairs.filter(
               </button>
               <button
                 type="button"
-                onClick={handleConfirmDelete}
+                onClick={() => void handleConfirmDelete()}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
               >
                 <TrashIcon className="w-4 h-4" />
-                <span>Excluir Estagiário</span>
+                <span>Desativar Acesso</span>
               </button>
             </div>
           </div>
