@@ -16,6 +16,7 @@ from app.models.paciente import Paciente
 from app.models.agendamento import Agendamento, StatusAgendamento
 from app.models.prontuario import ProntuarioPsico, FichaOdonto, StatusProntuario
 from app.models.demanda import DemandaEstagio, StatusDemanda, PrioridadeDemanda
+from app.models.anamnese import Anamnese
 from app.services.crypto_service import get_password_hash
 
 SENHA_DEMO = "unicare123"
@@ -360,6 +361,65 @@ def seed_demandas(session: Session) -> None:
     session.commit()
 
 
+def seed_anamneses(session: Session, pacientes: List[Paciente]) -> None:
+    """Aferições de sinais vitais e anamnese, uma por paciente de cada clínica.
+
+    Sem isso a aba de anamnese dos dois prontuários nasce mostrando "Não
+    registrado" em tudo, e a tela parece quebrada em vez de vazia. É dado de
+    demonstração: a autoria vem do token de quem afere em uso real, aqui é o
+    estagiário do seed.
+    """
+    if not _tabela_vazia(session, Anamnese) or len(pacientes) < 4:
+        return
+
+    p1, p2, p3, _p4 = pacientes
+
+    session.add_all([
+        # Paciente de psicologia: aferição completa, com alerta de alergia e
+        # condição crônica, para a tela mostrar as três caixas preenchidas.
+        Anamnese(
+            paciente_id=p1.id,
+            pressao_arterial="128/82",
+            glicemia_capilar=96,
+            frequencia_cardiaca=78,
+            temperatura=36.6,
+            alergias="Dipirona",
+            condicoes_cronicas="Ansiedade generalizada - acompanhamento em psicoterapia",
+            medicacoes_em_uso="Sertralina 50mg, uso contínuo",
+            responsavel_nome="Rikelme Roma Santos",
+            responsavel_matricula="16032935",
+        ),
+        # Paciente de odontologia: só os sinais, sem alerta clínico.
+        Anamnese(
+            paciente_id=p2.id,
+            pressao_arterial="120/80",
+            glicemia_capilar=91,
+            frequencia_cardiaca=72,
+            temperatura=36.4,
+            responsavel_nome="Augusto Cesar Farias Carvalho",
+            responsavel_matricula="16024402",
+        ),
+        # Paciente de curso "ambos": duas aferições, para a ficha mostrar
+        # histórico e não só a última.
+        Anamnese(
+            paciente_id=p3.id,
+            pressao_arterial="122/78",
+            frequencia_cardiaca=75,
+            temperatura=36.5,
+            responsavel_nome="Rikelme Roma Santos",
+            responsavel_matricula="16032935",
+        ),
+        Anamnese(
+            paciente_id=p3.id,
+            pressao_arterial="118/76",
+            glicemia_capilar=88,
+            responsavel_nome="Augusto Cesar Farias Carvalho",
+            responsavel_matricula="16024402",
+        ),
+    ])
+    session.commit()
+
+
 def run_seed(session: Session) -> None:
     """Popula o banco de demonstracao. Idempotente por tabela.
 
@@ -371,4 +431,5 @@ def run_seed(session: Session) -> None:
     seed_agendamentos(session, pacientes)
     seed_prontuarios(session, pacientes)
     seed_fichas_odonto(session, pacientes)
+    seed_anamneses(session, pacientes)
     seed_demandas(session)

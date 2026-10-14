@@ -836,6 +836,56 @@ pedir a senha. Não reconstruir esse caminho.
 `alembic check` limpo; **lint caiu de 12 para 11**. Login por credencial conferido
 ao vivo: `16032935` / `unicare123` continua emitindo token.
 
+## ✅ Bloco 9 — Anamnese e sinais vitais na psicologia
+
+O Bloco 6 construiu anamnese e sinais vitais **só para odontologia**, e ficou
+assim: o backend era agnóstico de curso, o contexto tinha as três funções, e o
+modal era genérico inteiro — mas **`AnamneseModal` só era importado por
+`DentalRecordPage`**. `registrarAnamnese`, `carregarAnamneses` e
+`anamnesesPorPaciente` não tinham **um único consumidor** em psicologia. A tela
+inteira simplesmente não existia para o paciente de psicologia.
+
+O que faltava era um consumidor, e só:
+
+- **Zero backend.** `GET/POST /pacientes/{id}/anamnese` é guardada por
+  `_paciente_visivel`, que compara o curso do paciente com `cursos_visiveis` do
+  token — não distingue clínica. Conferido ao vivo: `16032935` lê a anamnese do
+  paciente 1, e `16024402` é barrado nele.
+- **Zero teste novo.** A rota psi já era exercitada por
+  `test_anamnese_paciente_compartilhado_veem_as_duas_clinicas`, que grava
+  anamnese com token de estagiário de psicologia.
+- **Zero alteração no modal.** É clínico, serve às duas clínicas.
+- **Zero migration.**
+
+`PsyRecordPage` ganhou a terceira aba "Anamnese e Sinais Vitais", com os alertas
+(allergia, condições crônicas, medicações), os quatro sinais da última aferição e
+o botão "Registrar aferição". A carga usa `useEffect` com dependência em
+`[pacienteSelecionado?.id, carregarAnamneses]` — **não** `deps: []`, que dispara
+antes do token existir. Campo sem registro aparece como "Não registrado".
+
+O paciente de curso `ambos` tem **uma** anamnese compartilhada pelas duas
+clínicas: é o comportamento correto e já coberto por teste.
+
+**A diretriz é de psicologia, não uma cópia.** Odontologia tem "Diretriz
+Regulamentar CFO" (atendimento em cadeira conduzido por dupla sob supervisão
+contínua da docente). O relatório não prescreve diretriz de aferição para psi —
+diz apenas que o projeto nasce da Resolução CFP nº 06/2019. A caixa nova cita
+CFP 06/2019 e a vedação de falas literais (RN-002), que é regra real,
+implementada e testada, e descreve o fluxo de homologação docente. Não foi
+escrita nenhuma norma em nome do CFP sem fonte no projeto.
+
+**Seed:** `anamneses` estava vazio nas **duas** clínicas, então a aba abria com
+"Não registrado" em tudo e parecia quebrada em vez de vazia. Entraram 4
+aferições: uma completa para o paciente de psicologia (com alergia e condição
+crônica, para as três caixas aparecerem), uma só de sinais para o paciente de
+odontologia, e duas para o paciente de curso `ambos`, para a ficha mostrar
+histórico e não só a última. Idempotente, sem migration.
+
+**Verificado:** `pytest` 41 passed; `npm run build` verde; `alembic check`
+limpo; lint nos 11 de baseline. Conferido ao vivo: paciente 1 com 1 aferição,
+paciente 2 com 1, paciente 3 com 2, e o paciente de psicologia continua barrado
+para o token de odontologia.
+
 ## Decisões e armadilhas
 
 Conhecimentos que não são dedutíveis do código e que custaram tempo diagnóstico:
