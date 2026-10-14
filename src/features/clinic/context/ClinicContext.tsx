@@ -606,16 +606,29 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
     void sincronizar();
   }, [sincronizar]);
 
-  // No logout, descarta os dados do usuario anterior em vez de deixa-los na tela.
+// No logout, descarta os dados do usuario anterior em vez de deixa-los na tela.
+  // Antes limpava só pacientes, agendamentos, evoluções e demandas. Faltavam as
+  // fichas odontológicas e as anamneses: nenhuma das duas vai para o
+  // localStorage, então o vazamento era só em memória — mas quem logasse em
+  // seguida na mesma sessão via ficha e anamnese de outra pessoa até a
+  // sincronização terminar.
   useEffect(() => {
     if (!isAuthenticated) {
       setPacientes([]);
       setAgendamentos([]);
       setEvolucoesPsico([]);
       setDemandas([]);
+      // `planosTratamento` é derivado de `fichasOdonto` por useMemo, então
+      // limpar as fichas limpa os planos junto.
+      setFichasOdonto([]);
+      setAnamnesesPorPaciente({});
       localStorage.removeItem(STORAGE_PREFIX + 'pacientes');
       localStorage.removeItem(STORAGE_PREFIX + 'agendamentos');
       localStorage.removeItem(STORAGE_PREFIX + 'evolucoes');
+      // Covrindo a chave junto das outras três. Na prática o `setDemandas([])`
+      // acima já a zera, porque o efeito de persistência reescreve `[]` — o
+      // removeItem é para a lista de chaves não ficar com um buraco silencioso.
+      localStorage.removeItem(STORAGE_PREFIX + 'demandas');
     }
   }, [isAuthenticated]);
 

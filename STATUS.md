@@ -886,6 +886,34 @@ limpo; lint nos 11 de baseline. Conferido ao vivo: paciente 1 com 1 aferição,
 paciente 2 com 1, paciente 3 com 2, e o paciente de psicologia continua barrado
 para o token de odontologia.
 
+## ✅ Bloco 10 — O logout parou de deixar dado clínico na tela
+
+O efeito de logout em `ClinicContext` limpava `pacientes`, `agendamentos`,
+`evolucoesPsico` e `demandas`. **Faltavam `fichasOdonto` e
+`anamnesesPorPaciente`** — as duas são dado clínico e nenhuma das duas vai para
+o `localStorage`, então o vazamento era só em memória, mas era real: quem
+logasse em seguida na mesma sessão via ficha odontológica e anamnese de outra
+pessoa até a sincronização terminar. Numa máquina de consulta compartilhada,
+isso é exposição de prontuário.
+
+`planosTratamento` é derivado de `fichasOdonto` por `useMemo`, então limpar as
+fichas limpa os planos de tratamento junto — nenhuma linha extra foi necessária.
+
+**Correção de uma afirmação errada:** este bloco nasceu da hipótese de que a
+fila de demandas sobrevivia ao logout porque a chave `demandas` era gravada e
+nunca removida do `localStorage`. Era falso — `setDemandas([])` já existia e
+dispara o efeito de persistência, que reescreve `[]`. O buraco era só de
+`fichasOdonto` e `anamnesesPorPaciente`. O `removeItem('demandas')` entrou
+mesmo assim, para a lista de chaves não ficar com um buraco silencioso, mas
+**não é a correção** — a correção são os dois `set` que faltavam.
+
+`sync` não precisou de ajuste: `sincronizar` já reseta para `aguardando-login`
+quando não há sessão (`:518-526`), então o badge "Dados da API" não sobrevive ao
+logout.
+
+**Verificado:** `pytest` 41 passed; `npm run build` verde; `alembic check`
+limpo; lint nos 11 de baseline. **Nenhuma mudança de backend.**
+
 ## Decisões e armadilhas
 
 Conhecimentos que não são dedutíveis do código e que custaram tempo diagnóstico:
