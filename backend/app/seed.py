@@ -17,6 +17,7 @@ from app.models.agendamento import Agendamento, StatusAgendamento
 from app.models.prontuario import ProntuarioPsico, FichaOdonto, StatusProntuario
 from app.models.demanda import DemandaEstagio, StatusDemanda, PrioridadeDemanda
 from app.models.anamnese import Anamnese
+from app.models.solicitacao import SolicitacaoCadastro, SituacaoSolicitacao
 from app.services.crypto_service import get_password_hash
 
 SENHA_DEMO = "unicare123"
@@ -361,6 +362,39 @@ def seed_demandas(session: Session) -> None:
     session.commit()
 
 
+def seed_solicitacoes(session: Session) -> None:
+    """Um pedido de credencial pendente por clínica.
+
+    Sem isso a fila da RT nasce vazia e a seção "Solicitações de credencial" do
+    painel da RT parece quebrada em vez de vazia. São pedidos de demonstração:
+    a pessoa não existe como usuário, porque conta só nasce na aprovação.
+    """
+    if not _tabela_vazia(session, SolicitacaoCadastro):
+        return
+
+    session.add_all([
+        SolicitacaoCadastro(
+            nome="Letícia Barbosa Nascimento",
+            email="leticia.barbosa@prof.uninassau.edu.br",
+            matricula="17031122",
+            telefone="(79) 98844-1122",
+            curso_declarado="psicologia",
+            perfil_declarado=PerfilUsuario.ESTAGIARIO,
+            situacao=SituacaoSolicitacao.PENDENTE,
+        ),
+        SolicitacaoCadastro(
+            nome="Thiago Menezes de Sá",
+            email="thiago.menezes@uninassau.edu.br",
+            matricula="17042233",
+            telefone="(79) 98777-3344",
+            curso_declarado="odontologia",
+            perfil_declarado=PerfilUsuario.ESTAGIARIO,
+            situacao=SituacaoSolicitacao.PENDENTE,
+        ),
+    ])
+    session.commit()
+
+
 def seed_anamneses(session: Session, pacientes: List[Paciente]) -> None:
     """Aferições de sinais vitais e anamnese, uma por paciente de cada clínica.
 
@@ -433,3 +467,4 @@ def run_seed(session: Session) -> None:
     seed_fichas_odonto(session, pacientes)
     seed_anamneses(session, pacientes)
     seed_demandas(session)
+    seed_solicitacoes(session)

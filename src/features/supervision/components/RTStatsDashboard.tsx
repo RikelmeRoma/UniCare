@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { api, type RelatorioEstatisticas, type ApiLogAuditoria } from '../../../services/api';
 import { useClinic } from '../../clinic/context/ClinicContext';
 import { useAuth, type RoleType, type CourseType } from '../../auth/context/AuthContext';
+import { SolicitacoesCadastro } from './SolicitacoesCadastro';
 import {
   ChartBarIcon,
   ShieldCheckIcon,
@@ -824,6 +825,10 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
       {/* ========================================================================= */}
       {activeTab === 'usuarios' && (
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-6">
+          {/* Fila de pedidos de credencial. Vem antes da tabela de usuários
+              porque é o trabalho que chega agora: quem pede não tem conta, e a
+              RT é quem autoriza. */}
+          <SolicitacoesCadastro />
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-slate-100">
             <div>
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">

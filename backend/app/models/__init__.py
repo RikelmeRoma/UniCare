@@ -5,6 +5,7 @@ from app.models.prontuario import ProntuarioPsico, FichaOdonto, StatusProntuario
 from app.models.auditoria import LogAuditoria
 from app.models.demanda import DemandaEstagio, StatusDemanda, PrioridadeDemanda
 from app.models.anamnese import Anamnese
+from app.models.solicitacao import SolicitacaoCadastro, SituacaoSolicitacao
 
 __all__ = [
     "Usuario",
@@ -21,4 +22,6 @@ __all__ = [
     "StatusDemanda",
     "PrioridadeDemanda",
     "Anamnese",
+    "SolicitacaoCadastro",
+    "SituacaoSolicitacao",
 ]

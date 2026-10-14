@@ -125,7 +125,37 @@ export interface ApiLogAuditoria {
   timestamp: string;
 }
 
+
+/** Pedido feito por quem ainda não tem conta. Rota pública: sem token. */
+export interface SolicitacaoCadastro {
+  id: number;
+  nome: string;
+  email: string;
+  matricula: string;
+  telefone: string | null;
+  /** O que o solicitante AFIRMA. Quem decide é a RT. */
+  curso_declarado: 'psicologia' | 'odontologia';
+  perfil_declarado: 'estagiario' | 'supervisor' | 'recepcao' | 'rt';
+  situacao: 'PENDENTE' | 'APROVADA' | 'RECUSADA';
+  decidido_por_nome: string | null;
+  decidido_por_matricula: string | null;
+  decidido_em: string | null;
+  motivo_recusa: string | null;
+  usuario_criado_id: number | null;
+  criado_em: string;
+}
+
+export interface SolicitacaoEnviada {
+  id: number;
+  nome: string;
+  email: string;
+  matricula: string;
+  situacao: 'PENDENTE';
+  criado_em: string;
+}
+
 class ApiService {
+
   private getToken(): string | null {
     return localStorage.getItem('unicare_token');
   }
@@ -245,6 +275,50 @@ async getUsuarios(): Promise<ApiUsuario[]> {
   /** Desativa, não apaga: o histórico de auditoria preserva a autoria. */
   async desativarUsuario(id: number): Promise<ApiUsuario> {
     return this.request<ApiUsuario>(`/usuarios/${id}`, { method: 'DELETE' });
+  }
+
+// --- Solicitação de credencial ---
+
+
+  /**
+   * Rota pública: o servidor exige e-mail institucional. Sem token porque é o
+   * pedido de quem ainda não tem conta — é justamente esse o problema.
+   */
+  async solicitarCredencial(dados: {
+    nome: string;
+    email: string;
+    matricula: string;
+    telefone?: string;
+    curso_declarado: string;
+    perfil_declarado: string;
+  }): Promise<SolicitacaoEnviada> {
+    return this.request<SolicitacaoEnviada>('/solicitacoes-cadastro/', {
+      method: 'POST',
+      body: JSON.stringify(dados),
+    });
+  }
+
+  async getSolicitacoes(situacao?: 'PENDENTE' | 'APROVADA' | 'RECUSADA'): Promise<SolicitacaoCadastro[]> {
+    const filtro = situacao ? `?situacao=${situacao}` : '';
+    return this.request<SolicitacaoCadastro[]>(`/solicitacoes-cadastro/${filtro}`);
+  }
+
+  /** Aprova e cria a conta no mesmo ato. A senha é a que a RT define. */
+  async aprovarSolicitacao(
+    id: number,
+    dados: { perfil: string; registro_profissional?: string; senha: string }
+  ): Promise<SolicitacaoCadastro> {
+    return this.request<SolicitacaoCadastro>(`/solicitacoes-cadastro/${id}/aprovar`, {
+      method: 'POST',
+      body: JSON.stringify(dados),
+    });
+  }
+
+  async recusarSolicitacao(id: number, motivo: string): Promise<SolicitacaoCadastro> {
+    return this.request<SolicitacaoCadastro>(`/solicitacoes-cadastro/${id}/recusar`, {
+      method: 'POST',
+      body: JSON.stringify({ motivo }),
+    });
   }
 
   // --- Pacientes ---

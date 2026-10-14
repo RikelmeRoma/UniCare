@@ -1021,6 +1021,88 @@ ciclo completo foi conferido ao vivo e a senha do seed foi **restaurada**:
 trocar, relogar com a nova, confirmar que a antiga falha, e voltar para
 `unicare123`.
 
+## ✅ Bloco 13 — Pedido de credencial com autorização da RT
+
+`/cadastro` não era fachada por conceito: era um pedido **sem a etapa que
+autoriza**. O Bloco 11 tirou a mentira do `alert`, mas a conclusão de que a
+página inteira era o problema estava errada. O fluxo real é: alguém pede, a RT
+autoriza, a conta nasce. Faltava o meio.
+
+**O que não mudou no servidor:** o RF-009 do relatório descreve o ciclo de vida
+do usuário **já cadastrado** e não menciona este pedido. Por isso nada aqui é
+numerado como RF — conforme a regra de citar por descrição.
+
+### Decisões de projeto
+
+- **A senha não viaja na solicitação.** A RT define no ato de aprovar. Guardar
+  credencial de quem nem tem conta, em tabela alcançável por qualquer chamada
+  anônima, é superfície que não vale abrir.
+- **Quem pede declara; a RT decide.** `perfil_declarado` e `curso_declarado` são
+  o que o solicitante afirma, e a tela avisa isso. O perfil enviado na aprovação é
+  o **final**, e o curso nunca vem do pedido: sai do token da RT.
+- **Só e-mail institucional.** Sem esse filtro a rota pública viraria alvo de
+  spam, já que qualquer um criaria linhas na fila da RT.
+
+### Rota pública
+
+`POST /solicitacoes-cadastro/` sem token. A resposta **não diz** se o e-mail já
+tem conta: uma rota anônima que responde "existe" serve de oráculo para enumerar
+o cadastro. O conflito é descoberto pela RT, que é quem pode agir sobre ele. A
+409 para e-mail com pendência aberta também substitui um rate limiter que o
+projeto não tem.
+
+### Fila da RT
+
+Escopada por clínica: a RT de psicologia não vê nem aprova pedido de
+odontologia. Aprovação **cria a conta no mesmo ato**, então não existe estado
+"aprovada sem usuário"; se o e-mail ou a matrícula já existirem, a criação recusa
+com 400 e o pedido continua PENDENTE. Recusa exige motivo.
+
+A regra de criação foi **extraída** para `criar_usuario_para_gestor` e agora é
+compartilhada entre `POST /usuarios` e a aprovação. Duas cópias divergiriam na
+primeira mudança, e a que divergiria seria a do pedido.
+
+### O formulário
+
+Envia de verdade, e perdeu o que era falso: o badge **"Forte"** fixo que
+aparecia sobre campo vazio, o **"Mínimo 8 caracteres"** quando a regra real é 6, o
+**"Validação automática de conferência"** que não conferia, e o seletor de
+**"Docente Supervisor Responsável: Profa. Dra. Juliana Moura Feitosa (CRO/SE
+412)"** — nome ausente do seed e com conselho de odontologia num campo que aceita
+psicologia. Os termos de sigilo passaram a ser exigidos de verdade. Os quatro
+componentes decorativos (`ProfileSelector`, `PersonalInfoFields`,
+`CredentialsFields`, `TermsCheckboxes`) foram removidos: não tinham estado.
+
+A confirmação devolve o **número do protocolo**. Sem canal de e-mail, é a única
+forma de a pessoa identificar o pedido depois — e a tela diz isso, em vez de
+prometer retorno que não existe.
+
+### Painel da RT
+
+Nova seção na aba de usuários: pedidos pendentes, **Aprovar** (perfil, registro e
+senha) e **Recusar** (motivo). Passa pelo `AuthContext`, que espera o servidor e
+recarrega a fila em vez de manter estado local que diverge do banco.
+
+### Duas armadilhas encontradas no caminho
+
+1. **`sa.Enum(...)` inline em `create_table` tenta `CREATE TYPE`.** Reaproveitar
+   o `perfilusuario` da migration inicial matou a migration com
+   `type perfilusuario already exists`. A solução é o tipo do dialeto com
+   `create_type=False` (`postgresql.ENUM(..., create_type=False)`).
+2. **`Usuario` é SQLModel, portanto Pydantic.** Uma dependênciahelper anotada
+   `def _exigir_rt(current_user: Usuario)` sem `Depends` fez o FastAPI tratar
+   `Usuario` como tipo de **corpo** da requisição, e toda decisão respondia 422
+   pedindo campos do usuário.
+
+E o nome do ENUM precisa bater com o que o SQLModel deriva da classe: `SituacaoSolicitacao`
+vira `situacaosolicitacao`, e a migration escrever `statussolicitacao` fazia o
+`alembic check` pedir alteração de tipo.
+
+**Verificado:** `pytest` **46 → 57**; `npm run build` verde; `alembic check`
+limpo; lint nos 11 de baseline. Conferido ao vivo: pedido anônimo aceito, e-mail
+externo recusado, RT de psicologia vê e a de odontologia não, supervisor leva 403,
+aprovação cria a conta e o login funciona com a senha que a RT definiu.
+
 ## Decisões e armadilhas
 
 Conhecimentos que não são dedutíveis do código e que custaram tempo diagnóstico:
@@ -1067,7 +1149,7 @@ Conhecimentos que não são dedutíveis do código e que custaram tempo diagnós
 ## Estado verificado
 
 ```
-pytest           → 41 passed (de backend/ e da raiz)
+pytest           → 57 passed (de backend/ e da raiz)
 alembic check    → No new upgrade operations detected
 alembic current  → d7f2a9c4e1b8 (head)
 /health          → dialect: postgresql, conectado: true

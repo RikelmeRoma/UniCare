@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { api, type ApiUsuario } from '../../../services/api';
+import { api, type ApiUsuario, type SolicitacaoCadastro } from '../../../services/api';
 
 export type RoleType = 'estagiario' | 'supervisor' | 'recepcao' | 'rt';
 /** 'geral' = papéis institucionais (RT e recepção), que não pertencem a uma clínica. */
@@ -25,6 +25,13 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   allUsers: Record<string, User>;
+  solicitacoes: SolicitacaoCadastro[];
+  carregarSolicitacoes: (situacao?: 'PENDENTE' | 'APROVADA' | 'RECUSADA') => Promise<void>;
+  aprovarSolicitacao: (
+    id: number,
+    dados: { perfil: RoleType; registro_profissional?: string; senha: string }
+  ) => Promise<{ success: boolean; message: string }>;
+  recusarSolicitacao: (id: number, motivo: string) => Promise<{ success: boolean; message: string }>;
   carregarUsuarios: () => Promise<void>;
   isAuthenticated: boolean;
   loginWithCredentials: (emailOuMatricula: string, senha: string) => Promise<{ success: boolean; user?: User; message?: string }>;
@@ -46,6 +53,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 // um cache do localStorage faria a tela mostrar usuários que podem nem existir
 // mais no banco (RF-009).
 const [allUsers, setAllUsers] = useState<Record<string, User>>({});
+  // Fila de pedidos de credencial. Só a RT usa; fica no contexto porque é a
+  // mesma sessão que decide, e puxar direto de `api` espalharia tratamento de
+  // erro por todas as telas do painel.
+  const [solicitacoes, setSolicitacoes] = useState<SolicitacaoCadastro[]>([]);
 
   // Usuário autenticado inicia como null (site limpo, sem usuário pré-carregado)
   const [user, setUser] = useState<User | null>(() => {
@@ -105,7 +116,62 @@ const carregarUsuarios = useCallback(async () => {
   }
 }, []);
 
-const createUser = async (
+const carregarSolicitacoes = useCallback(
+    async (situacao?: 'PENDENTE' | 'APROVADA' | 'RECUSADA') => {
+      try {
+        setSolicitacoes(await api.getSolicitacoes(situacao));
+      } catch (err) {
+        // 403 é o esperado para quem não é RT. A lista vazia é o estado
+        // correto nesses casos, e não um erro de sistema.
+        const msg = err instanceof Error ? err.message : '';
+        if (!msg.includes('403')) {
+          console.error('[UniCare] falha ao carregar solicitações:', err);
+        }
+        setSolicitacoes([]);
+      }
+    },
+    []
+  );
+
+  /**
+   * Aprova um pedido e cria a conta no mesmo ato.
+   *
+   * Espera o servidor: aprovar e recusar compartilham a mesma armadilha dos
+   * modais de edição, que anunciavam sucesso sem `await` e escondiam a recusa.
+   */
+  const aprovarSolicitacao = async (
+    id: number,
+    dados: { perfil: RoleType; registro_profissional?: string; senha: string }
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      await api.aprovarSolicitacao(id, dados);
+      // Recarrega para a fila refletir a decisão, e não um estado local que
+      // pode divergir do banco.
+      await carregarSolicitacoes('PENDENTE');
+      return { success: true, message: 'Solicitação aprovada e conta criada.' };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Não foi possível aprovar.';
+      console.error('[UniCare] aprovação de solicitação falhou:', err);
+      return { success: false, message: msg };
+    }
+  };
+
+  const recusarSolicitacao = async (
+    id: number,
+    motivo: string
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      await api.recusarSolicitacao(id, motivo);
+      await carregarSolicitacoes('PENDENTE');
+      return { success: true, message: 'Solicitação recusada.' };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Não foi possível recusar.';
+      console.error('[UniCare] recusa de solicitação falhou:', err);
+      return { success: false, message: msg };
+    }
+  };
+
+  const createUser = async (
   userData: Omit<User, 'id' | 'registro_profissional' | 'ativo' | 'curso'> & { registro_profissional?: string; senha: string }
 ): Promise<{ success: boolean; message: string }> => {
   try {
@@ -251,6 +317,10 @@ try {
       value={{
         user,
         allUsers,
+        solicitacoes,
+        carregarSolicitacoes,
+        aprovarSolicitacao,
+        recusarSolicitacao,
         isAuthenticated: !!user,
         loginWithCredentials,
         trocarSenha,

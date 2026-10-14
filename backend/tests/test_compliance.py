@@ -1173,3 +1173,247 @@ def test_troca_de_senha_exige_sessao_autenticada():
         json={"senha_atual": "unicare123", "nova_senha": "qualquer-coisa-1"},
     )
     assert res.status_code == 401
+
+
+
+
+# --- Pedido de credencial e autorização pela RT ---
+
+
+def _pedido(empresa: str, **extra):
+    base = {
+        "nome": "Beatriz Lima Ribeiro",
+        "email": empresa,
+        "matricula": "17012345",
+        "telefone": "(79) 99111-0000",
+        "curso_declarado": "psicologia",
+        "perfil_declarado": "estagiario",
+    }
+    base.update(extra)
+    return base
+
+
+def test_solicitacao_exige_email_institucional():
+    """A rota é pública: sem filtro de domínio, qualquer um criaria linha na fila"""
+    ok = client.post("/api/v1/solicitacoes-cadastro/",
+                     json=_pedido("beatriz.lima@prof.uninassau.edu.br"))
+    assert ok.status_code == 201
+    assert ok.json()["situacao"] == "PENDENTE"
+
+    for dominio in ("beatriz@gmail.com", "beatriz@outrauniversidade.edu.br",
+                    "beatriz@uni.com"):
+        res = client.post("/api/v1/solicitacoes-cadastro/",
+                          json=_pedido(dominio, matricula="17099999"))
+        assert res.status_code == 422, f"{dominio} não é institucional"
+
+
+def test_solicitacao_publica_nao_revela_conta_existente():
+    """Rota anônima não pode servir de oráculo para enumerar cadastro"""
+    # E-mail que JÁ tem conta no seed.
+    res = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
+        "robert.carmo@uninassau.edu.br", matricula="17088888"))
+
+    # A resposta é a de um pedido normal: 201, com o número do protocolo. Nada
+    # aqui diz que a conta existe — se dissesse, qualquer um com um e-mail
+    # campus conseguiria enumerar o cadastro pelo endpoint público.
+    assert res.status_code == 201
+    corpo = res.text.lower()
+    assert "já existe usuário" not in corpo
+    assert "senha incorreta" not in corpo
+
+    # E o pedido entra na fila como pendente, para a RT resolver o conflito.
+    psi = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
+    pendentes = client.get("/api/v1/solicitacoes-cadastro/", headers=psi).json()
+    pedido = next(s for s in pendentes if s["email"] == "robert.carmo@uninassau.edu.br")
+    assert pedido["situacao"] == "PENDENTE"
+
+
+def test_solicitacao_repetida_do_mesmo_email_da_409():
+    """Uma pendência por e-mail: substitui o rate limiter que o projeto não tem"""
+    payload = _pedido("novo.estagiario@prof.uninassau.edu.br", matricula="17055555")
+    assert client.post("/api/v1/solicitacoes-cadastro/", json=payload).status_code == 201
+
+    repetido = client.post("/api/v1/solicitacoes-cadastro/", json=payload)
+    assert repetido.status_code == 409
+
+
+def test_fila_de_solicitacoes_escopada_por_clinica():
+    """Cada RT só enxerga a fila da clínica dela"""
+    psi = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
+    odonto = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
+
+    client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
+        "fila.psi@prof.uninassau.edu.br", matricula="17040001",
+        curso_declarado="psicologia"))
+    client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
+        "fila.odonto@uninassau.edu.br", matricula="17040002",
+        curso_declarado="odontologia"))
+
+    fila_psi = client.get("/api/v1/solicitacoes-cadastro/", headers=psi).json()
+    assert all(s["curso_declarado"] == "psicologia" for s in fila_psi)
+    assert any(s["email"] == "fila.psi@prof.uninassau.edu.br" for s in fila_psi)
+
+    fila_odonto = client.get("/api/v1/solicitacoes-cadastro/", headers=odonto).json()
+    assert all(s["curso_declarado"] == "odontologia" for s in fila_odonto)
+    assert not any(s["email"] == "fila.psi@prof.uninassau.edu.br" for s in fila_odonto)
+
+
+def test_rt_nao_aprova_solicitacao_da_outra_clinica():
+    """Aprovação cruzada é 403, mesmo com token válido"""
+    criada = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
+        "cruzada.odonto@uninassau.edu.br", matricula="17060001",
+        curso_declarado="odontologia"))
+    assert criada.status_code == 201
+
+    psi = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
+    res = client.post(
+        f"/api/v1/solicitacoes-cadastro/{criada.json()['id']}/aprovar",
+        json={"perfil": "estagiario", "senha": "senha-inicial-1"},
+        headers=psi,
+    )
+    assert res.status_code == 403
+
+
+def test_aprovacao_cria_conta_na_clinica_da_rt():
+    """Aprovar cria o usuário no mesmo ato, com o curso vindo do token da RT"""
+    criada = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
+        "aprovada.psi@prof.uninassau.edu.br", matricula="17070001"))
+    solicitacao_id = criada.json()["id"]
+
+    psi = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
+    res = client.post(
+        f"/api/v1/solicitacoes-cadastro/{solicitacao_id}/aprovar",
+        # O solicitante pediu "estagiario"; a RT confirma com registro.
+        json={"perfil": "estagiario", "registro_profissional": "9º Período",
+              "senha": "senha-inicial-2"},
+        headers=psi,
+    )
+    assert res.status_code == 200
+    aprovacao = res.json()
+    assert aprovacao["situacao"] == "APROVADA"
+    assert aprovacao["decidido_por_matricula"] == "RT-002"
+    assert aprovacao["decidido_em"] is not None
+    assert aprovacao["usuario_criado_id"] is not None
+
+    # A conta existe, na clínica da RT, e a senha é a que a RT definiu.
+    login = client.post("/api/v1/auth/login", json={
+        "email_ou_matricula": "17070001", "senha": "senha-inicial-2"
+    })
+    assert login.status_code == 200
+    assert login.json()["curso"] == "psicologia"
+
+    # E some da fila de pendentes.
+    pendentes = client.get("/api/v1/solicitacoes-cadastro/", headers=psi).json()
+    assert not any(s["id"] == solicitacao_id for s in pendentes)
+
+
+def test_aprovacao_com_conflito_nao_encerra_o_pedido():
+    """Matrícula já cadastrada: 400 e o pedido continua PENDENTE
+
+    Se marcasse como aprovada sem criar conta, existiria "aprovado sem usuário".
+    """
+    criada = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
+        "conflito.psi@prof.uninassau.edu.br", matricula="16032935"))
+    solicitacao_id = criada.json()["id"]
+
+    psi = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
+    res = client.post(
+        f"/api/v1/solicitacoes-cadastro/{solicitacao_id}/aprovar",
+        json={"perfil": "estagiario", "senha": "senha-inicial-3"},
+        headers=psi,
+    )
+    assert res.status_code == 400
+
+    relida = client.get(
+        f"/api/v1/solicitacoes-cadastro/?situacao=PENDENTE", headers=psi).json()
+    assert next(s for s in relida if s["id"] == solicitacao_id)["situacao"] == "PENDENTE"
+
+
+def test_recusa_exige_motivo_e_nao_cria_conta():
+    """Recusa sem motivo é 422; com motivo, o pedido fecha sem virar usuário"""
+    criada = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
+        "recusada.psi@prof.uninassau.edu.br", matricula="17080001"))
+    solicitacao_id = criada.json()["id"]
+
+    psi = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
+    sem_motivo = client.post(
+        f"/api/v1/solicitacoes-cadastro/{solicitacao_id}/recusar",
+        json={"motivo": "  "}, headers=psi,
+    )
+    assert sem_motivo.status_code == 422
+
+    res = client.post(
+        f"/api/v1/solicitacoes-cadastro/{solicitacao_id}/recusar",
+        json={"motivo": "E-mail não pertence a vínculo ativo da clínica."},
+        headers=psi,
+    )
+    assert res.status_code == 200
+    assert res.json()["situacao"] == "RECUSADA"
+    assert res.json()["usuario_criado_id"] is None
+
+    # Nenhuma conta foi criada: o e-mail não entra.
+    assert client.post("/api/v1/auth/login", json={
+        "email_ou_matricula": "recusada.psi@prof.uninassau.edu.br", "senha": "unicare123"
+    }).status_code == 401
+
+
+def test_solicitacao_nao_e_decidida_duas_vezes():
+    """Aprovar um pedido já recusado dá 409"""
+    criada = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
+        "duas.vezes@prof.uninassau.edu.br", matricula="17090001"))
+    solicitacao_id = criada.json()["id"]
+
+    psi = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
+    client.post(
+        f"/api/v1/solicitacoes-cadastro/{solicitacao_id}/recusar",
+        json={"motivo": "Documentação incompleta."}, headers=psi,
+    )
+    segunda = client.post(
+        f"/api/v1/solicitacoes-cadastro/{solicitacao_id}/aprovar",
+        json={"perfil": "estagiario", "senha": "senha-inicial-4"},
+        headers=psi,
+    )
+    assert segunda.status_code == 409
+
+
+def test_fila_de_solicitacoes_so_abre_para_a_rt():
+    """Supervisor, estagiário e recepção não listam nem decidem"""
+    for matricula in ("DOC-8821", "16032935", "REC-002"):
+        headers = {"Authorization": f"Bearer {get_auth_token(matricula)}"}
+        assert client.get("/api/v1/solicitacoes-cadastro/", headers=headers).status_code == 403
+
+    # E sem token também não.
+    assert client.get("/api/v1/solicitacoes-cadastro/").status_code == 401
+
+
+def test_decisao_da_rt_entra_na_trilha_de_auditoria():
+    """Aprovar e recusar deixam rastro"""
+    rt_psi = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
+
+    aprovada = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
+        "auditoria.aprovada@prof.uninassau.edu.br", matricula="17100001"))
+    client.post(
+        f"/api/v1/solicitacoes-cadastro/{aprovada.json()['id']}/aprovar",
+        json={"perfil": "estagiario", "senha": "senha-inicial-5"},
+        headers=rt_psi,
+    )
+
+    recusada = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
+        "auditoria.recusada@prof.uninassau.edu.br", matricula="17100002"))
+    client.post(
+        f"/api/v1/solicitacoes-cadastro/{recusada.json()['id']}/recusar",
+        json={"motivo": "Sem vínculo com a clínica."},
+        headers=rt_psi,
+    )
+
+    # A trilha é segregada por curso: quem decidiu foi a RT de psicologia, e é
+    # com ela que a leitura tem que ser feita. Ler com a outra RT não encontraria
+    # — e não deve encontrar.
+    logs = client.get("/api/v1/auditoria/", headers=rt_psi).json()
+    acoes = {log["acao"] for log in logs}
+    assert "APROVACAO_SOLICITACAO_CREDENCIAL" in acoes
+    assert "RECUSA_SOLICITACAO_CREDENCIAL" in acoes
+
+    rt_odonto = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
+    acoes_da_outra = {log["acao"] for log in client.get("/api/v1/auditoria/", headers=rt_odonto).json()}
+    assert "APROVACAO_SOLICITACAO_CREDENCIAL" not in acoes_da_outra

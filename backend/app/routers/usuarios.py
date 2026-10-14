@@ -64,32 +64,41 @@ def listar_usuarios(
     return session.exec(query).all()
 
 
-@router.post("", response_model=UsuarioRead, status_code=status.HTTP_201_CREATED)
-@router.post("/", response_model=UsuarioRead, status_code=status.HTTP_201_CREATED, include_in_schema=False)
-def cadastrar_usuario(
-    dados: UsuarioCreate,
+def criar_usuario_para_gestor(
+    session: Session,
+    gestor: Usuario,
     http_request: Request,
-    session: Session = Depends(get_session),
-    current_user: Usuario = Depends(autorizado_gestao)
-):
-    """Cadastra um usuário na clínica do gestor.
+    nome: str,
+    email: str,
+    matricula: str,
+    perfil: PerfilUsuario,
+    senha: str,
+    registro_profissional: Optional[str] = None,
+) -> Usuario:
+    """Cria um usuário na clínica de quem está autorizando.
 
-    O curso nunca vem do corpo: é o da RT ou do supervisor que está cadastrando.
+    Função compartilhada de propósito: o POST /usuarios e a aprovação de uma
+    solicitação de cadastro precisam obedecer exatamente a mesma regra — curso
+    vindo do gestor, bcrypt, unicidade e auditoria. Duas cópias desse bloco
+    divergem na primeira mudança, e a que divergisse seria a do pedido.
+
+    Levanta 403 quando o gestor não pode criar aquele perfil e 400 quando o
+    e-mail ou a matrícula já existem.
     """
-    if not _pode_gerenciar(current_user, dados.perfil):
-        raise _negar_gestao(dados.perfil)
+    if not _pode_gerenciar(gestor, perfil):
+        raise _negar_gestao(perfil)
 
     usuario = Usuario(
-        nome=dados.nome.strip(),
-        email=dados.email.strip().lower(),
+        nome=nome.strip(),
+        email=email.strip().lower(),
         # bcrypt direto, nunca SHA-256: ver crypto_service.
-        senha_hash=get_password_hash(dados.senha),
-        perfil=dados.perfil,
-        # O curso vem da RT, não do corpo: nenhuma chamada pode criar usuário
+        senha_hash=get_password_hash(senha),
+        perfil=perfil,
+        # O curso vem do gestor, não do corpo: nenhuma chamada pode criar usuário
         # em clínica alheia nem escrever `geral` por engano.
-        curso=current_user.curso,
-        matricula=dados.matricula.strip().upper(),
-        registro_profissional=(dados.registro_profissional or None),
+        curso=gestor.curso,
+        matricula=matricula.strip().upper(),
+        registro_profissional=(registro_profissional or None),
         ativo=True
     )
 
@@ -107,11 +116,36 @@ def cadastrar_usuario(
     session.refresh(usuario)
 
     registrar_log(
-        session, current_user, f"CADASTRO_USUARIO_{usuario.perfil.value}", "usuarios",
+        session, gestor, f"CADASTRO_USUARIO_{usuario.perfil.value}", "usuarios",
         usuario.id, endereco_ip=ip_do_cliente(http_request)
     )
 
     return usuario
+
+
+@router.post("", response_model=UsuarioRead, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=UsuarioRead, status_code=status.HTTP_201_CREATED, include_in_schema=False)
+def cadastrar_usuario(
+    dados: UsuarioCreate,
+    http_request: Request,
+    session: Session = Depends(get_session),
+    current_user: Usuario = Depends(autorizado_gestao)
+):
+    """Cadastra um usuário na clínica do gestor.
+
+    O curso nunca vem do corpo: é o da RT ou do supervisor que está cadastrando.
+    """
+    return criar_usuario_para_gestor(
+        session=session,
+        gestor=current_user,
+        http_request=http_request,
+        nome=dados.nome,
+        email=dados.email,
+        matricula=dados.matricula,
+        perfil=dados.perfil,
+        senha=dados.senha,
+        registro_profissional=dados.registro_profissional,
+    )
 
 
 @router.patch("/{usuario_id}", response_model=UsuarioRead)
