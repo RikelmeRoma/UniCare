@@ -14,21 +14,24 @@ class ProntuarioPsicoCreate(BaseModel):
     supervisor_nome: Optional[str] = None
     data_sessao: str
     numero_sessao: str
-    inicio_sessao_texto: str
-    meio_sessao_texto: str
-    fim_sessao_texto: str
+    redacao_texto: str
 
-    @field_validator("inicio_sessao_texto", "meio_sessao_texto", "fim_sessao_texto")
+    @field_validator("redacao_texto")
     @classmethod
     def validar_texto_clinico(cls, v: str) -> str:
-        # A síntese é tripartite (RNF-003) e os três campos são obrigatórios.
-        # Aceitar string vazia deixava passar ficha em branco para homologação:
-        # a tela preenchia por conta própria, mas qualquer cliente chamando a
-        # rota direto mandava os três vazios e o banco aceitava.
+        # A redacao e obrigatoria e nao pode ficar em branco. Aceitar string
+        # vazia deixava passar ficha em branco para homologacao: a tela
+        # preenchia por conta propria, mas qualquer cliente chamando a rota
+        # direto mandava o campo vazio e o banco aceitava.
+        #
+        # A regra e citada por descricao, e nao por "RNF-003": o relatorio
+        # normativo nao tem nenhum identificador RNF-* -- so RF-* e RN-001,
+        # RN-002 e RN-006. O rotulo aparecia na tela citando uma regra que nao
+        # existe em fonte nenhuma.
         if not v.strip():
             raise ValueError(
-                "Síntese técnica incompleta (RNF-003): os campos Início, Meio e Fim "
-                "são obrigatórios e não podem ficar em branco."
+                "Síntese clínica obrigatória: a redação da sessão não pode ficar "
+                "em branco."
             )
         if QUOTE_REGEX.search(v):
             raise ValueError(
@@ -63,9 +66,7 @@ class ProntuarioPsicoRead(BaseModel):
     supervisor_nome: Optional[str] = None
     data_sessao: str
     numero_sessao: str
-    inicio_sessao_texto: str
-    meio_sessao_texto: str
-    fim_sessao_texto: str
+    redacao_texto: str
     parecer_supervisor: Optional[str] = None
     status: StatusProntuario
     criado_em: datetime

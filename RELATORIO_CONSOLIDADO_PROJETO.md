@@ -176,9 +176,10 @@ erDiagram
         string supervisor_nome "opcional"
         string data_sessao "str, nao DATE"
         string numero_sessao
-        text   inicio_sessao_texto "sem aspas, RN-002"
-        text   meio_sessao_texto "sem aspas, RN-002"
-        text   fim_sessao_texto "sem aspas, RN-002"
+        text   redacao_texto "texto unico, sem aspas, RN-002"
+               ^ emendado: eram tres colunas (inicio/meio/fim). A tela obrigava o
+                 estagiario a separar por fase; a restricao era de interface, nao de
+                 prontuario. Quem redige conhece a ordem e escreve em paragrafos.
         text   parecer_supervisor "do supervisor"
         string status "ENUM 4 estados"
         datetime criado_em
@@ -297,9 +298,9 @@ erDiagram
 │     curso             │        │     supervisor_nome   │        │     materiais TEXT    │
 │     horario / turno   │        │     data_sessao       │        │     anestesico        │
 │     sala_ou_cadeira   │        │     numero_sessao     │        │     alerta_alergia    │
-│     tipo_consulta     │        │     inicio_sessao TXT │        │     parecer_sup. TEXT │
-│     status ▸ enum     │        │     meio_sessao   TXT │        │     status    ▸ enum  │
-│     observacao_log.   │        │     fim_sessao     TXT │        │     criado_em         │
+│     tipo_consulta     │        │     redacao  TEXT  │        │     parecer_sup. TEXT │
+│     status ▸ enum     │        │                   │        │     status    ▸ enum  │
+│     observacao_log.   │        │                   │        │     criado_em         │
 └───────────────────────┘        │     parecer_sup.  TXT │        └───────────────────────┘
                                  │     status    ▸ enum  │
                                  │     criado_em         │
@@ -335,8 +336,8 @@ AGENDAMENTOS (id PK, paciente_id FK->PACIENTES, paciente_nome,
 
 PRONTUARIOS_PSICO (id PK, paciente_id FK->PACIENTES, paciente_nome,
                    estagiario_nome, estagiario_matricula, supervisor_nome,
-                   data_sessao, numero_sessao, inicio_sessao_texto,
-                   meio_sessao_texto, fim_sessao_texto, parecer_supervisor,
+                   data_sessao, numero_sessao, redacao_texto,
+                   parecer_supervisor,
                    status, criado_em)
 
 FICHAS_ODONTO (id PK, paciente_id FK->PACIENTES, dupla_estagiarios,

@@ -172,6 +172,17 @@ gerenciamento RBAC. Já usamos esses dois números para outras coisas e os teste
 passaram a mentir. Para algo fora da lista do relatório (demandas de estágio,
 CPF duplicado), cite por descrição — não invente número.
 
+**Não cite identificador que o relatório não tem.** `RELATORIO_CONSOLIDADO_PROJETO.md`
+define `RF-001` a `RF-009` e `RN-001`, `RN-002` e `RN-006` — **nenhum `RNF-*`**. A tela
+de prontuário psi rotulava o bloco "RNF-003 · Síntese Técnica Conceitual" e o validador
+citava `RNF-003` na mensagem de erro. Para algo fora da lista, cite por descrição.
+
+**Trocar uma coluna do prontuário psi é emenda normativa, não refactor.** As colunas de
+`PRONTUARIOS_PSICO` estão descritas no relatório em três lugares — o bloco de schema, o
+diagrama ASCII e a lista de colunas. Reduzi-las de três para uma (`redacao_texto`) e os
+três precisam mudar junto; deixar o relatório descrevendo colunas que não existem é
+documento mentindo sobre o banco.
+
 **`sa.Enum(...)` inline em `op.create_table` tenta `CREATE TYPE`.** Reaproveitar um
 ENUM que já existe — como `perfilusuario`, da migration inicial — morre com `type
 perfilusuario already exists`. A solução é o tipo do dialeto com

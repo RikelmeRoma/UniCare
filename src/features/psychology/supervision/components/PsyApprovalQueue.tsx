@@ -18,8 +18,7 @@ import {
 // /["“”«»]/. Perder “ e ” aqui faria a tela dar selo verde de conformidade
 // numa síntese que o servidor recusa.
 const ASPAS = /["“”«»]/;
-const temAspas = (e: EvolucaoPsico) =>
-  ASPAS.test(e.inicioTexto) || ASPAS.test(e.meioTexto) || ASPAS.test(e.fimTexto);
+const temAspas = (e: EvolucaoPsico) => ASPAS.test(e.redacaoTexto);
 
 // O histórico NÃO é só de homologados: `historico` é tudo que saiu da fila de
 // pendentes, e isso inclui DEVOLVIDO_PARA_AJUSTE. Com o rótulo fixo, uma
@@ -214,15 +213,10 @@ const decidir = async (decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE') => {
                     </p>
                   </div>
 
-                  <div className="p-3 bg-white border border-slate-200/70 rounded-xl text-xs text-slate-700 space-y-1.5">
+                  <div className="p-3 bg-white border border-slate-200/70 rounded-xl text-xs text-slate-700">
                     <p>
-                      <strong className="text-blue-900">Início:</strong> {item.inicioTexto}
-                    </p>
-                    <p>
-                      <strong className="text-blue-900">Meio:</strong> {item.meioTexto}
-                    </p>
-                    <p>
-                      <strong className="text-blue-900">Fim:</strong> {item.fimTexto}
+                      <strong className="text-blue-900">Síntese:</strong>{' '}
+                      <span className="whitespace-pre-line">{item.redacaoTexto}</span>
                     </p>
                   </div>
                 </div>

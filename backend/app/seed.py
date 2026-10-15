@@ -308,9 +308,9 @@ def seed_prontuarios(session: Session, pacientes: List[Paciente]) -> None:
             supervisor_nome="Prof. Dr. Robert Santos do Carmo",
             data_sessao="15/09/2026",
             numero_sessao="Sessão 04",
-            inicio_sessao_texto="Acolhimento pontual e receptivo. Paciente relata persistência dos gatilhos de sobrecarga com avaliações acadêmicas.",
-            meio_sessao_texto="Aplicação da técnica de questionamento socrático sobre catastrofização. Paciente identificou padrões de autoexigência com flexibilização cognitiva orientada.",
-            fim_sessao_texto="Pactuado automonitoramento diário de pensamentos disfuncionais (RPD). Sem risco autolesivo ou queixas agudas.",
+            redacao_texto="Acolhimento pontual e receptivo. Paciente relata persistência dos gatilhos de sobrecarga com avaliações acadêmicas. Aplicação da técnica de questionamento socrático sobre catastrofização. Paciente identificou padrões de autoexigência com flexibilização cognitiva orientada. Pactuado automonitoramento diário de pensamentos disfuncionais (RPD). Sem risco autolesivo ou queixas agudas.",
+
+
             status=StatusProntuario.AGUARDANDO_VALIDACAO
         ),
         ProntuarioPsico(
@@ -325,9 +325,9 @@ def seed_prontuarios(session: Session, pacientes: List[Paciente]) -> None:
             supervisor_nome="Prof. Dr. Robert Santos do Carmo",
             data_sessao="14/09/2026",
             numero_sessao="Sessão 02",
-            inicio_sessao_texto="Sessão iniciada no horário. Acolhimento e validação dos sentimentos relativos à escolha profissional.",
-            meio_sessao_texto="Aplicação da primeira bateria do questionário de interesses ocupacionais. Boa compreensão das instruções e colaboração ativa.",
-            fim_sessao_texto="Encerramento com agendamento da aplicação da escala complementar na sessão seguinte.",
+            redacao_texto="Sessão iniciada no horário. Acolhimento e validação dos sentimentos relativos à escolha profissional. Aplicação da primeira bateria do questionário de interesses ocupacionais. Boa compreensão das instruções e colaboração ativa. Encerramento com agendamento da aplicação da escala complementar na sessão seguinte.",
+
+
             parecer_supervisor="Excelente condução técnica e síntese clínica sem transcrições literais. Aprovado com visto digital.",
             status=StatusProntuario.VALIDADO
         ),
@@ -342,9 +342,9 @@ def seed_prontuarios(session: Session, pacientes: List[Paciente]) -> None:
             supervisor_nome="Prof. Dr. Robert Santos do Carmo",
             data_sessao="17/09/2026",
             numero_sessao="Sessão 06",
-            inicio_sessao_texto="Retomada da sessão. Acolhimento dedicado ao feedback da devolutiva anterior.",
-            meio_sessao_texto="Trabalho em torno do registro de pensamentos automáticos, com pausa para checagem de compreensão.",
-            fim_sessao_texto="Sessão suspensa antes do fechamento: falta registrar o material utilizado e pactuar o retorno.",
+            redacao_texto="Retomada da sessão. Acolhimento dedicado ao feedback da devolutiva anterior. Trabalho em torno do registro de pensamentos automáticos, com pausa para checagem de compreensão. Sessão suspensa antes do fechamento: falta registrar o material utilizado e pactuar o retorno.",
+
+
             parecer_supervisor="Síntese interrompida antes do fechamento. Completar o registro de materiais e reenviar.",
             status=StatusProntuario.DEVOLVIDO_PARA_AJUSTE
         ),

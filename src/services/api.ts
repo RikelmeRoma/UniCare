@@ -80,9 +80,7 @@ export interface ApiProntuarioPsico {
   supervisor_nome?: string;
   data_sessao: string;
   numero_sessao: string;
-  inicio_sessao_texto: string;
-  meio_sessao_texto: string;
-  fim_sessao_texto: string;
+  redacao_texto: string;
   parecer_supervisor?: string;
   status: 'EM_ELABORACAO' | 'AGUARDANDO_VALIDACAO' | 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE';
   criado_em: string;
@@ -440,9 +438,7 @@ async getUsuarios(): Promise<ApiUsuario[]> {
     supervisor_nome?: string;
     data_sessao: string;
     numero_sessao: string;
-    inicio_sessao_texto: string;
-    meio_sessao_texto: string;
-    fim_sessao_texto: string;
+    redacao_texto: string;
   }): Promise<ApiProntuarioPsico> {
     return this.request<ApiProntuarioPsico>('/prontuarios/psico', {
       method: 'POST',

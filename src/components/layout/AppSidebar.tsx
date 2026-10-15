@@ -48,6 +48,14 @@ export function AppSidebar() {
   const isRecepcao = user?.perfil === 'recepcao';
   const isRT = user?.perfil === 'rt';
 
+  // As rotas de recepção são segregadas por curso no ProtectedRoute
+  // (allowedCourses). O menu offering os dois links para qualquer recepção
+  // fazia um deles cair sempre em /nao-autorizado: REC-001 via 403 em
+  // /psi/recepcao e REC-002 via 403 em /recepcao. O mesmo valia para a RT na
+  // visão Global, que enxerga as duas seções de clínica.
+  const mostrarRecepcaoPsi = user?.curso === 'psicologia';
+  const mostrarRecepcaoOdonto = user?.curso === 'odontologia';
+
   return (
     <aside className="w-64 shrink-0 bg-white border-r border-slate-200 flex flex-col h-screen justify-between select-none z-30 shadow-2xs">
       <div>
@@ -201,7 +209,7 @@ export function AppSidebar() {
                 )}
 
                 {/* Agenda & Triagem SPA: Apenas Recepção e RT (Não aparece para Estagiário/Supervisor) */}
-                {(isRecepcao || isRT) && (
+                {((isRecepcao && mostrarRecepcaoPsi) || isRT) && (
                   <li>
                     <NavLink to="/psi/recepcao" className={getLinkStyle}>
                       <CalendarIcon className="w-4 h-4 shrink-0 text-slate-500" />
@@ -241,7 +249,7 @@ export function AppSidebar() {
                 )}
 
                 {/* Recepção Odontológica: Apenas Recepção e RT (Não aparece para Estagiário/Supervisor) */}
-                {(isRecepcao || isRT) && (
+                {((isRecepcao && mostrarRecepcaoOdonto) || isRT) && (
                   <li>
                     <NavLink to="/recepcao" className={getLinkStyle}>
                       <CalendarIcon className="w-4 h-4 shrink-0 text-slate-500" />
@@ -260,18 +268,22 @@ export function AppSidebar() {
                 Central de Recepção & Agendamento
               </h2>
               <ul className="space-y-1">
-                <li>
-                  <NavLink to="/recepcao" className={getLinkStyle}>
-                    <CalendarIcon className="w-4 h-4 shrink-0 text-slate-500" />
-                    <span>Recepção Odontologia</span>
-                  </NavLink>
-                </li>
-                <li>
-                  <NavLink to="/psi/recepcao" className={getLinkStyle}>
-                    <CalendarIcon className="w-4 h-4 shrink-0 text-slate-500" />
-                    <span>Recepção SPA (Psicologia)</span>
-                  </NavLink>
-                </li>
+                {mostrarRecepcaoOdonto && (
+                  <li>
+                    <NavLink to="/recepcao" className={getLinkStyle}>
+                      <CalendarIcon className="w-4 h-4 shrink-0 text-slate-500" />
+                      <span>Recepção Odontologia</span>
+                    </NavLink>
+                  </li>
+                )}
+                {mostrarRecepcaoPsi && (
+                  <li>
+                    <NavLink to="/psi/recepcao" className={getLinkStyle}>
+                      <CalendarIcon className="w-4 h-4 shrink-0 text-slate-500" />
+                      <span>Recepção SPA (Psicologia)</span>
+                    </NavLink>
+                  </li>
+                )}
               </ul>
               <div className="mt-4 p-3 bg-amber-50/80 border border-amber-200/80 rounded-xl text-xs text-amber-900 space-y-1">
                 <div className="flex items-center gap-1.5 font-bold">

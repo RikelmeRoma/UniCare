@@ -676,10 +676,8 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                             {ev.status}
                           </span>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-slate-600 text-[11px]">
-                          <p><strong>Acolhimento:</strong> {ev.inicioTexto}</p>
-                          <p><strong>Intervenção:</strong> {ev.meioTexto}</p>
-                          <p><strong>Pactuação:</strong> {ev.fimTexto}</p>
+                        <div className="text-slate-600 text-[11px]">
+                          <p className="whitespace-pre-line"><strong>Síntese:</strong> {ev.redacaoTexto}</p>
                         </div>
                         {ev.parecerSupervisor && (
                           <p className="text-indigo-800 font-medium text-[11px] pt-1 border-t border-slate-100">

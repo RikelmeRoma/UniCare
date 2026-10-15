@@ -41,16 +41,24 @@ export function PsyRecordPage() {
   const [numeroSessao, setNumeroSessao] = useState(proximaSessaoNumero);
   const [dataSessao, setDataSessao] = useState(new Date().toISOString().split('T')[0]);
 
-  // Tripartite (RNF-003: Início, Meio e Fim)
+  // Parametros da sessao e o texto redigido abaixo.
   // Nascem VAZIOS de propósito. Antes cada textarea vinha com uma evolução
   // clínica redigida ("paciente relata manutenção do quadro de sobrecarga…",
   // "sem indicadores de risco autolesivo") e handleSalvarEnviar gravava
   // exatamente esse texto: dado clínico falso, escrevido por quem não
   // acompanhou a sessão, seguindo para a fila de homologação. Quem redige a
   // síntese é o estagiário, a partir do que aconteceu.
-  const [evolucaoInicio, setEvolucaoInicio] = useState('');
-  const [evolucaoMeio, setEvolucaoMeio] = useState('');
-  const [evolucaoFim, setEvolucaoFim] = useState('');
+  // A redacao e uma caixa unica. Antes eram tres (inicio, meio e fim): a tela
+  // exigia que o estagiario separasse por fase, mas o que ele conhece e a ordem
+  // em que as coisas aconteceram, e escreve isso em paragrafos.
+  //
+  // Nasce VAZIO de proposito. Antes o campo vinha com uma evolucao clinica
+  // redigida ('paciente relata manutencao do quadro de sobrecarga.', 'sem
+  // indicadores de risco autolesivo') e handleSalvarEnviar gravava exatamente
+  // esse texto: dado clinico falso, escrito por quem nao acompanhou a sessao,
+  // seguindo para a fila de homologacao. Quem redige a sintese e o estagiario,
+  // a partir do que aconteceu.
+  const [redacao, setRedacao] = useState('');
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [registroGerado, setRegistroGerado] = useState<number | null>(null);
@@ -59,29 +67,19 @@ export function PsyRecordPage() {
 
   // Detecção estrita de aspas (RN-002 / CFP nº 06/2019)
   const quoteRegex = /["“”«»]/;
-  const temAspasInicio = quoteRegex.test(evolucaoInicio);
-  const temAspasMeio = quoteRegex.test(evolucaoMeio);
-  const temAspasFim = quoteRegex.test(evolucaoFim);
-  const temViolacaoAspas = temAspasInicio || temAspasMeio || temAspasFim;
+  const temAspas = quoteRegex.test(redacao);
 
-  // RNF-003: a síntese é tripartite e os três campos são obrigatórios. O
-  // servidor também recusa texto em branco (validar_texto_clinico) — a tela
-  // avisa antes para o estagiário não tomar 422 depois de escrever tudo.
-  const camposVazios = [
-    !evolucaoInicio.trim() && 'Fase 1 (Início)',
-    !evolucaoMeio.trim() && 'Fase 2 (Meio)',
-    !evolucaoFim.trim() && 'Fase 3 (Fim)',
-  ].filter(Boolean) as string[];
-  const faltaSintese = camposVazios.length > 0;
+  // A redacao e obrigatoria. O servidor tambem recusa texto em branco
+  // (validar_texto_clinico) - a tela avisa antes para o estagiario nao tomar
+  // 422 depois de escrever tudo.
+  const faltaSintese = redacao.trim().length === 0;
 
   const removerAspasAutomaticamente = () => {
-    setEvolucaoInicio((prev) => prev.replace(/["“”«»]/g, ''));
-    setEvolucaoMeio((prev) => prev.replace(/["“”«»]/g, ''));
-    setEvolucaoFim((prev) => prev.replace(/["“”«»]/g, ''));
+    setRedacao((prev) => prev.replace(/[“”«»"]/g, ''));
   };
 
   const handleSalvarEnviar = async () => {
-    if (temViolacaoAspas || faltaSintese || !pacienteSelecionado || isSaving) return;
+    if (temAspas || faltaSintese || !pacienteSelecionado || isSaving) return;
 
     setIsSaving(true);
     setErroMsg('');
@@ -99,9 +97,7 @@ export function PsyRecordPage() {
       supervisorNome: '',
       dataSessao: new Date(dataSessao).toLocaleDateString('pt-BR'),
       numeroSessao: numeroSessao,
-      inicioTexto: evolucaoInicio,
-      meioTexto: evolucaoMeio,
-      fimTexto: evolucaoFim,
+      redacaoTexto: redacao,
     });
 
     setIsSaving(false);
@@ -249,7 +245,7 @@ export function PsyRecordPage() {
         </div>
 
         {/* ALERTA NORMATIVO ANTI-ASPAS (RN-002 / CFP nº 06/2019) */}
-        {temViolacaoAspas && activeTab === 'registro' && (
+        {temAspas && activeTab === 'registro' && (
           <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 shadow-xs flex items-start gap-3.5">
             <ExclamationTriangleIcon className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
             <div className="flex-1">
@@ -327,78 +323,34 @@ export function PsyRecordPage() {
               </div>
             </section>
 
-            {/* Evolução Tripartite (RNF-003) */}
+            {/* Redacao da sessao */}
             <section className="space-y-6">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-blue-700"></span>
-                  <span>2. Registro Tripartite Estruturado (Início, Meio e Fim)</span>
+                  <span>2. Registro da Sintese Clinica</span>
                 </h3>
                 <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">
-                  RNF-003 • Síntese Técnica Conceitual
+                  Texto livre, sem aspas (RN-002)
                 </span>
               </div>
 
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                    Fase 1: Início da Sessão (Acolhimento, Estado Geral e Queixa Emergente)
+                    Relato da sessao em paragrafos, do acolhimento ao fechamento
                   </label>
-                  {temAspasInicio && (
+                  {temAspas && (
                     <span className="text-[10px] text-amber-700 font-bold">Aspas identificadas</span>
                   )}
                 </div>
                 <textarea
-                  rows={3}
-                  value={evolucaoInicio}
-                  onChange={(e) => setEvolucaoInicio(e.target.value)}
-                  placeholder="Descreva o acolhimento, pontualidade e relato inicial em termos técnicos..."
+                  rows={14}
+                  value={redacao}
+                  onChange={(e) => setRedacao(e.target.value)}
+                  placeholder="Descreva a sessao em ordem cronologica, do acolhimento ao fechamento: o que trouxe o paciente, o que foi trabalhado e como a sessao terminou..."
                   className={`w-full p-3 text-xs leading-relaxed rounded-xl border outline-none transition-colors ${
-                    temAspasInicio
-                      ? 'border-amber-400 bg-amber-50/40'
-                      : 'border-slate-200 bg-slate-50/50 focus:bg-white focus:border-blue-600'
-                  }`}
-                />
-              </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                    Fase 2: Meio da Sessão (Manejo Psicoterapêutico & Aplicação de Técnicas)
-                  </label>
-                  {temAspasMeio && (
-                    <span className="text-[10px] text-amber-700 font-bold">Aspas identificadas</span>
-                  )}
-                </div>
-                <textarea
-                  rows={3}
-                  value={evolucaoMeio}
-                  onChange={(e) => setEvolucaoMeio(e.target.value)}
-                  placeholder="Descreva os procedimentos psicoterápicos, manejo técnico e respostas às reflexões..."
-                  className={`w-full p-3 text-xs leading-relaxed rounded-xl border outline-none transition-colors ${
-                    temAspasMeio
-                      ? 'border-amber-400 bg-amber-50/40'
-                      : 'border-slate-200 bg-slate-50/50 focus:bg-white focus:border-blue-600'
-                  }`}
-                />
-              </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                    Fase 3: Fim da Sessão (Pactuações, Tarefas Inter-Sessão & Risco Autolesivo)
-                  </label>
-                  {temAspasFim && (
-                    <span className="text-[10px] text-amber-700 font-bold">Aspas identificadas</span>
-                  )}
-                </div>
-                <textarea
-                  rows={3}
-                  value={evolucaoFim}
-                  onChange={(e) => setEvolucaoFim(e.target.value)}
-                  placeholder="Descreva o fechamento da sessão, pactuação de tarefas e verificação de indicadores de risco..."
-                  className={`w-full p-3 text-xs leading-relaxed rounded-xl border outline-none transition-colors ${
-                    temAspasFim
+                    temAspas
                       ? 'border-amber-400 bg-amber-50/40'
                       : 'border-slate-200 bg-slate-50/50 focus:bg-white focus:border-blue-600'
                   }`}
@@ -411,9 +363,7 @@ export function PsyRecordPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setEvolucaoInicio('');
-                  setEvolucaoMeio('');
-                  setEvolucaoFim('');
+                  setRedacao('');
                   setErroMsg('');
                 }}
                 className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
@@ -422,10 +372,10 @@ export function PsyRecordPage() {
               </button>
               <button
                 type="button"
-                disabled={temViolacaoAspas || faltaSintese || !pacienteSelecionado || isSaving}
+                disabled={temAspas || faltaSintese || !pacienteSelecionado || isSaving}
                 onClick={handleSalvarEnviar}
                 className={`px-6 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-xs ${
-                  temViolacaoAspas || faltaSintese || !pacienteSelecionado || isSaving
+                  temAspas || faltaSintese || !pacienteSelecionado || isSaving
                     ? 'bg-slate-400 cursor-not-allowed opacity-60'
                     : 'bg-blue-700 hover:bg-blue-800'
                 }`}
@@ -434,12 +384,11 @@ export function PsyRecordPage() {
               </button>
             </div>
 
-            {/* Faltou preencher: dizer qual fase, não só travar o botão. */}
+            {/* Dizer o que falta e melhor que so travar o botao. */}
             {faltaSintese && (
               <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-900 text-xs rounded-xl">
-                A síntese técnica é obrigatória nas três fases (RNF-003). Ainda falta:{' '}
-                <span className="font-bold">{camposVazios.join(', ')}</span>. O registro
-                precisa descrever a sessão de quem a conductuiu.
+                A sintese clinica e obrigatoria: o campo acima precisa descrever a sessao de
+                quem a conductuiu.
               </div>
             )}
 
@@ -510,26 +459,14 @@ export function PsyRecordPage() {
                       </div>
                     </div>
 
-                    {/* Síntese Tripartite em Grid Elegante */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                      <div className="bg-white p-3 rounded-xl border border-slate-200/70">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                          Início da Sessão
-                        </p>
-                        <p className="text-slate-700 leading-relaxed">{sessao.inicioTexto}</p>
-                      </div>
-                      <div className="bg-white p-3 rounded-xl border border-slate-200/70">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                          Intervenção Técnica
-                        </p>
-                        <p className="text-slate-700 leading-relaxed">{sessao.meioTexto}</p>
-                      </div>
-                      <div className="bg-white p-3 rounded-xl border border-slate-200/70">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                          Encaminhamentos / Fechamento
-                        </p>
-                        <p className="text-slate-700 leading-relaxed">{sessao.fimTexto}</p>
-                      </div>
+                    {/* Sintese registrada, em paragrafos como foi escrita */}
+                    <div className="bg-white p-3 rounded-xl border border-slate-200/70">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                        Sintese da sessao
+                      </p>
+                      <p className="text-slate-700 leading-relaxed whitespace-pre-line">
+                        {sessao.redacaoTexto}
+                      </p>
                     </div>
 
                     {/* Parecer do Supervisor se houver */}

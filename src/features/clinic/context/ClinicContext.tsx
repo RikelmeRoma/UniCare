@@ -53,9 +53,7 @@ export interface EvolucaoPsico {
   supervisorNome: string;
   dataSessao: string;
   numeroSessao: string;
-  inicioTexto: string;
-  meioTexto: string;
-  fimTexto: string;
+  redacaoTexto: string;
   parecerSupervisor?: string;
   status: StatusProntuario;
   submetidoEm: string;
@@ -205,8 +203,8 @@ const INITIAL_AGENDAMENTOS: Agendamento[] = [
     id: 2,
     pacienteId: 3,
     pacienteNome: 'Juliana Ferreira Oliveira',
-    estagiarioNome: 'João Kaio Rodrigues',
-    estagiarioMatricula: '16031730',
+    estagiarioNome: 'Rikelme Roma Santos',
+    estagiarioMatricula: '16032935',
     curso: 'psicologia',
     horario: '15:00',
     turno: 'tarde',
@@ -302,9 +300,7 @@ const INITIAL_EVOLUCOES: EvolucaoPsico[] = [
     supervisorNome: 'Prof. Dr. Robert Santos do Carmo',
     dataSessao: '15/09/2026',
     numeroSessao: 'Sessão 04',
-    inicioTexto: 'Acolhimento pontual e receptivo. Paciente relata persistência dos gatilhos de sobrecarga com avaliações acadêmicas.',
-    meioTexto: 'Aplicação da técnica de questionamento socrático sobre catastrofização. Paciente identificou padrões de autoexigência com flexibilização cognitiva orientada.',
-    fimTexto: 'Pactuado automonitoramento diário de pensamentos disfuncionais (RPD). Sem risco autolesivo ou queixas agudas.',
+    redacaoTexto: 'Acolhimento pontual e receptivo. Paciente relata persistência dos gatilhos de sobrecarga com avaliações acadêmicas. Aplicação da técnica de questionamento socrático sobre catastrofização. Paciente identificou padrões de autoexigência com flexibilização cognitiva orientada. Pactuado automonitoramento diário de pensamentos disfuncionais (RPD). Sem risco autolesivo ou queixas agudas.',
     status: 'AGUARDANDO_VALIDACAO',
     submetidoEm: '15/09/2026 14:52',
   },
@@ -312,14 +308,12 @@ const INITIAL_EVOLUCOES: EvolucaoPsico[] = [
     id: 2,
     pacienteId: 3,
     pacienteNome: 'Juliana Ferreira Oliveira',
-    estagiarioNome: 'João Kaio Rodrigues',
-    estagiarioMatricula: '16031730',
+    estagiarioNome: 'Rikelme Roma Santos',
+    estagiarioMatricula: '16032935',
     supervisorNome: 'Prof. Dr. Robert Santos do Carmo',
     dataSessao: '14/09/2026',
     numeroSessao: 'Sessão 02',
-    inicioTexto: 'Sessão iniciada no horário. Acolhimento e validação dos sentimentos relativos à escolha profissional.',
-    meioTexto: 'Aplicação da primeira bateria do questionário de interesses ocupacionais. Boa compreensão das instruções e colaboração ativa.',
-    fimTexto: 'Encerramento com agendamento da aplicação da escala complementar na sessão seguinte.',
+    redacaoTexto: 'Sessão iniciada no horário. Acolhimento e validação dos sentimentos relativos à escolha profissional. Aplicação da primeira bateria do questionário de interesses ocupacionais. Boa compreensão das instruções e colaboração ativa. Encerramento com agendamento da aplicação da escala complementar na sessão seguinte.',
     parecerSupervisor: 'Excelente condução técnica e síntese clínica sem transcrições literais. Aprovado com visto digital.',
     status: 'VALIDADO',
     submetidoEm: '14/09/2026 16:30',
@@ -409,9 +403,7 @@ const mapearEvolucao = (pr: ApiProntuarioPsico): EvolucaoPsico => ({
   supervisorNome: pr.supervisor_nome || '',
   dataSessao: pr.data_sessao,
   numeroSessao: pr.numero_sessao,
-  inicioTexto: pr.inicio_sessao_texto,
-  meioTexto: pr.meio_sessao_texto,
-  fimTexto: pr.fim_sessao_texto,
+      redacaoTexto: pr.redacao_texto,
   parecerSupervisor: pr.parecer_supervisor,
   status: pr.status,
   submetidoEm: pr.criado_em ? new Date(pr.criado_em).toLocaleDateString('pt-BR') : 'Hoje',
@@ -851,9 +843,7 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
         supervisor_nome: e.supervisorNome,
         data_sessao: e.dataSessao,
         numero_sessao: e.numeroSessao,
-        inicio_sessao_texto: e.inicioTexto,
-        meio_sessao_texto: e.meioTexto,
-        fim_sessao_texto: e.fimTexto,
+        redacao_texto: e.redacaoTexto,
       });
 
       const salva = mapearEvolucao(created);

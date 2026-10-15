@@ -26,9 +26,13 @@ class ProntuarioPsico(SQLModel, table=True):
     # de documentacao, nao apenas um erro de validacao.
     # nullable=False explicito: sa.Column sem esse parametro gera nullable=True e
     # o model ficaria mais permissivo que o banco.
-    inicio_sessao_texto: str = Field(sa_column=Column(Text, nullable=False))
-    meio_sessao_texto: str = Field(sa_column=Column(Text, nullable=False))
-    fim_sessao_texto: str = Field(sa_column=Column(Text, nullable=False))
+    # A redacao e uma unica narrativa livre. Antes eram tres colunas
+    # (inicio/meio/fim) porque a tela exigia que o estagiario separasse por
+    # fase; a restricao era de interface, nao de prontuario. Quem redige conhece a ordem
+    # a ordem em que as coisas aconteceram e escreve em paragrafos.
+    # nullable=False explicito: sa.Column sem esse parametro gera nullable=True e
+    # o model ficaria mais permissivo que o banco.
+    redacao_texto: str = Field(sa_column=Column(Text, nullable=False))
     parecer_supervisor: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
     status: StatusProntuario = Field(default=StatusProntuario.AGUARDANDO_VALIDACAO)
     criado_em: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

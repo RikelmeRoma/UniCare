@@ -64,9 +64,11 @@ def test_rn002_anti_quotes_cfp_06_2019_rejeicao():
         "estagiario_matricula": "16032935",
         "data_sessao": "16/09/2026",
         "numero_sessao": "Sessão 05",
-        "inicio_sessao_texto": 'Paciente relatou pontualmente que "está sentindo muita ansiedade"', # Aspas proibidas
-        "meio_sessao_texto": "Intervenção técnica com reestruturação cognitiva.",
-        "fim_sessao_texto": "Pactuado automonitoramento."
+        # Aspas proibidas (RN-002): a frase chega inteira, para provar que
+        # foi a aspa a rejeitar e não algum outro motivo.
+        "redacao_texto": 'Paciente relatou pontualmente que "está sentindo muita ansiedade"' "Intervenção técnica com reestruturação cognitiva." "Pactuado automonitoramento.",
+
+
     }
 
     res = client.post("/api/v1/prontuarios/psico", json=payload_com_aspas, headers=headers)
@@ -80,7 +82,7 @@ def test_rn002_anti_quotes_cfp_06_2019_rejeicao():
 PRONTUARIO_SUBMETIDO_ID = {}
 
 def test_rn002_evolucao_psico_sintese_conforme():
-    """RN-002 & RNF-003: Submissão de síntese clínica técnica sem aspas é aceita com sucesso"""
+    """RN-002: Submissão de síntese clínica técnica sem aspas é aceita com sucesso"""
     token_estagiario = get_auth_token("16032935")
     headers = {"Authorization": f"Bearer {token_estagiario}"}
 
@@ -91,9 +93,9 @@ def test_rn002_evolucao_psico_sintese_conforme():
         "estagiario_matricula": "16032935",
         "data_sessao": "16/09/2026",
         "numero_sessao": "Sessão 05",
-        "inicio_sessao_texto": "Acolhimento pontual. Paciente manifestou queixas somatizadas de ansiedade diante do período de avaliações acadêmicas.",
-        "meio_sessao_texto": "Aplicação de técnica de identificação de distorções cognitivas. Paciente demonstrou boa capacidade reflexiva e flexibilidade.",
-        "fim_sessao_texto": "Fechamento com registro de pensamentos automáticos disfuncionais. Sem sinais de risco ou ideação autolesiva.",
+        "redacao_texto": "Acolhimento pontual. Paciente manifestou queixas somatizadas de ansiedade diante do período de avaliações acadêmicas. Aplicação de técnica de identificação de distorções cognitivas. Paciente demonstrou boa capacidade reflexiva e flexibilidade. Fechamento com registro de pensamentos automáticos disfuncionais. Sem sinais de risco ou ideação autolesiva.",
+
+
         "supervisor_nome": "Prof. Dr. Robert Santos do Carmo"
     }
 
@@ -106,13 +108,17 @@ def test_rn002_evolucao_psico_sintese_conforme():
     PRONTUARIO_SUBMETIDO_ID["id"] = prontuario["id"]
 
 
-def test_rnf003_sintese_clinica_recusa_campo_em_branco():
-    """RNF-003: a síntese tripartite não aceita nenhum dos três campos vazio
+def test_redacao_clinica_recusa_campo_em_branco():
+    """A redação clínica não aceita branco
 
     O validador existia só para aspas (RN-002) e aceitava string vazia. A tela
-    preenchia os três campos por conta própria, mas qualquer cliente chamando a
-    rota direto mandava os três em branco e o banco aceitava — ficha clínica
-    vazia entrando na fila de homologação.
+    preenchia o campo por conta própria, mas qualquer cliente chamando a rota
+    direto mandava em branco e o banco aceitava — ficha clínica vazia entrando
+    na fila de homologação.
+
+    Antes eram três campos (início/meio/fim) e o teste rodava 3 × 3 combinações.
+    Com a caixa única sobrou uma, e o teste perdeu proporção: o risco continua
+    coberto, porque o que ele exercita é o caminho de escrita, não a contagem.
     """
     headers_estagiario = {"Authorization": f"Bearer {get_auth_token('16032935')}"}
     headers_supervisor = {"Authorization": f"Bearer {get_auth_token('DOC-8821')}"}
@@ -128,19 +134,19 @@ def test_rnf003_sintese_clinica_recusa_campo_em_branco():
         "estagiario_matricula": "16032935",
         "data_sessao": "10/10/2026",
         "numero_sessao": "Sessão 97",
-        "inicio_sessao_texto": "Sessão iniciada no horário pactuado.",
-        "meio_sessao_texto": "Intervenção concluída sem intercorrências.",
-        "fim_sessao_texto": "Encerramento com retorno agendado.",
+        "redacao_texto": (
+            "Sessão iniciada no horário pactuado. Intervenção concluída sem "
+            "intercorrências. Encerramento com retorno agendado."
+        ),
     }
 
-    for campo in ("inicio_sessao_texto", "meio_sessao_texto", "fim_sessao_texto"):
-        for vazio in ("", "   ", "\n\t "):
-            res = client.post(
-                "/api/v1/prontuarios/psico",
-                json=dict(base, **{campo: vazio}),
-                headers=headers_estagiario,
-            )
-            assert res.status_code == 422, f"{campo}={vazio!r} deveria ser recusado"
+    for vazio in ("", "   ", "\n\t "):
+        res = client.post(
+            "/api/v1/prontuarios/psico",
+            json=dict(base, redacao_texto=vazio),
+            headers=headers_estagiario,
+        )
+        assert res.status_code == 422, f"redacao_texto={vazio!r} deveria ser recusado"
 
     # Recusa não pode ter gravado nada: a fila não cresceu e o nome fictício não existe.
     depois = client.get("/api/v1/prontuarios/psico", headers=headers_supervisor).json()
@@ -318,9 +324,9 @@ def test_vslice_supervisor_odonto_bloqueado_na_psicologia():
             "estagiario_matricula": "16024402",
             "data_sessao": "10/10/2026",
             "numero_sessao": "S1",
-            "inicio_sessao_texto": "Síntese sem aspas.",
-            "meio_sessao_texto": "Síntese do meio.",
-            "fim_sessao_texto": "Síntese do fim."
+        "redacao_texto": "Síntese sem aspas. Síntese do meio. Síntese do fim.",
+
+
         },
         headers=headers,
     )
@@ -857,9 +863,9 @@ def test_rf004_homologacao_exige_parecer_na_psicologia():
         "estagiario_matricula": "16032935",
         "data_sessao": "10/10/2026",
         "numero_sessao": "Sessão 99",
-        "inicio_sessao_texto": "Sessão iniciada no horário pactuado.",
-        "meio_sessao_texto": "Intervenção planejada concluída sem intercorrências.",
-        "fim_sessao_texto": "Encerramento com retorno agendado.",
+        "redacao_texto": "Sessão iniciada no horário pactuado. Intervenção planejada concluída sem intercorrências. Encerramento com retorno agendado.",
+
+
     }, headers=headers_estagiario)
     assert criada.status_code == 201
     pendente = criada.json()
@@ -1023,9 +1029,9 @@ def test_rf004_homologacao_carimba_o_supervisor():
         "estagiario_matricula": "16032935",
         "data_sessao": "10/10/2026",
         "numero_sessao": "Sessão 98",
-        "inicio_sessao_texto": "Sessão iniciada no horário pactuado.",
-        "meio_sessao_texto": "Intervenção concluída sem intercorrências.",
-        "fim_sessao_texto": "Encerramento com retorno agendado.",
+        "redacao_texto": "Sessão iniciada no horário pactuado. Intervenção concluída sem intercorrências. Encerramento com retorno agendado.",
+
+
     }, headers=estagiario)
     assert criada.status_code == 201
     # Antes de homologar não há docente: nada é inventado na criação.

@@ -1,4 +1,40 @@
 # STATUS — UniCare
+```
+npm run lint     → 11 erros preexistentes (13 → 12 na Fatia D, 12 → 11 no F(b); nenhum novo)
+
+### ✏️ Emenda normativa nesta rodada
+
+- **A síntese clínica virou uma caixa só.** `prontuarios_psico` tinha
+  `inicio_sessao_texto`, `meio_sessao_texto` e `fim_sessao_texto` — três colunas
+  porque a tela obrigava o estagiário a separar por fase. A restrição era de
+  interface, não de prontuário: quem redige conhece a ordem em que as coisas
+  aconteceram e escreve em parágrafos. Agora é `redacao_texto`, coluna única.
+  **O relatório normativo foi emendado** (`PRONTUARIOS_PSICO`, o diagrama e a
+  lista de colunas), porque ele era a fonte que descrevia as três.
+- A migração `a4e1b7c3d902` concatena o conteúdo já gravado com linha em branco
+  entre as partes, e **não se perde registro nenhum**. O `downgrade` recria as três
+  colunas mas não consegue reconstituir onde uma fase terminava: volta o texto
+  inteiro em `inicio_sessao_texto` e as outras duas vazias. Perde granularidade,
+  mantém o conteúdo — e isso está comentado dentro da própria revisão.
+- **Saiu o rótulo `RNF-003 · Síntese Técnica Conceitual`.** O relatório não tem
+  **nenhum** identificador `RNF-*` — só `RF-*` e `RN-001`, `RN-002` e `RN-006`. A
+  tela citava uma regra que não existe em fonte nenhuma, o que o `AGENTS.md` proíbe.
+  A regra continua valendo, agora dita por descrição.
+- O teste `test_redacao_clinica_recusa_campo_em_branco` exercita 3 formatos de
+  branco em vez de 3 × 3: o risco coberto é o mesmo (o caminho de escrita), a
+  contagem é que encolheu junto com o campo.
+
+### 🐛 Defeito encontrado nesta rodada
+
+- **O menu da recepção oferecia link que sempre dava 403.** O bloco "Central de
+  Recepção" renderizava as duas clínicas sem filtrar por `user.curso`: REC-001 via
+  403 em `/psi/recepcao` e REC-002 via 403 em `/recepcao`. A RT na visão Global caía
+  no mesmo furo. Agora cada link só aparece para o curso da conta.
+- O 403 da **recepção em `/psi/prontuario` continua correto** e é o esperado: a
+  rota libera `estagiario`, `supervisor` e `rt`, e a RN-001 é normativa, com teste
+  affirmando o 403. O módulo da recepção é a agenda e a triagem, não o prontuário.
+```
+# STATUS — UniCare
 
 **Última atualização:** 2026-10-15 (Blocos 1 a 14 concluídos — recuperação de senha com envio real ainda pendente · rodada de paridade de psicologia fechada)
 **Branch:** `augusto` · **Remote:** `github.com/RikelmeRoma/UniCare`
