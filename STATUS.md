@@ -1,10 +1,15 @@
 # STATUS — UniCare
 
-**Última atualização:** 2026-10-04 (Fases 1 a 5 concluídas — plano de banco finalizado)
+**Última atualização:** 2026-10-15 (Blocos 1 a 14 concluídos — recuperação de senha com envio real ainda pendente)
 **Branch:** `augusto` · **Remote:** `github.com/RikelmeRoma/UniCare`
 
 Registro de progresso do projeto. Para orientações de trabalho, ver [`AGENTS.md`](./AGENTS.md).
 Para os requisitos funcionais e normativos (RF/RN), ver [`RELATORIO_CONSOLIDADO_PROJETO.md`](./RELATORIO_CONSOLIDADO_PROJETO.md).
+
+> **As pendências estão em [Pendências Abertas](#pendências-abertas)**, logo abaixo
+> da situação atual. As listas antigas que ficavam dentro do Bloco 5 foram removidas:
+> estavam vazias e enterradas no meio de um relato de 80 linhas, que é exatamente
+> o jeito de uma pendência passar despercebida.
 
 ---
 
@@ -22,7 +27,87 @@ constraints de coluna e integração do frontend com a API.
 | 3 | Constraints: `max_length` + `Text` nos campos narrativos | ✅ **concluída** |
 | 4 | Testes rodando contra Postgres | ✅ **concluída** |
 | 5 | Higiene de Compose/Docker | ✅ **concluída** |
-| — | Trilha de segurança | ⬜ não iniciada |
+| — | Trilha de segurança | ✅ **concluída nos Blocos 3 e 8** |
+
+---
+
+## Pendências Abertas
+
+Nada aqui está em prise de correção. A ordem sugerida é a numeração dos itens.
+
+### 🔴 Crítico
+
+**Nenhuma aberta.** A trilha de segurança do backend foi fechada no Bloco 3
+(bcrypt sem fallback, CORS com allowlist, IP real, `ativo` no login) e os últimos
+furos de dado falso — evolução clínica pré-preenchida, badge que mostrava evolução
+devolvida como homologada, e-mail fabricado, logout sem limpar — saíram entre os
+Blocos 8 a 14.
+
+### 🟠 Importante
+
+**E-mail do Bloco 14**
+
+1. **Verificar o envio real contra um SMTP de verdade.** O código está pronto e
+   coberto por 11 testes com dublê, mas **nenhum envio real chegou a lugar
+   nenhum**: o único teste de rede, contra o Outlook pessoal, falhou com
+   `535 5.7.3` (credencial). O que falta é o handshake, não o código.
+   → *Começar por aqui; destrava todo o resto do item.*
+2. **`email_service` não cobre a porta 465.** Só há caminho STARTTLS (587). Um
+   servidor institucional que só ofereça TLS implícito (465) não funciona, e vai
+   falhar com erro de conexão sem pista do motivo.
+3. **`MAIL_FROM` diferente de `MAIL_USER`.** O remetente sai de `MAIL_FROM`,
+   independente da conta autenticada. Yahoo e alguns servidores exigem que os dois
+   sejam iguais e reescrevem ou rejeitam o envio.
+
+**Dados e ordenação** — mesma raiz, dá para render uma migration só
+
+4. `data_nascimento` e `data_sessao` são `str`, não `DATE`: impedem ordenar e
+   comparar.
+5. **Data em `agendamentos`.** Três painéis pedem "Hoje" ou "na Semana" e hoje os
+   rótails evitam afirmar período porque `Agendamento` não tem campo de data. É o
+   item que mais se repete em revisão de tela.
+
+**Modelo e domínio**
+
+6. **Vínculo estagiário ↔ turma ↔ supervisor** (RF-005). Tabela nova. O Bloco 8
+   removeu da tela de psicologia a afirmação de que essa segregação existia; agora
+   ela está honestamente declarada como não implementada, e o relatório a descreve.
+7. **Erro do `GET /usuarios` exposto no `AuthContext`.** `carregarUsuarios` engole
+   a falha e deixa `allUsers` vazio, então não dá para distinguir "clínica sem
+   estagiário" de "chamada que não voltou". É o que fez o cartão de estagiários
+   mostrar `—` em vez de `0`.
+
+**Paridade de psicologia**
+
+8. **Checklist CFP estruturado na homologação psi.** Odontologia tem checklist CFO
+   de 4 itens que entra no parecer e bloqueia a decisão; psicologia homologa com
+   texto livre.
+9. **Seed de psicologia incompleto.** Não tem prontuário `DEVOLVIDO_PARA_AJUSTE`,
+   então o caminho de devolução nunca é exercitado por seed; e 1 dos 2 prontuários
+   pertence a `16031730`, estagiário que **não existe em `seed_usuarios`**, de modo
+   que `16032935` só enxerga 1 dos 2 registros.
+10. **Levar de volta para odontologia** o que psicologia já tem: carimbo de autoria
+    docente na homologação, validação de conteúdo clínico no servidor e
+    segregação da listagem por estagiário.
+
+### 🟡 Menor
+
+- **11 pendências de lint**, todas preexistentes e em código que não tocamos:
+  `react-refresh` (3), `setState` dentro de effect (2, no `ClinicContext`),
+  `no-useless-assignment` (2, no `PeriogramaViewer`), `'_' is defined but never
+  used` (3) e `no-explicit-any` (1). O baseline **caiu de 13 para 11** sozinho,
+  porque os erros estavam presos a código morto removido.
+- Busca por nome/matrícula entre os estagiários supervisionados (existe em
+  `ClinicalPairs`, não em psicologia).
+- Indicador de absenteísmo na recepção de psicologia (odontologia tem; psi mede
+  cancelamentos).
+- Botão de recarregar a fila de homologação (existe em `ApprovalQueue`, não em
+  `PsyApprovalQueue`).
+- Histórico de decisões em tabela na supervisão psi (hoje é lista inline).
+- Sinalização de paciente menor na ficha de psicologia (odontologia tem o badge de
+  odontopediatria).
+- Badge de origem/diagnóstico de falha da sincronização na recepção psi
+  (odontologia mostra; psi usa `—` por cartão).
 
 ---
 
@@ -548,12 +633,10 @@ em vez de consumir uma pendência do seed. Depender do seed os tornava sensívei
 ordem — os testes de homologação anteriores já consomem as duas fichas pendentes e
 o teste falhava na suíte, passando isolado.
 
-### 🔴 Crítico
+### Resolvidos aqui (rastro, não pendência)
 
-### 🟠 Importante
-
-**Os "3 bloqueadores do frontend" e o SHA-256 foram resolvidos.** Registrados
-aqui para rastrear a origem, com o estado atual:
+Os "3 bloqueadores do frontend" e o SHA-256 saíram de cena; ficam registrados para
+não se perder a origem:
 
 1. ~~`ClinicContext` sincroniza com `deps: []`~~ — **corrigido** na Camada 1: a
    carga passou a depender da matrícula autenticada.
@@ -562,10 +645,11 @@ aqui para rastrear a origem, com o estado atual:
    `Date.now()`) e `registro_profissional` chega às telas.
 3. ~~Ids temporários `Date.now()`~~ — **corrigido** na Camada 3: toda escrita
    espera o id real do banco.
+4. ~~SHA-256 na senha~~ — **corrigido no Bloco 3**: bcrypt direto, sem caminho
+   alternativo que comparasse texto claro.
 
-### 🟡 Menor
-
-- `data_nascimento` e `data_sessao` são `str`, não `DATE` — impedem ordenação
+A lista de pendências em aberto não fica mais aqui: ver
+[Pendências Abertas](#pendências-abertas).
 
 ---
 
