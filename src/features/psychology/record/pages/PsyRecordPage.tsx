@@ -1,29 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { AppLayout } from '../../../../components/layout/AppLayout';
 import { useAuth } from '../../../auth/context/AuthContext';
 import { useClinic } from '../../../clinic/context/ClinicContext';
-// Anamnese e sinais vitais são dados do paciente, não da clínica: o mesmo modal
-// serve às duas. A rota do backend já é agnóstica de curso (guardada por
-// _paciente_visivel), então reutilizar aqui não atravessa nenhuma segregação.
-import { AnamneseModal } from '../../../dental-record/components/AnamneseModal';
 import {
   DocumentTextIcon,
   ShieldCheckIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
   ClockIcon,
-  PlusIcon,
 } from '../../../../components/icons/CorporateIcons';
 
 export function PsyRecordPage() {
   const { user } = useAuth();
-  const {
-    pacientes,
-    evolucoesPsico,
-    adicionarEvolucaoPsico,
-    anamnesesPorPaciente,
-    carregarAnamneses,
-  } = useClinic();
+  const { pacientes, evolucoesPsico, adicionarEvolucaoPsico } = useClinic();
 
   // Filtrar apenas pacientes com prontuário de psicologia ativo
   const pacientesPsico = pacientes.filter(
@@ -40,30 +29,7 @@ export function PsyRecordPage() {
   const pacienteSelecionado =
     pacientesPsico.find((p) => p.id === selectedPatientId) || pacientesPsico[0];
 
-  const [activeTab, setActiveTab] = useState<'registro' | 'historico' | 'anamnese'>('registro');
-  const [showAfericao, setShowAfericao] = useState(false);
-
-  // A anamnese é por paciente: trocar o paciente precisa recarregar o histórico.
-  // Depende do id resolvido e do carregador, nunca `deps: []` — senão dispara
-  // antes do token existir e a tela fica nos mocks até um F5.
-  useEffect(() => {
-    if (pacienteSelecionado?.id) {
-      void carregarAnamneses(pacienteSelecionado.id);
-    }
-  }, [pacienteSelecionado?.id, carregarAnamneses]);
-
-  const anamneses = pacienteSelecionado?.id
-    ? (anamnesesPorPaciente[pacienteSelecionado.id] ?? [])
-    : [];
-  // O backend devolve do mais recente para o mais antigo.
-  const ultima = anamneses[0];
-
-  // Dado clínico ausente é pior que número inventado: campo sem registro
-  // aparece como "Não registrado", não como valor plausível.
-  const mostrar = (valor?: string | number) => {
-    if (valor === undefined || valor === null || valor === '') return 'Não registrado';
-    return String(valor);
-  };
+  const [activeTab, setActiveTab] = useState<'registro' | 'historico'>('registro');
 
   // Histórico de sessões do paciente atual (RF-008 & RN-005)
   const historicoSessoes = evolucoesPsico.filter(
@@ -251,29 +217,6 @@ export function PsyRecordPage() {
             >
               {historicoSessoes.length}
             </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('anamnese')}
-            className={`flex-1 py-2.5 px-4 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'anamnese'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <ShieldCheckIcon className="w-4 h-4" />
-            <span>Anamnese e Sinais Vitais</span>
-            {anamneses.length > 0 && (
-              <span
-                className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${
-                  activeTab === 'anamnese'
-                    ? 'bg-white/20 text-white'
-                    : 'bg-slate-100 text-slate-700'
-                }`}
-              >
-                {anamneses.length}
-              </span>
-            )}
           </button>
         </div>
 
@@ -480,7 +423,7 @@ export function PsyRecordPage() {
               </div>
             )}
           </div>
-        ) : activeTab === 'historico' ? (
+        ) : (
           /* ABA 2: LINHA DO TEMPO CRONOLÓGICA (RF-008 & RN-005) */
           <div className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-6">
             <div className="flex justify-between items-center pb-4 border-b border-slate-100">
@@ -576,118 +519,6 @@ export function PsyRecordPage() {
               </div>
             )}
           </div>
-        ) : (
-          /* ABA 3: ANAMNESE E SINAIS VITAIS */
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-5 space-y-6">
-              <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-                <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2 text-xs uppercase tracking-wider">
-                  <ExclamationTriangleIcon className="w-4 h-4 text-red-600" />
-                  <span>Alertas Clínicos & Alergias</span>
-                </h3>
-                <ul className="space-y-2 text-xs">
-                  {/* Tudo vem da anamnese registrada. Nada aqui é preenchido por
-                      padrão: campo sem registro fica declarado como ausente. */}
-                  {ultima?.alergias && (
-                    <li className="p-3 bg-red-50 text-red-800 rounded-xl border border-red-200/80 font-medium">
-                      <strong>Alergia:</strong> {ultima.alergias}
-                    </li>
-                  )}
-                  {ultima?.condicoesCronicas && (
-                    <li className="p-3 bg-amber-50 text-amber-800 rounded-xl border border-amber-200/80 font-medium">
-                      <strong>Condições crônicas:</strong> {ultima.condicoesCronicas}
-                    </li>
-                  )}
-                  {ultima?.medicacoesEmUso && (
-                    <li className="p-3 bg-slate-50 text-slate-800 rounded-xl border border-slate-200/80 font-medium">
-                      <strong>Medicações em uso:</strong> {ultima.medicacoesEmUso}
-                    </li>
-                  )}
-                  {!ultima?.alergias && !ultima?.condicoesCronicas && !ultima?.medicacoesEmUso && (
-                    <li className="p-3 bg-slate-50 text-slate-500 rounded-xl border border-slate-200/80 font-medium">
-                      Anamnese sem alertas registrados.
-                    </li>
-                  )}
-                </ul>
-              </div>
-
-              <div className="bg-slate-100 border border-slate-200 p-4 rounded-2xl text-xs text-slate-800 space-y-1">
-                <p className="font-bold text-slate-900">Diretriz de Supervisão — CFP nº 06/2019:</p>
-                <p className="text-[11px] leading-relaxed text-slate-600">
-                  O registro de sessão segue a síntese técnica estruturada em Início, Meio e
-                  Fim, sem falas literais entre aspas (RN-002), e segue para a homologação
-                  docente com visto digital antes de integrar ao prontuário.
-                </p>
-              </div>
-            </div>
-
-            <div className="lg:col-span-7 space-y-6">
-              <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-                <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2 text-xs uppercase tracking-wider">
-                  <ShieldCheckIcon className="w-4 h-4 text-slate-600" />
-                  <span>Sinais Vitais da Sessão</span>
-                </h3>
-                <div className="space-y-2.5 text-xs text-slate-700">
-                  <div className="flex justify-between border-b border-slate-100 pb-2">
-                    <span className="text-slate-500">Pressão Arterial (P.A.)</span>
-                    <span className="font-bold text-slate-900 font-mono">
-                      {mostrar(ultima?.pressaoArterial)}
-                      {ultima?.pressaoArterial ? ' mmHg' : ''}
-                    </span>
-                  </div>
-                  <div className="flex justify-between border-b border-slate-100 pb-2">
-                    <span className="text-slate-500">Glicemia Capilar</span>
-                    <span className="font-bold text-slate-900 font-mono">
-                      {mostrar(ultima?.glicemiaCapilar)}
-                      {ultima?.glicemiaCapilar ? ' mg/dL' : ''}
-                    </span>
-                  </div>
-                  <div className="flex justify-between border-b border-slate-100 pb-2">
-                    <span className="text-slate-500">Frequência Cardíaca</span>
-                    <span className="font-bold text-slate-900 font-mono">
-                      {mostrar(ultima?.frequenciaCardiaca)}
-                      {ultima?.frequenciaCardiaca ? ' bpm' : ''}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Temperatura</span>
-                    <span className="font-bold text-slate-900 font-mono">
-                      {mostrar(ultima?.temperatura)}
-                      {ultima?.temperatura ? ' °C' : ''}
-                    </span>
-                  </div>
-                </div>
-
-                {ultima && (
-                  <p className="mt-3 text-[10px] text-slate-400 font-mono">
-                    Última aferição: {new Date(ultima.afetidoEm).toLocaleString('pt-BR')} •{' '}
-                    {ultima.responsavelNome} ({ultima.responsavelMatricula})
-                  </p>
-                )}
-                {anamneses.length > 1 && (
-                  <p className="mt-1 text-[10px] text-slate-400 font-mono">
-                    {anamneses.length} aferições no histórico
-                  </p>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => setShowAfericao(true)}
-                  className="mt-3 w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[11px] py-2 rounded-xl flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <PlusIcon className="w-3.5 h-3.5" />
-                  Registrar aferição
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showAfericao && pacienteSelecionado && (
-          <AnamneseModal
-            pacienteId={pacienteSelecionado.id}
-            onClose={() => setShowAfericao(false)}
-          />
         )}
 
         {/* Modal Corporativo de Protocolo */}

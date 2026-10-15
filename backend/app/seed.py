@@ -396,33 +396,23 @@ def seed_solicitacoes(session: Session) -> None:
 
 
 def seed_anamneses(session: Session, pacientes: List[Paciente]) -> None:
-    """Aferições de sinais vitais e anamnese, uma por paciente de cada clínica.
+    """Aferições de sinais vitais e anamnese dos pacientes de odontologia.
 
-    Sem isso a aba de anamnese dos dois prontuários nasce mostrando "Não
-    registrado" em tudo, e a tela parece quebrada em vez de vazia. É dado de
-    demonstração: a autoria vem do token de quem afere em uso real, aqui é o
-    estagiário do seed.
-    """
+Só a ficha odontológica mostra anamnese (decisão do produto): a de psicologia é
+composta por evolução de sessão e linha do tempo, sem sinais vitais. O paciente
+de curso "ambos" aparece aqui porque é visto pela odontologia — a anamnese é dado
+do paciente, não da clínica, e ele tem uma só.
+
+Sem isso a aba de odontologia nasce mostrando "Não registrado" em tudo, e a tela
+parece quebrada em vez de vazia. É dado de demonstração: a autoria vem do token de
+quem afere em uso real, aqui é o estagiário do seed.
+"""
     if not _tabela_vazia(session, Anamnese) or len(pacientes) < 4:
         return
 
-    p1, p2, p3, _p4 = pacientes
+    p2, p3, _p4 = pacientes[1], pacientes[2], pacientes[3]
 
     session.add_all([
-        # Paciente de psicologia: aferição completa, com alerta de alergia e
-        # condição crônica, para a tela mostrar as três caixas preenchidas.
-        Anamnese(
-            paciente_id=p1.id,
-            pressao_arterial="128/82",
-            glicemia_capilar=96,
-            frequencia_cardiaca=78,
-            temperatura=36.6,
-            alergias="Dipirona",
-            condicoes_cronicas="Ansiedade generalizada - acompanhamento em psicoterapia",
-            medicacoes_em_uso="Sertralina 50mg, uso contínuo",
-            responsavel_nome="Rikelme Roma Santos",
-            responsavel_matricula="16032935",
-        ),
         # Paciente de odontologia: só os sinais, sem alerta clínico.
         Anamnese(
             paciente_id=p2.id,
