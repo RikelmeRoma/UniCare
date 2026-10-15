@@ -163,6 +163,50 @@ gerenciamento RBAC. Já usamos esses dois números para outras coisas e os teste
 passaram a mentir. Para algo fora da lista do relatório (demandas de estágio,
 CPF duplicado), cite por descrição — não invente número.
 
+**`sa.Enum(...)` inline em `op.create_table` tenta `CREATE TYPE`.** Reaproveitar um
+ENUM que já existe — como `perfilusuario`, da migration inicial — morre com `type
+perfilusuario already exists`. A solução é o tipo do dialeto com
+`create_type=False`: `postgresql.ENUM('ESTAGIARIO', ..., name='perfilusuario',
+create_type=False)`. O `create_type=False` no `sa.Enum` genérico **não resolve**.
+
+**O nome do ENUM precisa bater com o que o SQLModel deriva da classe.** Classe
+`SituacaoSolicitacao` vira `situacaosolicitacao`; escrever `statussolicitacao` na
+migration faz o `alembic check` pedir alteração de tipo para sempre. Se o `check`
+acusar `modify_type` em uma coluna enum logo após criar a tabela, é o nome.
+
+**Rota pública de recuperação não pode responder "não existe".**
+`POST /auth/senha/recuperar/solicitar` e `.../redeem` são o caminho de quem
+esqueceu a senha. Se a resposta do pedido diferir entre conta existente e
+inexistente, a rota serve de oráculo para enumerar o cadastro; se a do resgate
+diferir entre código errado, expirado e já usado, serve de oráculo para testar
+códigos. As duas respostas são genéricas de propósito — e o teste de conformidade
+exatamente dessas igualdades é o que impede alguém de "melhorar a mensagem".
+
+**Recuperação sem canal de entrega não é auto-recuperação.** A segurança de um
+reset vem de provar que *você* recebeu o token. Sem SMTP, não há como. O que dá
+para fazer sem depender de ninguém é o inverso: `PATCH /auth/senha` com a senha
+atual (Bloco 12) e `/cadastro` passando pela RT (Bloco 13).
+
+**"Enviamos o e-mail" sem e-mail enviado é a pior falha possível.** Se o SMTP está
+desligado ou quebrado, a resposta é 503 dizendo que o envio está indisponível, e
+a tela orienta procurar a coordenação. O `email_service` separa `NAO_CONFIGURADO`
+de `FALHOU` porque os dois impedem o envio mas a pessoa precisa saber qual é. Não
+simplifique isso para um `if not enviou: raise 500`.
+
+**Trocar de provedor de e-mail é só `.env`.** `smtplib` e `email` são da stdlib, e
+todo o envio está atrás de `email_service`, com as chaves em `settings`. Gmail,
+Outlook e servidor institucional com senha comum são a mesma configuração. **A
+exceção:** Office 365 com autenticação básica desabilitada exigiria OAuth2, e aí
+passa a ser código — peça esse detalhe no requerimento à instituição.
+
+**Não imprima a senha do SMTP para diagnosticar.** Para checar caractere oculto,
+confira comprimento e o teste de espaços nas pontas; o hex dos bytes revela a senha
+na própria sessão, e ela fica no histórico da conversa.
+
+**`password_hash` do SMTP só entra do `.env`.** Está no `.gitignore` **e** no
+`.dockerignore`, e nenhum commit toca `backend/.env`. Confirme com `git
+check-ignore -v backend/.env` antes de colar qualquer credencial real.
+
 **`EmailStr` exige `email-validator`.** O pydantic importa o pacote sob demanda;
 sem ele no `requirements.txt`, a aplicação inteira quebra na importação, mesmo
 que o campo apareça num schema que quase ninguém usa.

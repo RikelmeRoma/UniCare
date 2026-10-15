@@ -222,6 +222,32 @@ class ApiService {
     });
   }
 
+  /**
+   * Recuperação de senha por token no e-mail.
+   *
+   * A resposta é genérica de propósito: o backend não diz se a conta existe,
+   * para a rota pública não servir de oráculo para enumerar o cadastro. O 503
+   * é o estado honesto — SMTP desligado ou quebrado — e a tela mostra isso em
+   * vez de fingir que enviou.
+   */
+  async solicitarRecuperacaoSenha(identificador: string) {
+    return this.request<{ message: string }>('/auth/senha/recuperar/solicitar', {
+      method: 'POST',
+      body: JSON.stringify({ email_ou_matricula: identificador }),
+    });
+  }
+
+  async resgatarRecuperacaoSenha(
+    identificador: string,
+    codigo: string,
+    novaSenha: string
+  ) {
+    return this.request<{ message: string }>('/auth/senha/recuperar/redeem', {
+      method: 'POST',
+      body: JSON.stringify({ identificador, codigo, nova_senha: novaSenha }),
+    });
+  }
+
   async getMe() {
     return this.request<{
       id: number;

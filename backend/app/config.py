@@ -37,5 +37,42 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> list[str]:
         return [origem.strip() for origem in self.CORS_ORIGINS.split(",") if origem.strip()]
 
+    # --- Envio de e-mail (recuperação de senha) ---
+    #
+    # TODAS opcionais, com padrão vazio. É o contrário de `DATABASE_URL`: lá a
+    # ausência tem que falhar alto para não nascer um banco paralelo em silêncio;
+    # aqui a ausência só significa "recuperação por e-mail indisponível", e a
+    # tela diz isso explicitamente em vez de fingir que enviou.
+    #
+    # A troca de provedor (Gmail, Outlook, servidor institucional) é só mudança
+    # neste arquivo — nenhum código muda. A única exceção a prometer é Office 365
+    # com autenticação básica desabilitada, que exigiria OAuth2; ver AGENTS.md.
+    MAIL_HOST: str = ""
+    MAIL_PORT: int = 587
+    MAIL_USER: str = ""
+    MAIL_PASSWORD: str = ""
+    MAIL_FROM: str = ""
+    # 587 usa STARTTLS. 465 usaria TLS implícito e precisaria de outro caminho
+    # no email_service; enquanto o projeto falar só com 587, o valor fixo aqui é
+    # o que mantém o serviço simples.
+    MAIL_TLS: bool = True
+    # Timeout curto de propósito: a recuperação é síncrona na request e não pode
+    # segurar a conexão do usuário por um SMTP travado.
+    MAIL_TIMEOUT_SEGUNDOS: int = 10
+
+    # Validade do token de recuperação. Curto por princípio: um código de
+    # recuperação é um segredo de uso único, não uma credencial de sessão.
+    TOKEN_RECUPERACAO_MINUTOS: int = 15
+
+    @property
+    def mail_configurado(self) -> bool:
+        """E-mail só é considerado configurado com host, usuário, senha e remetente.
+
+        Sem a checagem do remetente, um envio sairia com `From:` vazio ou
+        inventado — o servidor SMTP rejeitaria e o erro chegaria como "falha
+        genérica", escondendo que o problema é configuração incompleta.
+        """
+        return bool(self.MAIL_HOST and self.MAIL_USER and self.MAIL_PASSWORD and self.MAIL_FROM)
+
 
 settings = Settings()

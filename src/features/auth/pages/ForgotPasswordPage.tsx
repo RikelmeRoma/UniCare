@@ -1,35 +1,116 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { api } from '../../../services/api';
 import {
   ShieldCheckIcon,
   ExclamationTriangleIcon,
+  CheckCircleIcon,
   LockClosedIcon,
-  BuildingOfficeIcon,
+  KeyIcon,
   MapPinIcon,
   ArrowPathIcon,
 } from '../../../components/icons/CorporateIcons';
 
 /**
- * Tela de recuperação de senha.
+ * Recuperação de senha por código enviado no e-mail.
  *
- * Antes exibia um formulário completo — e-mail ou CPF, perfil de atuação e um
- * botão — que **não tinha `<form>`, handler nem chamada de API nenhuma**. O
- * campo aceitando digitação e nada acontecendo é pior que campo ausente: a
- * tela fingia funcionar.
+ * Antes esta tela era um formulário inerte que prometia "emissão de token
+ * criptográfico" e envio por e-mail — nada disso existia. Hoje o fluxo é real:
+ * a pessoa pede o código, recebe por e-mail e escolhe a própria senha. Ela não
+ * depende de ninguém.
  *
- * Pior ainda, o rodapé do formulário afirmava "Emissão de Token Criptográfico"
- * e que um código de 15 minutos "será gerado e enviado ao e-mail institucional
- * registrado sob conformidade com a LGPD". Não existe geração de token, não
- * existe envio de e-mail (a aplicação não tem canal SMTP nem biblioteca de
- * e-mail) e não existe rota de recuperação no backend — a única rota pública é
- * `POST /auth/login`. Alegar conformidade LGPD para um mecanismo inexistente é
- * o tipo de afirmação que não pode ficar numa tela que trata dado de saúde.
+ * A tela trata três estados que não podem virar um só:
  *
- * A tela agora diz o que é verdade e nada além disso.
+ * - **envio ok** → a resposta é genérica (o backend não diz se a conta existe),
+ *   e isso é o comportamento certo, não um defeito;
+ * - **SMTP desligado ou quebrado** → o backend devolve 503 e a tela **diz**,
+ *   em vez de mandar a pessoa esperar um e-mail que não virá;
+ * - **código errado** → a mensagem é a mesma para código inválido, expirado,
+ *   já usado ou conta inexistente.
  */
 export function ForgotPasswordPage() {
+  const [etapa, setEtapa] = useState<'pedido' | 'codigo'>('pedido');
+
+  const [identificador, setIdentificador] = useState('');
+  const [codigo, setCodigo] = useState('');
+  const [novaSenha, setNovaSenha] = useState('');
+  const [confirmacao, setConfirmacao] = useState('');
+  const [mostrar, setMostrar] = useState(false);
+
+  const [isSaving, setIsSaving] = useState(false);
+  const [erroMsg, setErroMsg] = useState('');
+  const [envioIndisponivel, setEnvioIndisponivel] = useState(false);
+  const [okMsg, setOkMsg] = useState('');
+
+  const campo =
+    'w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-600 transition-colors font-mono pr-10';
+  const rotulo = 'block text-[11px] font-bold text-slate-700 mb-1.5 uppercase tracking-wider';
+
+  const novaCurta = novaSenha.length > 0 && novaSenha.length < 6;
+  const naoCoincidem = confirmacao.length > 0 && confirmacao !== novaSenha;
+  const podeResgatar =
+    identificador.trim().length >= 3 &&
+    codigo.trim().length >= 4 &&
+    novaSenha.length >= 6 &&
+    confirmacao === novaSenha &&
+    !isSaving;
+
+  const pedirCodigo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErroMsg('');
+    setEnvioIndisponivel(false);
+    setOkMsg('');
+
+    if (identificador.trim().length < 3) {
+      setErroMsg('Informe o e-mail institucional ou a matrícula.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const res = await api.solicitarRecuperacaoSenha(identificador.trim());
+      setOkMsg(res.message);
+      setEtapa('codigo');
+    } catch (err) {
+      const mensagem = err instanceof Error ? err.message : 'Não foi possível pedir o código.';
+      // 503 é o estado de ambiente: o SMTP não está configurado ou falhou. Não
+      // é problema do identificador digitado, e a tela precisa distinguir.
+      setEnvioIndisponivel(mensagem.includes('indisponível') || mensagem.includes('Não foi possível enviar'));
+      setErroMsg(mensagem);
+    }
+    setIsSaving(false);
+  };
+
+  const resgatar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErroMsg('');
+    setOkMsg('');
+
+    if (!podeResgatar) {
+      setErroMsg('Preencha o código e as duas senhas. A nova senha precisa de ao menos 6 caracteres.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const res = await api.resgatarRecuperacaoSenha(
+        identificador.trim(),
+        codigo.trim().toUpperCase(),
+        novaSenha
+      );
+      setOkMsg(res.message);
+      setCodigo('');
+      setNovaSenha('');
+      setConfirmacao('');
+      setEtapa('pedido');
+    } catch (err) {
+      setErroMsg(err instanceof Error ? err.message : 'Não foi possível trocar a senha.');
+    }
+    setIsSaving(false);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
-      {/* Cabeçalho da Página */}
       <header className="bg-white border-b border-slate-200 px-6 sm:px-8 py-4 flex justify-between items-center shrink-0">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight leading-tight">UniCare Enterprise Health</h1>
@@ -43,7 +124,6 @@ export function ForgotPasswordPage() {
         </div>
       </header>
 
-      {/* Área Central */}
       <main className="flex-1 flex flex-col items-center justify-center p-6">
         <div className="mb-6 flex items-center gap-2 text-xs font-bold text-blue-700 bg-blue-50 px-4 py-1.5 rounded-full border border-blue-200/80 uppercase tracking-wider">
           <ShieldCheckIcon className="w-4 h-4 text-blue-700" />
@@ -53,77 +133,197 @@ export function ForgotPasswordPage() {
         <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-200">
           <div className="bg-slate-900 text-white p-8 text-center">
             <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center mx-auto mb-4 border border-white/20">
-              <ArrowPathIcon className="w-6 h-6 text-slate-300" />
+              {etapa === 'pedido' ? (
+                <ArrowPathIcon className="w-6 h-6 text-slate-300" />
+              ) : (
+                <KeyIcon className="w-6 h-6 text-slate-300" />
+              )}
             </div>
-            <h2 className="text-2xl font-bold mb-2 tracking-tight">Redefinição de Credenciais</h2>
+            <h2 className="text-2xl font-bold mb-2 tracking-tight">Recuperar senha</h2>
             <p className="text-xs text-slate-300 px-4 leading-relaxed">
-              Ainda não há recuperação automática de senha no UniCare.
+              {etapa === 'pedido'
+                ? 'Enviamos um código de uso único para o e-mail cadastrado na sua conta.'
+                : 'Digite o código recebido e escolha uma nova senha.'}
             </p>
           </div>
 
           <div className="p-8 space-y-5">
-            {/* O que existe hoje, dito sem rodeio. */}
-            <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-4 flex gap-3 text-xs">
-              <ExclamationTriangleIcon className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-              <div>
-                <h3 className="font-bold text-amber-900">
-                  Este formulário não existe mais porque não havia nada por trás dele
-                </h3>
-                <p className="text-[11px] text-amber-800 mt-1 leading-relaxed">
-                  A versão anterior desta tela aceitava e-mail ou CPF e perfil de atuação,
-                  e prometia enviar um token de 15 minutos. Não há geração de token, não
-                  há envio de e-mail — a aplicação não tem canal de e-mail configurado —
-                  e não há rota de recuperação no servidor. A única rota pública de
-                  autenticação é o login por matrícula e senha.
-                </p>
-              </div>
+            {etapa === 'pedido' ? (
+              <form onSubmit={pedirCodigo} className="space-y-4">
+                <div>
+                  <label className={rotulo} htmlFor="rec-id">
+                    E-mail institucional ou matrícula
+                  </label>
+                  <input
+                    id="rec-id"
+                    value={identificador}
+                    onChange={(e) => setIdentificador(e.target.value)}
+                    placeholder="usuario@prof.uninassau.edu.br ou 16032935"
+                    className={`${campo} pr-3.5`}
+                    autoComplete="username"
+                    required
+                  />
+                </div>
+
+                {envioIndisponivel && (
+                  <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-900 text-xs rounded-xl space-y-1.5">
+                    <p className="font-bold flex items-center gap-1.5">
+                      <ExclamationTriangleIcon className="w-4 h-4" />
+                      O envio por e-mail está indisponível agora
+                    </p>
+                    <p>{erroMsg}</p>
+                    <p className="text-amber-800">
+                      Enquanto isso, procure a coordenação da sua clínica-escola: a
+                      Referência Técnica pode redefinir a sua senha.
+                    </p>
+                  </div>
+                )}
+
+                {erroMsg && !envioIndisponivel && (
+                  <p className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl font-semibold">
+                    {erroMsg}
+                  </p>
+                )}
+
+                {okMsg && (
+                  <p className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl font-semibold">
+                    {okMsg}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={identificador.trim().length < 3 || isSaving}
+                  className={`w-full px-5 py-3 rounded-xl text-xs font-bold text-white transition-all ${
+                    identificador.trim().length >= 3 && !isSaving
+                      ? 'bg-blue-700 hover:bg-blue-800 shadow-xs'
+                      : 'bg-slate-300 cursor-not-allowed opacity-70'
+                  }`}
+                >
+                  {isSaving ? 'Enviando…' : 'Enviar código'}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={resgatar} className="space-y-4">
+                <div>
+                  <label className={rotulo} htmlFor="rec-codigo">Código recebido</label>
+                  <input
+                    id="rec-codigo"
+                    value={codigo}
+                    onChange={(e) => setCodigo(e.target.value)}
+                    placeholder="Ex: K7M2QP"
+                    className={`${campo} pr-3.5 uppercase tracking-[0.2em]`}
+                    autoComplete="one-time-code"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className={rotulo} htmlFor="rec-nova">Nova senha</label>
+                  <input
+                    id="rec-nova"
+                    type={mostrar ? 'text' : 'password'}
+                    value={novaSenha}
+                    onChange={(e) => setNovaSenha(e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                    className={campo}
+                    autoComplete="new-password"
+                    required
+                  />
+                  {novaCurta && (
+                    <p className="text-[10px] text-amber-700 font-semibold mt-1">
+                      Faltam {6 - novaSenha.length} caracteres.
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className={rotulo} htmlFor="rec-confirma">Confirmar nova senha</label>
+                  <input
+                    id="rec-confirma"
+                    type={mostrar ? 'text' : 'password'}
+                    value={confirmacao}
+                    onChange={(e) => setConfirmacao(e.target.value)}
+                    placeholder="Repita a nova senha"
+                    className={campo}
+                    autoComplete="new-password"
+                    required
+                  />
+                  {naoCoincidem && (
+                    <p className="text-[10px] text-rose-700 font-semibold mt-1">
+                      A confirmação não bate com a nova senha.
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setMostrar(!mostrar)}
+                  className="text-[11px] text-slate-600 hover:text-slate-900 font-semibold"
+                >
+                  {mostrar ? 'Ocultar senhas' : 'Mostrar senhas'}
+                </button>
+
+                {erroMsg && (
+                  <p className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl font-semibold">
+                    {erroMsg}
+                  </p>
+                )}
+                {okMsg && (
+                  <p className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl font-semibold flex items-start gap-1.5">
+                    <CheckCircleIcon className="w-4 h-4 shrink-0 mt-px" />
+                    {okMsg}
+                  </p>
+                )}
+
+                <div className="flex gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => { setEtapa('pedido'); setErroMsg(''); }}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs hover:bg-slate-50"
+                  >
+                    Voltar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!podeResgatar}
+                    className={`flex-1 px-5 py-2.5 rounded-xl text-xs font-bold text-white transition-all flex items-center justify-center gap-1.5 ${
+                      podeResgatar
+                        ? 'bg-blue-700 hover:bg-blue-800 shadow-xs'
+                        : 'bg-slate-300 cursor-not-allowed opacity-70'
+                    }`}
+                  >
+                    <LockClosedIcon className="w-3.5 h-3.5" />
+                    {isSaving ? 'Trocando…' : 'Trocar senha'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* O que a tela não promete: revogação de sessões já abertas. */}
+            <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 text-[11px] text-slate-600 leading-relaxed">
+              O código vale por poucos minutos e só funciona uma vez. A senha nova é
+              guardada apenas como hash bcrypt — nem a coordenação consegue consultá-la.
+              Trocar a senha aqui não encerra sessões já abertas neste dispositivo.
             </div>
 
-            {/* O caminho que funciona. */}
-            <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 flex gap-3 text-xs">
-              <LockClosedIcon className="w-4 h-4 text-slate-600 shrink-0 mt-0.5" />
-              <div>
-                <h3 className="font-bold text-slate-900">Como obter acesso hoje</h3>
-                <ul className="text-[11px] text-slate-700 mt-1.5 space-y-1.5 list-disc pl-4">
-                  <li>
-                    <strong>Se você já está autenticado</strong> e quer trocar a senha por
-                    precaução: ainda não há tela para isso — é funcionalidade pendente do
-                    projeto.
-                  </li>
-                  <li>
-                    <strong>Se você não tem acesso</strong>, procure a coordenação da sua
-                    clínica-escola (SPA ou Clínica Odontológica Integrada), que é quem
-                    autoriza credenciais de estagiário.
-                  </li>
-                  <li>
-                    A senha é gravada com bcrypt e não é recuperável em texto claro por
-                    ninguém, nem pela coordenação. Ela é redefinida, não consultada.
-                  </li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between gap-2 pt-2 text-xs">
+            <div className="flex items-center justify-between text-xs">
               <Link to="/login" className="font-semibold text-slate-600 hover:text-slate-900">
-                Voltar para o Login
+                Voltar para o login
               </Link>
-              <span className="text-slate-500">
-                Primeiro acesso?{' '}
-                <Link to="/cadastro" className="font-bold text-blue-700 hover:underline">
-                  Solicitar credencial
-                </Link>
-              </span>
+              <Link to="/cadastro" className="font-bold text-blue-700 hover:underline">
+                Ainda não tenho conta
+              </Link>
             </div>
           </div>
         </div>
 
         <p className="mt-4 text-xs font-semibold text-slate-500 flex items-center gap-1.5">
-          <BuildingOfficeIcon className="w-3.5 h-3.5 text-slate-400" />
+          <ShieldCheckIcon className="w-3.5 h-3.5 text-slate-400" />
           <span>Coordenação de Odontologia e Serviço de Psicologia Aplicada — Aracaju</span>
         </p>
       </main>
 
-      {/* Rodapé da Página */}
       <footer className="border-t border-slate-200 bg-white px-6 sm:px-8 py-3.5 flex justify-between items-center text-[10px] text-slate-500 shrink-0">
         <p>© 2026 UniCare UNINASSAU — Todos os direitos reservados.</p>
         <p className="flex items-center gap-1.5 font-mono">

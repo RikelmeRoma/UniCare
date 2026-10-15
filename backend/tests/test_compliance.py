@@ -1417,3 +1417,265 @@ def test_decisao_da_rt_entra_na_trilha_de_auditoria():
     rt_odonto = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
     acoes_da_outra = {log["acao"] for log in client.get("/api/v1/auditoria/", headers=rt_odonto).json()}
     assert "APROVACAO_SOLICITACAO_CREDENCIAL" not in acoes_da_outra
+
+
+# --- Recuperação de senha por token no e-mail ---
+#
+# Nenhum teste toca a rede: `email_service.enviar` é substituído por um dublê
+# em toda a suíte. O envio real só é verificado à mão, contra o SMTP real.
+
+
+class _EnvioFalso:
+    """Dublê do email_service. Guarda o que teria sido enviado."""
+
+    def __init__(self):
+        self.enviados: list[tuple[str, str, str]] = []
+        self.comportamento = "enviado"
+
+    def enviar(self, destinatario: str, assunto: str, corpo: str):
+        self.enviados.append((destinatario, assunto, corpo))
+        from app.services.email_service import ResultadoEnvio, StatusEnvio
+
+        if self.comportamento == "enviado":
+            return ResultadoEnvio(StatusEnvio.ENVIADO)
+        if self.comportamento == "nao_configurado":
+            return ResultadoEnvio(StatusEnvio.NAO_CONFIGURADO, "sem SMTP nos testes")
+        return ResultadoEnvio(StatusEnvio.FALHOU, "535 recusado nos testes")
+
+    def codigo_do_ultimo(self) -> str:
+        """Extrai o código do corpo do e-mail, que é o que a pessoa digita."""
+        assert self.enviados, "nenhum e-mail foi enviado"
+        corpo = self.enviados[-1][2]
+        for linha in corpo.splitlines():
+            if linha.startswith("Seu código é:"):
+                return linha.split(":")[1].strip()
+        raise AssertionError("o corpo do e-mail não trouxe o código")
+
+
+def _instalar_envio_falso(monkeypatch, comportamento: str = "enviado") -> _EnvioFalso:
+    dublê = _EnvioFalso()
+    dublê.comportamento = comportamento
+    monkeypatch.setattr("app.routers.auth.email_service", dublê)
+    return dublê
+
+
+def test_recuperacao_envia_codigo_para_o_email_cadastrado(monkeypatch):
+    """O pedido gera token e manda o código para o e-mail que está no cadastro"""
+    envio = _instalar_envio_falso(monkeypatch)
+
+    res = client.post("/api/v1/auth/senha/recuperar/solicitar",
+                      json={"email_ou_matricula": "DOC-9122"})
+    assert res.status_code == 200
+
+    assert len(envio.enviados) == 1
+    destinatario, assunto, corpo = envio.enviados[0]
+    assert destinatario == "bianca.silva@uninassau.edu.br"
+    assert "UniCare" in assunto
+    # O código vai no corpo e tem 6 caracteres do alfabeto sem 0/O/1/l/I.
+    codigo = envio.codigo_do_ultimo()
+    assert len(codigo) == 6
+    assert not set(codigo) & set("01OIl")
+
+
+def test_resgate_troca_a_senha_e_invalida_o_codigo(monkeypatch):
+    """O código certaininho troca a senha; a antiga deixa de funcionar"""
+    envio = _instalar_envio_falso(monkeypatch)
+
+    client.post("/api/v1/auth/senha/recuperar/solicitar",
+                json={"email_ou_matricula": "16024402"})
+    codigo = envio.codigo_do_ultimo()
+
+    res = client.post("/api/v1/auth/senha/recuperar/redeem", json={
+        "identificador": "16024402", "codigo": codigo, "nova_senha": "senha-recuperada-1"
+    })
+    assert res.status_code == 200
+
+    # A nova senha entra...
+    assert client.post("/api/v1/auth/login", json={
+        "email_ou_matricula": "16024402", "senha": "senha-recuperada-1"
+    }).status_code == 200
+    # ... e a antiga não entra mais.
+    assert client.post("/api/v1/auth/login", json={
+        "email_ou_matricula": "16024402", "senha": "unicare123"
+    }).status_code == 401
+
+    # O mesmo código não serve duas vezes.
+    segundo = client.post("/api/v1/auth/senha/recuperar/redeem", json={
+        "identificador": "16024402", "codigo": codigo, "nova_senha": "outra-senha-123"
+    })
+    assert segundo.status_code == 400
+
+
+def test_codigo_errado_ou_conta_inexistente_dao_a_mesma_resposta(monkeypatch):
+    """Mensagem única: se divergisse, a rota viraria oráculo de enumeração"""
+    _instalar_envio_falso(monkeypatch)
+
+    res_identificador = client.post("/api/v1/auth/senha/recuperar/redeem", json={
+        "identificador": "16024402", "codigo": "AAAAAA", "nova_senha": "senha-nova-123"
+    })
+    res_conta = client.post("/api/v1/auth/senha/recuperar/redeem", json={
+        "identificador": "ninguem@prof.uninassau.edu.br", "codigo": "AAAAAA",
+        "nova_senha": "senha-nova-123"
+    })
+
+    assert res_identificador.status_code == 400
+    assert res_conta.status_code == 400
+    assert res_identificador.json()["detail"] == res_conta.json()["detail"]
+
+
+def test_pedido_nao_revela_se_a_conta_existe(monkeypatch):
+    """Conta existente e inexistente dão a MESMA resposta de sucesso"""
+    envio = _instalar_envio_falso(monkeypatch)
+
+    com_conta = client.post("/api/v1/auth/senha/recuperar/solicitar",
+                            json={"email_ou_matricula": "DOC-9122"})
+    sem_conta = client.post("/api/v1/auth/senha/recuperar/solicitar",
+                            json={"email_ou_matricula": "ninguem@prof.uninassau.edu.br"})
+
+    assert com_conta.status_code == 200
+    assert sem_conta.status_code == 200
+    assert com_conta.json()["message"] == sem_conta.json()["message"]
+    # Só a conta que existe gera e-mail.
+    assert len(envio.enviados) == 1
+
+
+def test_novo_pedido_invalida_o_codigo_anterior(monkeypatch):
+    """Sem invalidar, dava para acumular códigos válidos por conta"""
+    envio = _instalar_envio_falso(monkeypatch)
+
+    client.post("/api/v1/auth/senha/recuperar/solicitar",
+                json={"email_ou_matricula": "REC-001"})
+    primeiro = envio.codigo_do_ultimo()
+
+    client.post("/api/v1/auth/senha/recuperar/solicitar",
+                json={"email_ou_matricula": "REC-001"})
+    segundo = envio.codigo_do_ultimo()
+    assert primeiro != segundo
+
+    # O antigo não vale mais, o novo vale.
+    assert client.post("/api/v1/auth/senha/recuperar/redeem", json={
+        "identificador": "REC-001", "codigo": primeiro, "nova_senha": "senha-nova-123"
+    }).status_code == 400
+    assert client.post("/api/v1/auth/senha/recuperar/redeem", json={
+        "identificador": "REC-001", "codigo": segundo, "nova_senha": "senha-nova-123"
+    }).status_code == 200
+
+
+def test_smtp_desligado_da_resposta_honesta_e_nao_gera_token(monkeypatch):
+    """Sem SMTP não pode haver "enviamos": seria mentira
+
+    É o teste do comportamento escolhido: quando o envio não está configurado a
+    tela **diz** que está indisponível, e nenhum token é criado.
+    """
+    _instalar_envio_falso(monkeypatch, comportamento="nao_configurado")
+
+    res = client.post("/api/v1/auth/senha/recuperar/solicitar",
+                      json={"email_ou_matricula": "DOC-8821"})
+    assert res.status_code == 503
+    assert "indisponível" in res.json()["detail"]
+
+
+def test_smtp_quebrado_da_resposta_honesta(monkeypatch):
+    """SMTP configurado e falhando também não pode virar sucesso silencioso"""
+    _instalar_envio_falso(monkeypatch, comportamento="falhou")
+
+    res = client.post("/api/v1/auth/senha/recuperar/solicitar",
+                      json={"email_ou_matricula": "RT-001"})
+    assert res.status_code == 503
+    assert "Não foi possível enviar" in res.json()["detail"]
+
+
+def test_token_expirado_e_recusado(monkeypatch):
+    """Passado o prazo, o código não vale — nem o hash do banco é reutilizável"""
+    from datetime import datetime, timedelta, timezone
+
+    from sqlmodel import select
+
+    from app.database import get_session
+    from app.models.token_recuperacao import TokenRecuperacaoSenha
+
+    envio = _instalar_envio_falso(monkeypatch)
+    client.post("/api/v1/auth/senha/recuperar/solicitar",
+                json={"email_ou_matricula": "16032935"})
+    codigo = envio.codigo_do_ultimo()
+
+    # Envelhece o token direto no banco.
+    with next(get_session()) as session:
+        token = session.exec(
+            select(TokenRecuperacaoSenha).order_by(TokenRecuperacaoSenha.id.desc())
+        ).first()
+        token.expira_em = datetime.now(timezone.utc) - timedelta(minutes=1)
+        session.add(token)
+        session.commit()
+
+    res = client.post("/api/v1/auth/senha/recuperar/redeem", json={
+        "identificador": "16032935", "codigo": codigo, "nova_senha": "senha-nova-123"
+    })
+    assert res.status_code == 400
+    assert client.post("/api/v1/auth/login", json={
+        "email_ou_matricula": "16032935", "senha": "unicare123"
+    }).status_code == 200
+
+
+def test_nenhum_codigo_ou_hash_vaza_na_resposta_ou_na_trilha(monkeypatch):
+    """Nem a resposta nem a trilha podem carregar o código"""
+    envio = _instalar_envio_falso(monkeypatch)
+
+    res = client.post("/api/v1/auth/senha/recuperar/solicitar",
+                      json={"email_ou_matricula": "DOC-8821"})
+    codigo = envio.codigo_do_ultimo()
+
+    assert codigo not in res.text
+
+    rt = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
+    logs = client.get("/api/v1/auditoria/", headers=rt).json()
+    assert any(log["acao"] == "RECUPERACAO_SOLICITADA" for log in logs)
+    assert all(codigo not in str(log) for log in logs)
+
+
+def test_conta_desativada_nao_recebe_codigo(monkeypatch):
+    """Conta desativada não gera token, mas a resposta continua genérica"""
+    envio = _instalar_envio_falso(monkeypatch)
+
+    # Desativa o estagiário de psicologia pela própria rota da RT.
+    rt = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
+    lista = client.get("/api/v1/usuarios/", headers=rt).json()
+    estagiario = next(u for u in lista if u["matricula"] == "16032935")
+    client.delete(f"/api/v1/usuarios/{estagiario['id']}", headers=rt)
+
+    res = client.post("/api/v1/auth/senha/recuperar/solicitar",
+                      json={"email_ou_matricula": "16032935"})
+    # Mesma resposta de quem não existe, e nenhum e-mail disparado.
+    assert res.status_code == 200
+    assert not any("rikelmeroma13" in e[0] for e in envio.enviados)
+
+
+def test_recuperacao_deixa_rastro_na_auditoria(monkeypatch):
+    """Solicitar e resgatar entram na trilha, e a trilha é segregada por curso"""
+    envio = _instalar_envio_falso(monkeypatch)
+    client.post("/api/v1/auth/senha/recuperar/solicitar",
+                json={"email_ou_matricula": "16024402"})
+    codigo = envio.codigo_do_ultimo()
+    client.post("/api/v1/auth/senha/recuperar/redeem", json={
+        "identificador": "16024402", "codigo": codigo, "nova_senha": "senha-recuperada-2"
+    })
+
+    rt_odonto = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
+    acoes = {log["acao"] for log in client.get("/api/v1/auditoria/", headers=rt_odonto).json()}
+    assert "RECUPERACAO_SOLICITADA" in acoes
+    assert "SENHA_RECUPERADA" in acoes
+
+    # A RT da outra clínica não enxerga o rastro.
+    rt_psi = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
+    acoes_psi = {log["acao"] for log in client.get("/api/v1/auditoria/", headers=rt_psi).json()}
+    assert "SENHA_RECUPERADA" not in acoes_psi
+
+
+def test_solicitacao_e_resgate_sao_publicos(monkeypatch):
+    """As duas rotas não exigem sessão: é o caso de quem esqueceu a senha"""
+    _instalar_envio_falso(monkeypatch)
+    assert client.post("/api/v1/auth/senha/recuperar/solicitar",
+                       json={"email_ou_matricula": "DOC-9122"}).status_code == 200
+    assert client.post("/api/v1/auth/senha/recuperar/redeem", json={
+        "identificador": "DOC-9122", "codigo": "AAAAAA", "nova_senha": "senha-nova-123"
+    }).status_code == 400

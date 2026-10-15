@@ -21,6 +21,21 @@ class TrocaSenhaRequest(BaseModel):
     senha_atual: str = Field(min_length=1, max_length=72)
     nova_senha: str = Field(min_length=6, max_length=72)
 
+class RecuperacaoSolicitada(BaseModel):
+    email_ou_matricula: str = Field(min_length=3, max_length=254)
+
+
+class RecuperacaoResgate(BaseModel):
+    """Resgate do token.
+
+    `identificador` volta a ser o e-mail **ou** a matrícula: a pessoa esqueceu a
+    senha, mas costuma lembrar uma das duas coisas.
+    """
+    identificador: str = Field(min_length=3, max_length=254)
+    codigo: str = Field(min_length=4, max_length=12)
+    # Mesmo limite do `UsuarioCreate`: 6 do schema e 72 do bcrypt.
+    nova_senha: str = Field(min_length=6, max_length=72)
+
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -29,4 +44,11 @@ class Token(BaseModel):
     nome: str
     matricula: str
 
-__all__ = ["LoginRequest", "Token", "TrocaSenhaRequest", "UsuarioRead"]
+__all__ = [
+    "LoginRequest",
+    "Token",
+    "TrocaSenhaRequest",
+    "RecuperacaoSolicitada",
+    "RecuperacaoResgate",
+    "UsuarioRead",
+]

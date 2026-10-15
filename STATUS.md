@@ -1103,6 +1103,93 @@ limpo; lint nos 11 de baseline. Conferido ao vivo: pedido anônimo aceito, e-mai
 externo recusado, RT de psicologia vê e a de odontologia não, supervisor leva 403,
 aprovação cria a conta e o login funciona com a senha que a RT definiu.
 
+## ✅ Bloco 14 — Recuperação de senha por token no e-mail
+
+Fecha o buraco que o Bloco 13 deixou aberto: **quem tem conta e esquece a senha
+não tinha para onde ir**. A auto-troca do Bloco 12 (`/conta/senha`) exige sessão,
+e quem esqueceu a senha não consegue entrar para trocar — os dois casos são
+diferentes e a tela antiga só tratava o segundo fingindo resolver o primeiro.
+
+### O problema real: sem canal de entrega, sem auto-recuperação
+
+Recuperação segura **sem canal de entrega não existe**, e não é limitação de
+implementação. A segurança de um reset vem inteiramente de provar que *você*
+recebeu o token. Se o sistema libera a troca para quem digita o e-mail da conta,
+qualquer colega que saiba a matrícula assume o acesso. Por isso todo reset do
+mundo pede e-mail ou telefone: o segredo não é o código, é quem consegue lê-lo.
+
+O projeto não tinha **nenhuma** biblioteca de envio: `email-validator` valida
+formato e não envia, não havia SMTP no `.env`, e não há rota de recuperação. Com
+a conta pessoal de e-mail do autor, o fluxo ficou completo e o dia de ter e-mail
+institucional é só troca de configuração.
+
+### O que foi construído
+
+**Configuração** — `config.py` ganhou `MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`,
+`MAIL_PASSWORD`, `MAIL_FROM`, `MAIL_TLS`, `MAIL_TIMEOUT_SEGUNDOS` e
+`TOKEN_RECUPERACAO_MINUTOS`. **Todas opcionais, com padrão vazio** — o
+contrário de `DATABASE_URL`, que tem que falhar alto para não nascer banco
+paralelo. Aqui a ausência só significa "recuperação indisponível", e a tela
+diz.
+
+**`services/email_service.py`** — `smtplib` e `email`, **da biblioteca padrão**:
+nenhuma dependência nova no `requirements.txt`. A distinção que o módulo existe
+para fazer é entre **não configurado** e **configurado e quebrado**; as duas
+impedem o envio, mas a pessoa precisa saber qual é.
+
+**Migration** (12ª entidade) `tokens_recuperacao_senha`. Guarda-se apenas o
+**SHA-256** do código: um dump da tabela não entrega nada que sirva para trocar
+senha. Código de 6 caracteres de alfabeto sem `0/O/1/l/I`, porque vai ser lido em
+voz alta.
+
+**Duas rotas públicas** em `auth.py`:
+
+- `POST /auth/senha/recuperar/solicitar` — sem SMTP configurado, devolve **503
+  honesto** e não gera token. SMTP quebrado, idem, e o motivo vai para o log.
+  SMTP funcionando, resposta **genérica e idêntica** para conta existente e
+  inexistente, para a rota não servir de oráculo de enumeração. Conta desativada
+  não recebe token, e a resposta continua genérica.
+- `POST /auth/senha/recuperar/redeem` — **uma única mensagem de erro** para
+  código errado, expirado, já usado ou conta inexistente. Se divergissem, quem
+  tentasse códigos saberia quantos eram válidos.
+
+Emitir um novo pedido **invalida os anteriores** da mesma pessoa, senão dava para
+acumular códigos válidos por conta.
+
+**A tela `/recuperar-senha`** deixou de ser a página que informava que não havia
+recuperação e virou o formulário real, em duas etapas, tratando três estados que
+não podem virar um só: envio ok (resposta genérica, que é o comportamento certo),
+SMTP indisponível (a tela **diz**) e código errado.
+
+### Testes (57 → 69)
+
+Nenhum teste toca a rede: `email_service.enviar` é substituído por um dublê. Cobrem
+o envio com o código correto, o resgate trocando a senha e invalidando o código,
+a resposta idêntica entre conta existente e inexistente, código errado vs. conta
+inexistente, novo pedido invalidando o antigo, token expirado, SMTP desligado e
+SMTP quebrado dando 503, conta desativada sem token, e a trilha de auditoria
+guardando **que** houve reset e **não** o código.
+
+### Um furo encontrado pelo próprio teste
+
+Meu teste esperava "indisponível" para o SMTP desligado e recebeu o texto genérico
+de "não foi possível enviar". O caminho tinha um buraco: a guarda
+`settings.mail_configurado` dispara 503 antes do serviço, mas se o serviço devolvesse
+`NAO_CONFIGURADO`, o código caía no erro genérico — mandando a pessoa para a
+orientação errada. Corrigido para os dois casos dizerem a coisa certa.
+
+### Estado do envio real
+
+**O SMTP do Outlook pessoal está recusando a autenticação (`535 5.7.3`).** O
+servidor anuncia `AUTH LOGIN XOAUTH2`, então aceita senha comum e **não** é
+bloqueio de verificação em duas etapas — é credencial. Conferi o `.env` byte a
+byte: endereço e senha estão sem caractere oculto e sem aspa. O código está
+correto e funciona assim que a credencial for; o único teste que falta é contra o
+servidor real.
+
+**Verificado:** `pytest` **69 passed**; `npm run build` verde; `alembic check`
+limpo; lint nos 11 de baseline.
+
 ## Decisões e armadilhas
 
 Conhecimentos que não são dedutíveis do código e que custaram tempo diagnóstico:
@@ -1149,7 +1236,7 @@ Conhecimentos que não são dedutíveis do código e que custaram tempo diagnós
 ## Estado verificado
 
 ```
-pytest           → 57 passed (de backend/ e da raiz)
+pytest           → 69 passed (de backend/ e da raiz)
 alembic check    → No new upgrade operations detected
 alembic current  → d7f2a9c4e1b8 (head)
 /health          → dialect: postgresql, conectado: true

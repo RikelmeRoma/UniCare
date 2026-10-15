@@ -6,6 +6,7 @@ from app.models.auditoria import LogAuditoria
 from app.models.demanda import DemandaEstagio, StatusDemanda, PrioridadeDemanda
 from app.models.anamnese import Anamnese
 from app.models.solicitacao import SolicitacaoCadastro, SituacaoSolicitacao
+from app.models.token_recuperacao import TokenRecuperacaoSenha
 
 __all__ = [
     "Usuario",
@@ -24,4 +25,5 @@ __all__ = [
     "Anamnese",
     "SolicitacaoCadastro",
     "SituacaoSolicitacao",
+    "TokenRecuperacaoSenha",
 ]
