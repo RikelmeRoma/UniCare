@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth, type User } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
+import { getDestinationRoute } from '../routes';
 import {
   KeyIcon,
   ExclamationTriangleIcon,
@@ -26,19 +27,9 @@ export function LoginFields({ onDomainChange }: LoginFieldsProps) {
   const [errorMsg, setErrorMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Roteamento determinístico pós-autenticação dinâmico baseado no perfil do backend
-  const getDestinationRoute = (u: User) => {
-    if (u.curso === 'psicologia') {
-      return u.perfil === 'supervisor' ? '/psi/supervisao' : '/psi/prontuario';
-    }
-    if (u.curso === 'odontologia') {
-      if (u.perfil === 'recepcao') return '/recepcao';
-      return u.perfil === 'supervisor' ? '/supervisao' : '/ficha-odonto';
-    }
-    if (u.perfil === 'recepcao') return '/recepcao';
-    if (u.perfil === 'rt') return '/rt/relatorios';
-    return '/psi/prontuario';
-  };
+  // Roteamento pós-autenticação. A regra mora em `../routes`, compartilhada com
+  // a tela de acesso negado: quando as duas coppias divergiram, a recepção de
+  // psicologia passou a cair no prontuário e a tomar 403 ao entrar.
 
   // Reação dinâmica na digitação da credencial para alternar a atmosfera visual do painel lateral
   const handleIdentifierChange = (val: string) => {

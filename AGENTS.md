@@ -161,6 +161,15 @@ status, `detail` errado, e os testes de conformidade affinei pelo identificador
 da regra. Não desfaça isso registrando as duas dependências separadas no
 endpoint: o FastAPI não garante qual resolve primeiro.
 
+
+**Rota pós-login é uma função só, e `recepcao` se decide por curso.** `getDestinationRoute`
+vive em `src/features/auth/routes.ts`, e tanto `LoginFields` (login) quanto
+`UnauthorizedPage` (botão "Voltar ao Meu Módulo Autorizado") importam dela. Houve duas
+cópias e elas divergiram: o caso `recepcao` existia só no ramo `odontologia`, então o
+REC-002 caía em `/psi/prontuario` e levava 403 ao entrar — e o botão de saída mandava
+qualquer recepção para a tela de odontologia, prendendo a de psicologia em laço de
+negação. **Ao acrescentar um perfil ou clínica, mude a função, não as cópias** (não há mais
+cópias: é esse o ponto).
 **Filtrar a listagem não protege a escrita.** O `?curso=` do cliente é opcional
 e omitível, e `PATCH /{id}/status` age por id, não por lista. Toda rota que
 escreve precisa conferir o curso do registro com `validar_curso_do_registro` —

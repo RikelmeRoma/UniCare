@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { getDestinationRoute } from '../routes';
 import {
   LockClosedIcon,
   ShieldCheckIcon,
@@ -45,21 +46,12 @@ export function UnauthorizedPage() {
           <button
             type="button"
             onClick={() => {
-              if (user?.perfil === 'estagiario' && user?.curso === 'psicologia') {
-                navigate('/psi/prontuario');
-              } else if (user?.perfil === 'estagiario' && user?.curso === 'odontologia') {
-                navigate('/ficha-odonto');
-              } else if (user?.perfil === 'supervisor' && user?.curso === 'psicologia') {
-                navigate('/psi/supervisao');
-              } else if (user?.perfil === 'supervisor' && user?.curso === 'odontologia') {
-                navigate('/supervisao');
-              } else if (user?.perfil === 'recepcao') {
-                navigate('/recepcao');
-              } else if (user?.perfil === 'rt') {
-                navigate('/rt/relatorios');
-              } else {
-                navigate('/login');
-              }
+              // Mesma função que decide o destino logo após o login. A cadeia de
+              // `if` que estava aqui mandava qualquer `recepcao` para `/recepcao`,
+              // que é a tela de odontologia: a recepção de psicologia tomava 403
+              // de novo ao clicar e ficava presa em laço de negação, sem botão
+              // que a tirasse dali.
+              navigate(user ? getDestinationRoute(user) : '/login');
             }}
             className="w-full sm:w-auto bg-[#002B49] hover:bg-[#001D33] text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 border border-[#001D33]"
           >

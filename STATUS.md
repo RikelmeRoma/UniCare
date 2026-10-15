@@ -26,6 +26,21 @@ npm run lint     → 11 erros preexistentes (13 → 12 na Fatia D, 12 → 11 no 
 
 ### 🐛 Defeito encontrado nesta rodada
 
+- **A recepção de psicologia entrava em laço de acesso negado.** Este é o defeito
+  que o REC-002 vinha Ahmedabadando, e era de roteamento, não de tela faltando:
+  `/psi/recepcao` existe e está completa (agenda, demandas, cadastrar paciente,
+  agendar sessão).
+  - `LoginFields.tsx` decidia o destino pós-login e o caso `recepcao` só existia no
+    ramo `odontologia`. No ramo `psicologia` a recepção caía no ternário
+    "não é supervisor, então vai para o prontuário" — e `/psi/prontuario` libera
+    só `estagiario | supervisor | rt` (RN-001). Resultado: 403 ao entrar.
+  - `UnauthorizedPage.tsx` tinha o defeito espelhado: o botão "Voltar ao Meu Módulo
+    Autorizado" mandava qualquer `recepcao` para `/recepcao`, que é a tela de
+    odontologia. O REC-002 clicava e levava 403 de novo, sem botão que a tirasse.
+  - **As duas cópias da regra já tinham divergido.** A decisão agora vive em
+    `src/features/auth/routes.ts`, importada pelos dois lados. Unificar não é
+    cosmeticidade: a duplicação é o que produziu o defeito.
+
 - **O menu da recepção oferecia link que sempre dava 403.** O bloco "Central de
   Recepção" renderizava as duas clínicas sem filtrar por `user.curso`: REC-001 via
   403 em `/psi/recepcao` e REC-002 via 403 em `/recepcao`. A RT na visão Global caía
