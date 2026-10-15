@@ -1,6 +1,6 @@
 # STATUS — UniCare
 
-**Última atualização:** 2026-10-15 (Blocos 1 a 14 concluídos — recuperação de senha com envio real ainda pendente)
+**Última atualização:** 2026-10-15 (Blocos 1 a 14 concluídos — recuperação de senha com envio real ainda pendente · rodada de paridade de psicologia fechada)
 **Branch:** `augusto` · **Remote:** `github.com/RikelmeRoma/UniCare`
 
 Registro de progresso do projeto. Para orientações de trabalho, ver [`AGENTS.md`](./AGENTS.md).
@@ -81,14 +81,11 @@ Blocos 8 a 14.
 
 8. **Checklist CFP estruturado na homologação psi.** Odontologia tem checklist CFO
    de 4 itens que entra no parecer e bloqueia a decisão; psicologia homologa com
-   texto livre.
-9. **Seed de psicologia incompleto.** Não tem prontuário `DEVOLVIDO_PARA_AJUSTE`,
-   então o caminho de devolução nunca é exercitado por seed; e 1 dos 2 prontuários
-   pertence a `16031730`, estagiário que **não existe em `seed_usuarios`**, de modo
-   que `16032935` só enxerga 1 dos 2 registros.
-10. **Levar de volta para odontologia** o que psicologia já tem: carimbo de autoria
-    docente na homologação, validação de conteúdo clínico no servidor e
-    segregação da listagem por estagiário.
+   texto livre. **Não implementado de propósito:** redigir os itens exigiria
+   inventar conteúdo normativo do CFP, que não está em nenhuma fonte do projeto.
+9. **Levar de volta para odontologia** o que psicologia já tem: carimbo de autoria
+   docente na homologação, validação de conteúdo clínico no servidor e
+   segregação da listagem por estagiário.
 
 ### 🟡 Menor
 
@@ -97,17 +94,47 @@ Blocos 8 a 14.
   `no-useless-assignment` (2, no `PeriogramaViewer`), `'_' is defined but never
   used` (3) e `no-explicit-any` (1). O baseline **caiu de 13 para 11** sozinho,
   porque os erros estavam presos a código morto removido.
-- Busca por nome/matrícula entre os estagiários supervisionados (existe em
-  `ClinicalPairs`, não em psicologia).
 - Indicador de absenteísmo na recepção de psicologia (odontologia tem; psi mede
   cancelamentos).
-- Botão de recarregar a fila de homologação (existe em `ApprovalQueue`, não em
-  `PsyApprovalQueue`).
 - Histórico de decisões em tabela na supervisão psi (hoje é lista inline).
-- Sinalização de paciente menor na ficha de psicologia (odontologia tem o badge de
-  odontopediatria).
 - Badge de origem/diagnóstico de falha da sincronização na recepção psi
-  (odontologia mostra; psi usa `—` por cartão).
+  (odontologia mostra; psi usa `-` por cartão).
+
+### ✅ Menor — resolvidos nesta rodada
+
+- **Busca por nome/matrícula entre os estagiários supervisionados.** O mesmo
+  controle que `ClinicalPairs` já tinha, agora em `PsySupervisionPage`. O contador
+  passou a mostrar "N de M" quando há filtro, e o estado vazio distingue "nenhum
+  cadastrado" de "nenhum corresponde à busca".
+- **Botão de recarregar a fila de homologação.** `PsyApprovalQueue` agora chama
+  `sincronizar()` do `ClinicContext`. Antes a fila só mudava no login: uma
+  evolução submetida em outra aba deixava o supervisor vendo "0 pendentes" sem
+  nenhuma explicação.
+- **Sinalização de paciente menor na ficha de psicologia.** Badge em `PsyRecordPage`
+  usando o `eh_menor`/`nome_responsavel` que o backend já expunha (RF-007, RN-004)
+  e nenhuma tela consumia. O seed ganhou `Ana Beatriz Nogueira`, menor e
+  `curso="ambos"`, porque o único menor do seed era de odontologia.
+
+### 🔧 Paridade de psicologia — fechado nesta rodada
+
+- **A aba Custódia da RT desenhava as duas clínicas sem condição.**
+  `RTStatsDashboard` renderizava "Evoluções Clínicas do Serviço de Psicologia
+  Aplicada" e "Registro de Procedimentos Odontológicos" sempre, para qualquer RT:
+  a RT de psicologia via uma seção de odontologia permanentemente vazia, e a de
+  odontologia via a de psicologia quase vazia. Agora cada seção é condicionada a
+  `cursoPainel`, que já era derivado de `user.curso`.
+- **Seed de psicologia incompleto.** Entrou um prontuário `DEVOLVIDO_PARA_AJUSTE`,
+  e os estagiários `16031730` e `16032601` — que não existem em `seed_usuarios` —
+  foram corrigidos para `16032935` e `16024402`. Os dois desempacotamentos fixos
+  (`p1, p2, p3, p4 = pacientes`) precisaram virar `pacientes[:4]`: o seed passou a
+  devolver 5 pacientes e o `ValueError` derrubava o lifespan inteiro, o que
+  apareceu como 69 testes em erro.
+- **Agendamentos `FALTOU`/`CANCELADO`/`CONCLUIDO` no seed.** Sem eles os cartões de
+  absenteísmo e de cancelamentos abriam em zero vindo do banco.
+- **Dois dados fabricados no prontuário psi.** "Protocolo SPA #SPA-2026-0104" era
+  literal no JSX — mesmo número para todo paciente, sempre — e "Docente Vinculado:
+  Prof. Dr. Robert Santos" também. O primeiro virou a contagem real de evoluções;
+  o segundo, o nome de quem está autenticado, que vem do token.
 
 ---
 

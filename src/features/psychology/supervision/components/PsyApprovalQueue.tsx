@@ -8,6 +8,7 @@ import {
   CheckIcon,
   XMarkIcon,
   ExclamationTriangleIcon,
+  ArrowPathIcon,
 } from '../../../../components/icons/CorporateIcons';
 
 // RN-002 / CFP nº 06/2019: o mesmo teste que a ficha do estagiário usa na
@@ -44,7 +45,7 @@ const ROTULO_STATUS: Record<StatusProntuario, { texto: string; classe: string }>
 };
 
 export function PsyApprovalQueue() {
-  const { evolucoesPsico, homologarEvolucaoPsico } = useClinic();
+  const { evolucoesPsico, homologarEvolucaoPsico, sincronizar } = useClinic();
 
   const [selecionado, setSelecionado] = useState<EvolucaoPsico | null>(
     evolucoesPsico.find((e) => e.status === 'AGUARDANDO_VALIDACAO') || evolucoesPsico[0] || null
@@ -59,6 +60,20 @@ const [feedbackMsg, setFeedbackMsg] = useState('');
 const [feedbackErro, setFeedbackErro] = useState('');
 const [isSaving, setIsSaving] = useState(false);
 const [visualizarParecerId, setVisualizarParecerId] = useState<number | null>(null);
+
+const [isRecarregando, setIsRecarregando] = useState(false);
+
+const recarregarFila = async () => {
+    setIsRecarregando(true);
+    try {
+      await sincronizar();
+      setFeedbackErro("");
+    } finally {
+      setIsRecarregando(false);
+    }
+  };
+
+const iconeRecarregar = isRecarregando ? "w-4 h-4 animate-spin" : "w-4 h-4";
 
 const pendentes = evolucoesPsico.filter((e) => e.status === 'AGUARDANDO_VALIDACAO');
 const historico = evolucoesPsico.filter((e) => e.status !== 'AGUARDANDO_VALIDACAO');
@@ -126,9 +141,24 @@ const decidir = async (decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE') => {
                 Evoluções clínicas submetidas pelos estagiários de psicologia para visto docente
               </p>
             </div>
-            <span className="bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold px-3 py-1 rounded-full font-mono">
-              {pendentes.length} pendentes
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold px-3 py-1 rounded-full font-mono">
+                {pendentes.length} pendentes
+              </span>
+              {/* Recarregar: a fila vive no ClinicContext e so muda no login. Um
+                  estagiario que submete uma evolucao em outra aba deixava a fila
+                  desatualizada ate o proximo F5, e o supervisor via 0 pendentes
+                  sem nenhuma explicacao. */}
+              <button
+                type="button"
+                onClick={recarregarFila}
+                disabled={isRecarregando}
+                className="p-1.5 text-slate-400 hover:text-blue-700 hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors"
+                title="Recarregar a fila do servidor"
+              >
+                <ArrowPathIcon className={iconeRecarregar} />
+              </button>
+            </div>
           </div>
 
           <div className="space-y-3">

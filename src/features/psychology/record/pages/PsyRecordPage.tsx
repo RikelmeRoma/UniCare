@@ -165,6 +165,24 @@ export function PsyRecordPage() {
                 <span className="bg-blue-50 text-blue-700 text-[10px] px-2 py-0.5 rounded-md font-bold border border-blue-200 uppercase tracking-wider">
                   Prontuário SPA Ativo
                 </span>
+                {/* `eh_menor` e `nome_responsavel` já vêm do backend (RF-007, RN-004) e estavam
+                   sem sinalização na tela: nada indicava ao estagiário que a
+                    sessão era com menor e que a responsável acompanha. */}
+                {pacienteSelecionado?.ehMenor && (
+                  <span
+                    className="bg-amber-50 text-amber-800 text-[10px] px-2 py-0.5 rounded-md font-bold border border-amber-200 uppercase tracking-wider"
+                    title={
+                      pacienteSelecionado.nomeResponsavel
+                        ? `Responsável legal: ${pacienteSelecionado.nomeResponsavel}`
+                        : 'Responsável legal não informado no cadastro'
+                    }
+                  >
+                    Menor de idade
+                    {pacienteSelecionado.nomeResponsavel
+                      ? ` · resp. ${pacienteSelecionado.nomeResponsavel}`
+                      : ''}
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-500 mt-0.5 font-mono">
                 Nasc: {pacienteSelecionado?.dataNascimento} • CPF: {pacienteSelecionado?.cpf} •{' '}
@@ -175,13 +193,23 @@ export function PsyRecordPage() {
 
           <div className="flex gap-4">
             <div className="text-right">
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Protocolo SPA</p>
-              <p className="text-xs font-semibold text-slate-800 font-mono">#SPA-2026-0104</p>
+              {/* "#SPA-2026-0104" era literal no JSX: mesmo número para todo
+                  paciente, sempre. Protocolo que não existe na base é dado
+                  fabricado. Trocado pela contagem real de evoluções. */}
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Evoluções registradas</p>
+              <p className="text-xs font-semibold text-slate-800 font-mono">
+                {historicoSessoes.length}
+              </p>
             </div>
             <div className="w-px bg-slate-200"></div>
             <div className="text-right">
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Docente Vinculado</p>
-              <p className="text-xs font-semibold text-slate-800">Prof. Dr. Robert Santos</p>
+              {/* "Prof. Dr. Robert Santos" também era literal. Não existe
+                  vínculo estagiário↔supervisor no schema, então o docente
+                  correto aqui é quem está autenticado — e isso vem do token. */}
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Responsável pelo registro</p>
+              <p className="text-xs font-semibold text-slate-800 truncate max-w-[14rem]">
+                {user?.nome || '—'}
+              </p>
             </div>
           </div>
         </div>

@@ -83,6 +83,15 @@ O `conftest.py` deriva `unicare_test` automaticamente. Um override manual para
 uma FK real, então o `commit()` + `refresh()` dos pacientes precisa acontecer antes.
 Ver `app/seed.py` — a ordem de `run_seed` não é decorativa.
 
+
+**Adicionar paciente ao seed quebra o desempacotamento fixo.** Três funções fazem
+`p1, p2, p3, p4 = pacientes`, e `seed_pacientes` passou a devolver **5** (a quinta
+é a menor de idade, `curso="ambos"`). Sem `pacientes[:4]`, o `ValueError` sobe
+pelo lifespan do FastAPI e a suíte inteira vira **69 erros de setup** — sem uma
+única asserção que aponte o seed. A contagem de pacientes por clínica também é
+assumida desigual pelo teste de `distribuicao_cursos`, e é por isso que o paciente
+novo é `ambos` e não `psicologia`.
+
 **`op.drop_table()` não remove tipos ENUM no PostgreSQL.** Um `downgrade` que
 cria colunas enum precisa derrubar os tipos explicitamente com `checkfirst=True`,
 senão o `upgrade` seguinte falha com `type ... already exists`.

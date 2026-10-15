@@ -11,6 +11,7 @@ import {
   ShieldCheckIcon,
   PencilSquareIcon,
   TrashIcon,
+  MagnifyingGlassIcon,
 } from '../../../../components/icons/CorporateIcons';
 import { useAuth, type User } from '../../../auth/context/AuthContext';
 
@@ -29,6 +30,7 @@ export function PsySupervisionPage() {
   const [turma, setTurma] = useState('');
   const [feedbackSuccess, setFeedbackSuccess] = useState('');
   const [validationError, setValidationError] = useState('');
+  const [busca, setBusca] = useState('');
 
   // Estados de Edição e Exclusão de Estagiários
   const [showEditModal, setShowEditModal] = useState(false);
@@ -43,6 +45,20 @@ export function PsySupervisionPage() {
   const psicoInterns = Object.entries(allUsers || {}).filter(
     ([_, u]) => u.curso === 'psicologia' && u.perfil === 'estagiario'
   );
+
+  // Busca por nome ou matrícula: mesmo controle que a tela de duplas
+  // (ClinicalPairs) já usava, e que faltava aqui.
+  const buscaIntern = busca.trim().toLowerCase();
+  const psicoInternsFiltrados = buscaIntern
+    // O primeiro elemento da tupla (a chave) não é usado: omitido com `[, u]`
+    // em vez de `([_, u])`, que o eslint marca como variável declarada e não
+    // usada. A linha equivalente em `psicoInterns` acima segue com o padrão
+    // antigo — é um erro de lint preexistente, fora do escopo deste bloco.
+    ? psicoInterns.filter(([, u]) =>
+        u.nome.toLowerCase().includes(buscaIntern) ||
+        u.matricula.toLowerCase().includes(buscaIntern)
+      )
+    : psicoInterns;
 
   const handleCreateIntern = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,9 +210,11 @@ export function PsySupervisionPage() {
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] bg-blue-50 text-blue-800 border border-blue-200 font-mono font-bold px-3 py-1 rounded-full">
-                {psicoInterns.length} acadêmicos vinculados
+<div className="flex items-center gap-2">
+            <span className="text-[10px] bg-blue-50 text-blue-800 border border-blue-200 font-mono font-bold px-3 py-1 rounded-full">
+                {psicoInternsFiltrados.length === psicoInterns.length
+                  ? `${psicoInterns.length} acadêmicos vinculados`
+                  : `${psicoInternsFiltrados.length} de ${psicoInterns.length} acadêmicos`}
               </span>
               <button
                 type="button"
@@ -210,10 +228,27 @@ export function PsySupervisionPage() {
                 <span>Cadastrar Estagiário</span>
               </button>
             </div>
+            <div className="relative w-full sm:w-64">
+              <MagnifyingGlassIcon className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Buscar estagiário por nome ou matrícula..."
+                className="pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs w-full focus:outline-none focus:bg-white focus:border-blue-600 transition-colors"
+              />
+            </div>
           </div>
 
+          {psicoInternsFiltrados.length === 0 ? (
+            <p className="text-xs text-slate-400 italic bg-slate-50 border border-dashed border-slate-200 rounded-xl p-4 text-center">
+              {psicoInterns.length === 0
+                ? 'Nenhum estagiário de psicologia cadastrado.'
+                : 'Nenhum estagiário corresponde à busca.'}
+            </p>
+          ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-            {psicoInterns.map(([key, intern]) => (
+            {psicoInternsFiltrados.map(([key, intern]) => (
               <div
                 key={key}
                 className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
@@ -265,6 +300,7 @@ export function PsySupervisionPage() {
               </div>
             ))}
           </div>
+          )}
         </div>
       </div>
 

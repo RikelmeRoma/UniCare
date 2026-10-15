@@ -154,13 +154,29 @@ def seed_pacientes(session: Session) -> List[Paciente]:
         curso="odontologia"
     )
 
-    session.add_all([p1, p2, p3, p4])
+    # Menor de idade que atende nas DUAS clínicas. Sem ele, a sinalização de
+    # menor (eh_menor) só aparecia em odontologia, e a psicologia — que também
+    # atende adolescente — ficava sem nenhum caso no seed. Fica como "ambos"
+    # para que as duas clínicas continuem com contagens diferentes de
+    # pacientes; o teste de segregação depende dessa desigualdade.
+    p5 = Paciente(
+        nome="Ana Beatriz Nogueira",
+        cpf_rg="455.902.338-14",
+        data_nascimento="2010-11-03",
+        telefone="(79) 99640-7788",
+        eh_menor=True,
+        nome_responsavel="Patrícia Nogueira (Mãe)",
+        contato_responsavel="(79) 99640-7788",
+        curso="ambos"
+    )
+
+    session.add_all([p1, p2, p3, p4, p5])
     session.commit()
 
-    for p in (p1, p2, p3, p4):
+    for p in (p1, p2, p3, p4, p5):
         session.refresh(p)
 
-    return [p1, p2, p3, p4]
+    return [p1, p2, p3, p4, p5]
 
 
 def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
@@ -168,7 +184,10 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
     if not _tabela_vazia(session, Agendamento) or len(pacientes) < 4:
         return
 
-    p1, p2, p3, p4 = pacientes
+    # [:4] porque seed_pacientes devolve 5 (o quinto é a menor de idade das duas
+    # clínicas). O desempacotamento fixo quebrava com ValueError e derrubava o
+    # lifespan inteiro — 69 testes de erro por um unpacking.
+    p1, p2, p3, p4 = pacientes[:4]
 
     session.add_all([
         Agendamento(
@@ -187,8 +206,11 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
         Agendamento(
             paciente_id=p3.id,
             paciente_nome=p3.nome,
-            estagiario_nome="João Kaio Rodrigues",
-            estagiario_matricula="16031730",
+            # Era "João Kaio Rodrigues / 16031730", que não existe em
+            # seed_usuarios: o agendamento aparecia sem nenhum operador que
+            # pudesseoretical abrir.
+            estagiario_nome="Rikelme Roma Santos",
+            estagiario_matricula="16032935",
             curso="psicologia",
             horario="15:00",
             turno="tarde",
@@ -213,8 +235,9 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
         Agendamento(
             paciente_id=p4.id,
             paciente_nome=p4.nome,
-            estagiario_nome="Marlon Bruno dos Santos",
-            estagiario_matricula="16032601",
+            # "Marlon Bruno dos Santos / 16032601" também não existe no seed.
+            estagiario_nome="Augusto Cesar Farias & Gabriela Prado",
+            estagiario_matricula="16024402",
             curso="odontologia",
             horario="15:30",
             turno="tarde",
@@ -222,6 +245,48 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
             tipo_consulta="Aplicação de Selante Dente 16",
             status=StatusAgendamento.AGENDADO,
             observacao_logistica="Acompanhado pela responsável legal"
+        ),
+        # Status que faltavam no seed. Sem eles, os cartões de taxa de
+        # absenteísmo (odontologia) e de cancelamentos (psicologia) abriam em
+        # zero vindo do banco — número real, mas que não demonstrava nada.
+        Agendamento(
+            paciente_id=p3.id,
+            paciente_nome=p3.nome,
+            estagiario_nome="Rikelme Roma Santos",
+            estagiario_matricula="16032935",
+            curso="psicologia",
+            horario="16:00",
+            turno="tarde",
+            sala_ou_cadeira="Consultório SPA-01",
+            tipo_consulta="Sessão de acolhimento inicial",
+            status=StatusAgendamento.CANCELADO,
+            observacao_logistica="Remarcada a pedido do paciente"
+        ),
+        Agendamento(
+            paciente_id=p1.id,
+            paciente_nome=p1.nome,
+            estagiario_nome="Rikelme Roma Santos",
+            estagiario_matricula="16032935",
+            curso="psicologia",
+            horario="10:00",
+            turno="manha",
+            sala_ou_cadeira="Consultório SPA-03",
+            tipo_consulta="Psicoterapia Cognitivo-Comportamental",
+            status=StatusAgendamento.CONCLUIDO,
+            observacao_logistica="Sessão concluída e registrada"
+        ),
+        Agendamento(
+            paciente_id=p2.id,
+            paciente_nome=p2.nome,
+            estagiario_nome="Augusto Cesar Farias & Gabriela Prado",
+            estagiario_matricula="16024402",
+            curso="odontologia",
+            horario="09:00",
+            turno="manha",
+            sala_ou_cadeira="Cadeira Odonto 07",
+            tipo_consulta="Profilaxia e Higienização",
+            status=StatusAgendamento.FALTOU,
+            observacao_logistica="Falta registrada na recepção"
         ),
     ])
     session.commit()
@@ -232,7 +297,7 @@ def seed_prontuarios(session: Session, pacientes: List[Paciente]) -> None:
     if not _tabela_vazia(session, ProntuarioPsico) or len(pacientes) < 4:
         return
 
-    p1, _p2, p3, _p4 = pacientes
+    p1, _p2, p3, _p4 = pacientes[:4]
 
     session.add_all([
         ProntuarioPsico(
@@ -251,8 +316,12 @@ def seed_prontuarios(session: Session, pacientes: List[Paciente]) -> None:
         ProntuarioPsico(
             paciente_id=p3.id,
             paciente_nome=p3.nome,
-            estagiario_nome="João Kaio Rodrigues",
-            estagiario_matricula="16031730",
+            # Era "João Kaio Rodrigues / 16031730", que **não existe em
+            # seed_usuarios**. Com a segregação de prontuarios.py, o estagiário
+            # 16032935 via só 1 dos 2 registros do seed — e o segundo era
+            # invisível para qualquer login real.
+            estagiario_nome="Rikelme Roma Santos",
+            estagiario_matricula="16032935",
             supervisor_nome="Prof. Dr. Robert Santos do Carmo",
             data_sessao="14/09/2026",
             numero_sessao="Sessão 02",
@@ -261,6 +330,23 @@ def seed_prontuarios(session: Session, pacientes: List[Paciente]) -> None:
             fim_sessao_texto="Encerramento com agendamento da aplicação da escala complementar na sessão seguinte.",
             parecer_supervisor="Excelente condução técnica e síntese clínica sem transcrições literais. Aprovado com visto digital.",
             status=StatusProntuario.VALIDADO
+        ),
+        # Devolução: sem um DEVOLVIDO no seed da psicologia, o caminho de
+        # devolução — corrigido no Bloco 8/Fatia B, quando o badge dizia
+        # "Homologado" numa evolução devolvida — nunca era exercitado por seed.
+        ProntuarioPsico(
+            paciente_id=p3.id,
+            paciente_nome=p3.nome,
+            estagiario_nome="Rikelme Roma Santos",
+            estagiario_matricula="16032935",
+            supervisor_nome="Prof. Dr. Robert Santos do Carmo",
+            data_sessao="17/09/2026",
+            numero_sessao="Sessão 06",
+            inicio_sessao_texto="Retomada da sessão. Acolhimento dedicado ao feedback da devolutiva anterior.",
+            meio_sessao_texto="Trabalho em torno do registro de pensamentos automáticos, com pausa para checagem de compreensão.",
+            fim_sessao_texto="Sessão suspensa antes do fechamento: falta registrar o material utilizado e pactuar o retorno.",
+            parecer_supervisor="Síntese interrompida antes do fechamento. Completar o registro de materiais e reenviar.",
+            status=StatusProntuario.DEVOLVIDO_PARA_AJUSTE
         ),
     ])
     session.commit()
@@ -276,7 +362,7 @@ def seed_fichas_odonto(session: Session, pacientes: List[Paciente]) -> None:
     if not _tabela_vazia(session, FichaOdonto) or len(pacientes) < 4:
         return
 
-    _p1, p2, p3, _p4 = pacientes
+    _p1, p2, p3, _p4 = pacientes[:4]
     dupla = "Lucas Vasconcelos & Gabriela Prado"
 
     session.add_all([

@@ -645,6 +645,13 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                 </div>
               </div>
 
+              {/* Cada seção aparece só para a clínica da RT que está olhando. Antes as duas
+                  eram desenhadas sem condição: a RT de psicologia via uma seção
+                  de odontologia permanentemente vazia, e a de odontologia via a
+                  de psicologia quase vazia — o painel descrevia uma clínica
+                  que a RT não gerencia. */}
+              {cursoPainel === 'psicologia' && (
+                <>
               {/* Histórico Unificado de Psicologia */}
               <div>
                 <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
@@ -684,8 +691,12 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                   </div>
                 )}
               </div>
+                </>
+              )}
 
               {/* Plano de Tratamento e Odontologia */}
+              {cursoPainel === 'odontologia' && (
+                <>
               <div>
                 <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                   <ClipboardDocumentCheckIcon className="w-4 h-4 text-slate-600" />
@@ -736,6 +747,8 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                   Exportar Dossiê Oficial em PDF
                 </button>
               </div>
+                </>
+              )}
             </div>
           )}
         </div>
