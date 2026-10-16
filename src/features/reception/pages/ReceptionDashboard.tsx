@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { AppLayout } from '../../../components/layout/AppLayout';
 import { ReceptionStats } from '../components/ReceptionStats';
 import { AppointmentTable } from '../components/AppointmentTable';
-import { StudentDemandPanel } from '../components/StudentDemandPanel';
 import { NewPatientModal } from '../components/NewPatientModal';
 import { NewAppointmentModal } from '../components/NewAppointmentModal';
 import {
@@ -49,7 +48,6 @@ export function ReceptionDashboard() {
             <AppointmentTable />
           </div>
           <div className="lg:col-span-1">
-            <StudentDemandPanel cursoFiltro="odontologia" />
           </div>
         </div>
       </div>

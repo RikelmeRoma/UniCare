@@ -433,6 +433,14 @@ desenvolvimento voltou a `6/4/4/2`.
 
 ## ✅ Bloco 1 — Demandas de estágio (RF-009)
 
+> **REMOVIDO em 16/10/2026.** A fila de demandas de estágio foi apagada (revisão
+> `f4a7c2d9e053`: o botão "Conciliar" só escrevia a palavra `Agendado` sem
+> agendar, sem atribuir paciente a ninguém e sem criar vínculo. Com o vínculo
+> paciente-estagiário do RF-001, as duas telas ficavam lado a lado quase fazendo a
+> mesma coisa, uma delas sem executar nada. Este bloco fica como registro do que
+> existia e de por que saiu. O carimbo de autoria docente, que nasceu no mesmo
+> bloco, continua no prontuário psi e não foi afetado.
+
 `demandas` era o **único** dado da `ClinicContext` que não vinha da API: as
 3 demandas do `INITIAL_DEMANDAS` viviam só em `localStorage` e não tinham tabela.
 
@@ -835,6 +843,14 @@ com `null value in column "id"`. As tabelas existentes declaram a constraint
 explícita, e o sintoma só aparece no primeiro insert, não no `alembic check`.
 
 ## ✅ Bloco 7 — Conciliação da fila de demandas + carimbo de autoria docente
+
+> **REMOVIDO em 16/10/2026.** A fila de demandas de estágio foi apagada (revisão
+> `f4a7c2d9e053`: o botão "Conciliar" só escrevia a palavra `Agendado` sem
+> agendar, sem atribuir paciente a ninguém e sem criar vínculo. Com o vínculo
+> paciente-estagiário do RF-001, as duas telas ficavam lado a lado quase fazendo a
+> mesma coisa, uma delas sem executar nada. Este bloco fica como registro do que
+> existia e de por que saiu. O carimbo de autoria docente, que nasceu no mesmo
+> bloco, continua no prontuário psi e não foi afetado.
 Fecha a única feature já entregue que não era usável de ponta a ponta, e cria a
 fonte real de "quem viu" o prontuário.
 **A recepção via a fila do RF-009 e não conseguia agir nela.**

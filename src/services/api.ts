@@ -116,18 +116,6 @@ export interface ApiFichaOdonto {
   criado_em: string;
 }
 
-export interface ApiDemanda {
-  id: number;
-  aluno_nome: string;
-  aluno_matricula: string;
-  curso: 'psicologia' | 'odontologia';
-  procedimento_desejado: string;
-  prioridade: 'Alta' | 'Média' | 'Normal';
-  data_solicitacao: string;
-  status: 'Pendente' | 'Agendado';
-  criado_em?: string;
-}
-
 export interface ApiLogAuditoria {
   id: number;
   usuario_id: number;
@@ -549,35 +537,9 @@ async getUsuarios(): Promise<ApiUsuario[]> {
     return this.request<RelatorioEstatisticas>('/relatorios/estatisticas');
   }
 
-  // --- Demandas de Estágio (RF-009) ---
-  async getDemandas(curso?: string, status?: string): Promise<ApiDemanda[]> {
-    const params = new URLSearchParams();
-    if (curso) params.append('curso', curso);
-    if (status) params.append('status_filtro', status);
-    const qs = params.toString() ? `?${params.toString()}` : '';
-    return this.request<ApiDemanda[]>(`/demandas${qs}`);
-  }
-
-  async createDemanda(demanda: {
-    aluno_nome: string;
-    aluno_matricula: string;
-    curso: string;
-    procedimento_desejado: string;
-    prioridade: 'Alta' | 'Média' | 'Normal';
-    data_solicitacao: string;
-  }): Promise<ApiDemanda> {
-    return this.request<ApiDemanda>('/demandas', {
-      method: 'POST',
-      body: JSON.stringify(demanda),
-    });
-  }
-
-  async updateDemandaStatus(id: number, status: 'Pendente' | 'Agendado'): Promise<ApiDemanda> {
-    return this.request<ApiDemanda>(`/demandas/${id}/status`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status }),
-    });
-  }
+  // Demandas de estágio removidas: o botão "Conciliar" só escrevia a palavra
+  // `Agendado` sem agendar nem atribuir paciente a ninguém. O vínculo do RF-001
+  // (`/atribuicoes/psico`) faz o trabalho de verdade.
 }
 
 export interface RelatorioEstatisticas {

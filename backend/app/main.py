@@ -8,7 +8,7 @@ from sqlmodel import Session
 from app.config import settings
 from app.database import engine
 from app.seed import run_seed
-from app.routers import auth, pacientes, agendamentos, prontuarios, auditoria, relatorios, demandas, usuarios, solicitacoes, atribuicoes
+from app.routers import auth, pacientes, agendamentos, prontuarios, auditoria, relatorios, usuarios, solicitacoes, atribuicoes
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -45,7 +45,6 @@ app.include_router(agendamentos.router, prefix=settings.API_V1_STR)
 app.include_router(prontuarios.router, prefix=settings.API_V1_STR)
 app.include_router(auditoria.router, prefix=settings.API_V1_STR)
 app.include_router(relatorios.router, prefix=settings.API_V1_STR)
-app.include_router(demandas.router, prefix=settings.API_V1_STR)
 app.include_router(usuarios.router, prefix=settings.API_V1_STR)
 app.include_router(solicitacoes.router, prefix=settings.API_V1_STR)
 app.include_router(atribuicoes.router, prefix=settings.API_V1_STR)

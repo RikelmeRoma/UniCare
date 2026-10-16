@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { AppLayout } from '../../../../components/layout/AppLayout';
 import { PsyReceptionStats } from '../components/PsyReceptionStats';
 import { AppointmentTable } from '../../../reception/components/AppointmentTable';
-import { StudentDemandPanel } from '../../../reception/components/StudentDemandPanel';
 import { PatientAssignmentPanel } from '../components/PatientAssignmentPanel';
 import { NewPatientModal } from '../../../reception/components/NewPatientModal';
 import { NewAppointmentModal } from '../../../reception/components/NewAppointmentModal';
@@ -54,7 +53,6 @@ export function PsyReceptionDashboard() {
           <div className="lg:col-span-1 space-y-6">
             <PatientAssignmentPanel cursoFiltro="psicologia" />
 
-        <StudentDemandPanel cursoFiltro="psicologia" />
 
             {/* Painel Informativo de Ética e Sigilo */}
             <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-5 text-xs space-y-3">

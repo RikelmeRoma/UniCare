@@ -334,7 +334,7 @@ que o servidor podia ter recusado.
 
 **O f-string de enum grava a classe, não o valor.** `f"{body.decisao}"` escreve
 `HOMOLOGACAO_STATUS_StatusProntuario.VALIDADO` na trilha de auditoria. Use
-`.value`. Já aconteceu em `demandas.py` e nas duas rotas de homologação.
+`.value`. Já aconteceu em `usuarios.py` e nas duas rotas de homologação.
 
 ## Não faça
 

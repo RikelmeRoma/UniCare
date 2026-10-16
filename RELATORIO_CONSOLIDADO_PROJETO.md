@@ -334,17 +334,7 @@ erDiagram
                                  └───────────────────────┘
 
 ┌───────────────────────────┐
-│    DEMANDAS_ESTAGIO       │   (fila de trabalho pedagógico)
-│  PK id                    │   sem FK: é um pedido do aluno
-│     aluno_nome            │   na fila, não uma conta
-│     aluno_matricula (idx) │   se liga a USUARIOS só pelo
-│     curso            (idx) │   campo denormalizado
-│     procedimento_desejado │   aluno_matricula
-│     prioridade ▸ enum   │
-│     data_solicitacao      │
-│     status         ▸ enum │
-│     criado_em             │
-└───────────────────────────┘
+  *Emendado em 16/10/2026: a tabela DEMANDAS_ESTAGIO foi removida.*
 ```
 
 #### Schema Relacional Compacto
@@ -377,9 +367,7 @@ ANAMNESES (id PK, paciente_id FK->PACIENTES, afetido_em, pressao_arterial,
           condicoes_cronicas, medicacoes_em_uso, responsavel_nome,
           responsavel_matricula, criado_em)
 
-DEMANDAS_ESTAGIO (id PK, aluno_nome, aluno_matricula, curso,
-                  procedimento_desejado, prioridade, data_solicitacao,
-                  status, criado_em)
+*Emendado em 16/10/2026: a tabela DEMANDAS_ESTAGIO foi removida.*
 
 LOGS_AUDITORIA (id PK, usuario_id, usuario_nome, acao, tabela_afetada,
                 curso, endereco_ip, timestamp)
@@ -395,8 +383,6 @@ UQ = unique   FK = foreign key   idx = índice   -> = referencia
 | `cursousuario` | `psicologia`, `odontologia`, `geral` |
 | `statusagendamento` | `AGENDADO`, `PRESENTE`, `EM_ATENDIMENTO`, `CONCLUIDO`, `FALTOU`, `CANCELADO` |
 | `statusprontuario` | `EM_ELABORACAO`, `AGUARDANDO_VALIDACAO`, `VALIDADO`, `DEVOLVIDO_PARA_AJUSTE` |
-| `prioridadedemanda` | `Alta`, `Média`, `Normal` |
-| `statusdemanda` | `Pendente`, `Agendado` |
 
 #### Decisões de Modelagem
 
@@ -443,7 +429,7 @@ UniCare/
 │   │   ├── models/               # Modelos SQLModel (paciente, prontuario, demanda…)
 │   │   ├── schemas/              # Schemas Pydantic de entrada/saída
 │   │   ├── routers/              # Endpoints REST (auth, usuarios, pacientes,
-│   │   │                         #   agendamentos, prontuarios, demandas,
+│   │   │                         #   agendamentos, prontuarios, atribuicoes,
 │   │   │                         #   auditoria, relatorios)
 │   │   └── services/             # auth_service, crypto_service, auditoria_service
 │   ├── migrations/               # Alembic: fonte autoritativa do schema

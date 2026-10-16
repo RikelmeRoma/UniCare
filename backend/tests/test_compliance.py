@@ -249,62 +249,6 @@ def test_rf006_relatorio_estatistico_rt():
     assert "distribuicao_cursos" in dados
     assert "conformidade_legal" in dados
 
-def test_bloco1_fila_demandas_de_estagio():
-    """Bloco 1: a fila de trabalho dos estagiários persiste no banco e é conciliável pela recepção"""
-    token_estagiario = get_auth_token("16024402")
-    headers = {"Authorization": f"Bearer {token_estagiario}"}
-
-    # O seed popula a fila; a recepção precisa enxergar as demandas existentes.
-    # Vertical slice: o estagiário só vê a fila da própria clínica, e o seed
-    # tem 2 de odontologia e 1 de psicologia.
-    res_lista = client.get("/api/v1/demandas", headers=headers)
-    assert res_lista.status_code == 200
-    assert all(d["curso"] == "odontologia" for d in res_lista.json())
-    assert len(res_lista.json()) >= 2
-
-    # Filtro por curso, usado pelo painel da recepção de cada clínica.
-    res_filtro = client.get("/api/v1/demandas?curso=odontologia", headers=headers)
-    assert res_filtro.status_code == 200
-    assert all(d["curso"] == "odontologia" for d in res_filtro.json())
-
-    # Estagiário registra uma nova solicitação e recebe o id real do banco.
-    payload = {
-        "aluno_nome": "Aluno de Teste RF-009",
-        "aluno_matricula": "16024402",
-        "curso": "odontologia",
-        "procedimento_desejado": "1 paciente para avaliação de restauração classe I.",
-        "prioridade": "Alta",
-        "data_solicitacao": "10/10/2026",
-    }
-    res_cria = client.post("/api/v1/demandas", json=payload, headers=headers)
-    assert res_cria.status_code == 201
-    demanda = res_cria.json()
-    assert demanda["status"] == "Pendente"
-    assert demanda["id"] is not None
-
-    # A demanda recém-criada aparece na listagem — prova que persistiu.
-    res_confere = client.get("/api/v1/demandas", headers=headers)
-    assert demanda["id"] in [d["id"] for d in res_confere.json()]
-
-    # Recepção concilia a fila com a agenda real.
-    token_recepcao = get_auth_token("REC-001")
-    headers_recepcao = {"Authorization": f"Bearer {token_recepcao}"}
-    res_status = client.patch(
-        f"/api/v1/demandas/{demanda['id']}/status",
-        json={"status": "Agendado"},
-        headers=headers_recepcao,
-    )
-    assert res_status.status_code == 200
-    assert res_status.json()["status"] == "Agendado"
-
-    # Demanda inexistente devolve 404, nao 500.
-    res_inexistente = client.patch(
-        "/api/v1/demandas/999999/status",
-        json={"status": "Agendado"},
-        headers=headers_recepcao,
-    )
-    assert res_inexistente.status_code == 404
-
 def test_vslice_supervisor_odonto_bloqueado_na_psicologia():
     """Vertical slice: o supervisor de odontologia não acessa prontuários psicológicos"""
     headers = {"Authorization": f"Bearer {get_auth_token('DOC-9122')}"}
@@ -417,11 +361,15 @@ def test_vslice_recepcao_so_enxerga_a_propria_clinica():
     pedido_alheio = client.get("/api/v1/pacientes?curso=psicologia", headers=rec_odonto).json()
     assert all(p["curso"] in ("odontologia", "ambos") for p in pedido_alheio)
 
-    # Demanda é fila da clínica do aluno — a recepção concilia só a dela.
-    dem_odonto = client.get("/api/v1/demandas", headers=rec_odonto).json()
-    dem_psico = client.get("/api/v1/demandas", headers=rec_psico).json()
-    assert all(d["curso"] == "odontologia" for d in dem_odonto)
-    assert all(d["curso"] == "psicologia" for d in dem_psico)
+    # O vínculo de paciente é fila da clínica do aluno — a recepção enxerga e
+    # atribui só a dela. (A fila de demandas de estágio saiu: o botão Conciliar
+    # só carimbava `Agendado` sem atribuir ninguém, e o vínculo do RF-001 faz
+    # o trabalho de verdade.)
+    vinculos_odonto = client.get("/api/v1/atribuicoes/psico", headers=rec_odonto)
+    assert vinculos_odonto.status_code == 403
+    vinculos_psico = client.get("/api/v1/atribuicoes/psico", headers=rec_psico)
+    assert vinculos_psico.status_code == 200
+    assert all(a["curso"] == "psicologia" for a in vinculos_psico.json())
 
 def test_vslice_recepcao_nao_altera_registro_de_outra_clinica():
     """Vertical slice: filtrar a listagem não dá direito de agir sobre o id alheio"""

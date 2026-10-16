@@ -60,7 +60,7 @@ não é versionado.
 >
 > ```sql
 > TRUNCATE logs_auditoria, prontuarios_psico, fichas_odonto, agendamentos,
->          demandas_estagio, pacientes, usuarios RESTART IDENTITY CASCADE;
+>          pacientes, usuarios RESTART IDENTITY CASCADE;
 > ```
 > Depois reinicie a API. O login passa a custar ~450 ms.
 
@@ -179,14 +179,12 @@ duas clínicas. `CursoUsuario.GERAL` existe no ENUM por compatibilidade mas
 | Agendamentos | `GET /agendamentos`, `POST /agendamentos`, `PATCH /agendamentos/{id}/status` | autenticado, escopado ao curso |
 | Prontuáriofinder | `GET/POST /prontuarios/psico`, `PATCH /prontuarios/psico/{id}/homologar` | clínico, restrito ao curso |
 | Ficha odonto | `GET/POST /prontuarios/odonto`, `PATCH /prontuarios/odonto/{id}/homologar` | clínico, restrito ao curso |
-| **Demandas (RF-009)** | `GET /demandas`, `POST /demandas`, `PATCH /demandas/{id}/status` | autenticado, escopado ao curso |
+| **Vinculo paciente-estagiario (RF-001)** | `GET/POST /atribuicoes/psico`, `PATCH /atribuicoes/psico/{id}/transferir`, `GET /atribuicoes/psico/minha` | recepcao e rt (escrita), clinico (leitura) |
 | Auditoria | `GET /auditoria` | rt, supervisor — filtrada por curso |
 | **Usuários (RF-009)** | `GET /usuarios`, `POST /usuarios`, `PATCH /usuarios/{id}`, `DELETE /usuarios/{id}` | rt (clínica inteira) · supervisor (só estagiários da clínica) |
 | Relatórios | `GET /relatorios/estatisticas` | rt, supervisor — filtrado pelo curso |
 
-As demandas **não** têm bloqueio RN-001: é uma fila de trabalho pedagógico, e a
-recepção precisa enxergá-la para poder conciliá-la com a agenda — mas só a fila
-da própria clínica.
+O vinculo de paciente **nao** tem bloqueio RN-001: e fila de trabalho da recepcao, e ela precisa enxergar a clinica inteira para atribuir. O estagiario, ao escribir prontuario, so alcanca paciente ativo em seu nome.
 
 O filtro de listagem não protege a escrita: `PATCH` por id confere o curso do
 registro. Sem isso, esconder a agenda da outra clínica era só conveniência de
@@ -222,12 +220,12 @@ esta tabela é a definição que o código assume.
 | RNF-004 | Trilha de auditoria com IP real e curso | `registrar_log` + `ip_do_cliente` |
 
 **Atenção:** o relatório usa RF-007 para *Trilha de Auditoria* e RF-009 para
-*Gerenciamento RBAC*. As demandas de estágio e o bloqueio de CPF duplicado não
+*Gerenciamento RBAC*. O bloqueio de CPF duplicado não
 têm número no relatório e são citados por descrição, para não criar colisão.
 
 | RF | Recurso | Onde |
 |---|---|---|
-| RF-001 | Gestão de recepção e triagem | `routers/pacientes.py`, `routers/agendamentos.py` |
+| RF-001 | Gestão de recepção e triagem + vínculo paciente↔estagiário | `routers/pacientes.py`, `routers/agendamentos.py`, `routers/atribuicoes.py` |
 | RF-002 | Prontuário eletrônico de psicologia | `routers/prontuarios.py` |
 | RF-003 | Odontograma e periograma interativo | `DentalRecordPage` (dados reais pendentes) |
 | RF-004 | Fila de homologação docente | `PATCH /prontuarios/{psico,odonto}/{id}/homologar` |

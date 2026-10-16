@@ -16,7 +16,6 @@ from app.models.usuario import Usuario, PerfilUsuario, CursoUsuario
 from app.models.paciente import Paciente
 from app.models.agendamento import Agendamento, StatusAgendamento
 from app.models.prontuario import ProntuarioPsico, FichaOdonto, StatusProntuario
-from app.models.demanda import DemandaEstagio, StatusDemanda, PrioridadeDemanda
 from app.models.anamnese import Anamnese
 from app.models.solicitacao import SolicitacaoCadastro, SituacaoSolicitacao
 from app.models.atribuicao import AtribuicaoClinica, SituacaoAtribuicao
@@ -494,42 +493,6 @@ def seed_atribuicoes(session: Session, pacientes: List[Paciente]) -> None:
     session.commit()
 
 
-def seed_demandas(session: Session) -> None:
-    """Fila de trabalho dos estagiarios (RF-009)."""
-    if not _tabela_vazia(session, DemandaEstagio):
-        return
-
-    session.add_all([
-        DemandaEstagio(
-            aluno_nome="Augusto Cesar Farias",
-            aluno_matricula="16024402",
-            curso="odontologia",
-            procedimento_desejado="1 paciente para raspagem supra e subgengival (Periodontia).",
-            prioridade=PrioridadeDemanda.ALTA,
-            data_solicitacao="15/09/2026",
-            status=StatusDemanda.PENDENTE
-        ),
-        DemandaEstagio(
-            aluno_nome="Rikelme Roma Santos",
-            aluno_matricula="16032935",
-            curso="psicologia",
-            procedimento_desejado="1 paciente adulto para avaliação TCC (sessão inicial).",
-            prioridade=PrioridadeDemanda.MEDIA,
-            data_solicitacao="15/09/2026",
-            status=StatusDemanda.PENDENTE
-        ),
-        DemandaEstagio(
-            aluno_nome="Lucas Vasconcelos & Gabriela Prado",
-            aluno_matricula="16024402",
-            curso="odontologia",
-            procedimento_desejado="1 paciente infantil para selante em dentes permanentes (Odontopediatria).",
-            prioridade=PrioridadeDemanda.NORMAL,
-            data_solicitacao="16/09/2026",
-            status=StatusDemanda.PENDENTE
-        ),
-    ])
-    session.commit()
-
 
 def seed_solicitacoes(session: Session) -> None:
     """Um pedido de credencial pendente por clínica.
@@ -626,5 +589,4 @@ def run_seed(session: Session) -> None:
     seed_fichas_odonto(session, pacientes)
     seed_anamneses(session, pacientes)
     seed_atribuicoes(session, pacientes)
-    seed_demandas(session)
     seed_solicitacoes(session)

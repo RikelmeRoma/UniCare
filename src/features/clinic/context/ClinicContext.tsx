@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { api, type ApiPaciente, type ApiAgendamento, type ApiProntuarioPsico, type ApiFichaOdonto, type ApiDemanda, type ApiAnamnese, type ApiAtribuicao } from '../../../services/api';
+import { api, type ApiPaciente, type ApiAgendamento, type ApiProntuarioPsico, type ApiFichaOdonto, type ApiAnamnese, type ApiAtribuicao } from '../../../services/api';
 import { useAuth } from '../../auth/context/AuthContext';
 
 export type StatusAgendamento = 'AGENDADO' | 'PRESENTE' | 'EM_ATENDIMENTO' | 'CONCLUIDO' | 'FALTOU' | 'CANCELADO';
@@ -31,17 +31,6 @@ export interface Agendamento {
   tipoConsulta: string; // Ex: 'Psicoterapia Adulto' ou 'Restauração Resina'
   status: StatusAgendamento;
   observacaoLogistica?: string;
-}
-
-export interface DemandaEstagio {
-  id: number;
-  alunoNome: string;
-  alunoMatricula: string;
-  curso: 'psicologia' | 'odontologia';
-  procedimentoDesejado: string;
-  prioridade: 'Alta' | 'Média' | 'Normal';
-  dataSolicitacao: string;
-  status: 'Pendente' | 'Agendado';
 }
 
 export interface Atribuicao {
@@ -128,7 +117,6 @@ export interface SyncStatus {
 interface ClinicContextType {
   pacientes: Paciente[];
   agendamentos: Agendamento[];
-  demandas: DemandaEstagio[];
   /** Pacientes com o estagiário autenticado como responsável (RF-001).
    *  Quem tem sessão de recepção recebe a lista da clínica inteira, porque a
    *  mesma tela monta o painel de atribuição. */
@@ -151,8 +139,6 @@ interface ClinicContextType {
   cadastrarPaciente: (p: Omit<Paciente, 'id' | 'prontuarioAtivo'>) => Promise<{ success: boolean; message: string; paciente?: Paciente }>;
   adicionarAgendamento: (a: Omit<Agendamento, 'id'>) => Promise<{ success: boolean; message: string; agendamento?: Agendamento }>;
   atualizarStatusAgendamento: (id: number, status: StatusAgendamento) => void;
-  adicionarDemanda: (d: Omit<DemandaEstagio, 'id' | 'status' | 'dataSolicitacao'>) => Promise<{ success: boolean; message: string; demanda?: DemandaEstagio }>;
-  atualizarStatusDemanda: (id: number, status: DemandaEstagio['status']) => Promise<{ success: boolean; message: string }>;
   homologarEvolucaoPsico: (id: number, decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE', parecer: string) => Promise<{ success: boolean; message: string }>;
   adicionarEvolucaoPsico: (e: Omit<EvolucaoPsico, 'id' | 'status' | 'submetidoEm'>) => Promise<{ success: boolean; message: string; evolucao?: EvolucaoPsico }>;
   adicionarFichaOdonto: (f: Omit<FichaOdonto, 'id' | 'status' | 'submetidoEm'>) => Promise<{ success: boolean; message: string; ficha?: FichaOdonto }>;
@@ -279,38 +265,6 @@ const INITIAL_AGENDAMENTOS: Agendamento[] = [
   },
 ];
 
-const INITIAL_DEMANDAS: DemandaEstagio[] = [
-  {
-    id: 1,
-    alunoNome: 'Augusto Cesar Farias (Odonto)',
-    alunoMatricula: '16024402',
-    curso: 'odontologia',
-    procedimentoDesejado: '1 paciente para raspagem supra e subgengival (Periodontia)',
-    prioridade: 'Alta',
-    dataSolicitacao: '15/09/2026',
-    status: 'Pendente',
-  },
-  {
-    id: 2,
-    alunoNome: 'Rikelme Roma Santos (Psico)',
-    alunoMatricula: '16032935',
-    curso: 'psicologia',
-    procedimentoDesejado: '1 paciente adulto para avaliação TCC (Sessão inicial)',
-    prioridade: 'Média',
-    dataSolicitacao: '15/09/2026',
-    status: 'Pendente',
-  },
-  {
-    id: 3,
-    alunoNome: 'Marlon Bruno dos Santos (Odonto)',
-    alunoMatricula: '16032601',
-    curso: 'odontologia',
-    procedimentoDesejado: '1 paciente infantil para profilaxia e aplicação de flúor',
-    prioridade: 'Normal',
-    dataSolicitacao: '14/09/2026',
-    status: 'Agendado',
-  },
-];
 
 const INITIAL_EVOLUCOES: EvolucaoPsico[] = [
   {
@@ -448,16 +402,6 @@ const mapearFichaOdonto = (f: ApiFichaOdonto, nomePorPaciente: Map<number, strin
   submetidoEm: f.criado_em ? new Date(f.criado_em).toLocaleDateString('pt-BR') : 'Hoje',
 });
 
-const mapearDemanda = (d: ApiDemanda): DemandaEstagio => ({
-  id: d.id,
-  alunoNome: d.aluno_nome,
-  alunoMatricula: d.aluno_matricula,
-  curso: d.curso,
-  procedimentoDesejado: d.procedimento_desejado,
-  prioridade: d.prioridade,
-  dataSolicitacao: d.data_solicitacao,
-  status: d.status,
-});
 
 const mapearAtribuicao = (a: ApiAtribuicao): Atribuicao => ({
   id: a.id,
@@ -497,14 +441,6 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   });
 
-  const [demandas, setDemandas] = useState<DemandaEstagio[]>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_PREFIX + 'demandas');
-      return stored ? JSON.parse(stored) : INITIAL_DEMANDAS;
-    } catch {
-      return INITIAL_DEMANDAS;
-    }
-  });
 
   // Vinculo paciente-estagiario (RF-001). Nao vem do mock nem do
   // localStorage: lista vazia ate a API responder, porque mostrar um
@@ -564,12 +500,11 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
 
     // 403 em prontuarios e o comportamento esperado para o perfil de recepcao
     // (RN-001), nao uma falha de infraestrutura. Demais rejeicoes sao registradas.
-    const [apiPacientes, apiAgendamentos, apiProntuarios, apiFichasOdonto, apiDemandas, apiMinhasAtribuicoes] = await Promise.allSettled([
+      const [apiPacientes, apiAgendamentos, apiProntuarios, apiFichasOdonto, apiMinhasAtribuicoes] = await Promise.allSettled([
       api.getPacientes(),
       api.getAgendamentos(),
       api.getProntuariosPsico(),
       api.getFichasOdonto(),
-      api.getDemandas(),
       // O vínculo decide quais pacientes o estagiário pode atender. Falha aqui
       // é registrada como falha: esconder e devolver lista vazia é
       // indistinguível de "a recepção ainda não atribuiu nada", e a diferença
@@ -620,11 +555,6 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
       falhas.push(eh403 ? 'fichas odonto: 403 (perfil sem acesso — RN-001)' : `fichas odonto: ${msg}`);
     }
 
-    if (apiDemandas.status === 'fulfilled') {
-      setDemandas(apiDemandas.value.map(mapearDemanda));
-    } else {
-      falhas.push(`demandas: ${apiDemandas.reason?.message ?? 'falhou'}`);
-    }
 
     if (apiMinhasAtribuicoes.status === 'fulfilled') {
       setAtribuicoes(apiMinhasAtribuicoes.value.map(mapearAtribuicao));
@@ -663,7 +593,6 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
       setPacientes([]);
       setAgendamentos([]);
       setEvolucoesPsico([]);
-      setDemandas([]);
       // `planosTratamento` é derivado de `fichasOdonto` por useMemo, então
       // limpar as fichas limpa os planos junto.
       setFichasOdonto([]);
@@ -671,9 +600,9 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
       localStorage.removeItem(STORAGE_PREFIX + 'pacientes');
       localStorage.removeItem(STORAGE_PREFIX + 'agendamentos');
       localStorage.removeItem(STORAGE_PREFIX + 'evolucoes');
-      // Covrindo a chave junto das outras três. Na prática o `setDemandas([])`
-      // acima já a zera, porque o efeito de persistência reescreve `[]` — o
-      // removeItem é para a lista de chaves não ficar com um buraco silencioso.
+      // Chave da fila de demandas, removida com a feature. O dado saiu do app
+      // mas continua gravado no navegador de quem já usou, e ninguém mais vai
+      // limpar: apagar na saída do login é o que fecha essa conta.
       localStorage.removeItem(STORAGE_PREFIX + 'demandas');
     }
   }, [isAuthenticated]);
@@ -686,9 +615,6 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
     localStorage.setItem(STORAGE_PREFIX + 'agendamentos', JSON.stringify(agendamentos));
   }, [agendamentos]);
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_PREFIX + 'demandas', JSON.stringify(demandas));
-  }, [demandas]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_PREFIX + 'evolucoes', JSON.stringify(evolucoesPsico));
@@ -785,67 +711,6 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
       console.error('[UniCare] atualização de status revertida:', err);
       setAgendamentos((prev) => prev.map((a) => (a.id === id ? { ...a, status: anterior } : a)));
     });
-  };
-
-  /**
-   * Cria a demanda aguardando o backend. Mesmo padrao da Camada 3: nada entra na
-   * tela antes de o banco confirmar, e o id devolvido e sempre o real.
-   */
-  const adicionarDemanda = async (
-    d: Omit<DemandaEstagio, 'id' | 'status' | 'dataSolicitacao'>
-  ): Promise<{ success: boolean; message: string; demanda?: DemandaEstagio }> => {
-    try {
-      const created = await api.createDemanda({
-        aluno_nome: d.alunoNome,
-        aluno_matricula: d.alunoMatricula,
-        curso: d.curso,
-        procedimento_desejado: d.procedimentoDesejado,
-        prioridade: d.prioridade,
-        data_solicitacao: new Date().toLocaleDateString('pt-BR'),
-      });
-
-      const salva = mapearDemanda(created);
-      setDemandas((prev) => [salva, ...prev]);
-
-      return { success: true, message: 'Demanda registrada com sucesso!', demanda: salva };
-    } catch (err) {
-      const msg = mensagemDeErro(err, 'Falha ao registrar a demanda no servidor.');
-      console.error('[UniCare] criação de demanda falhou:', err);
-      return { success: false, message: msg };
-    }
-  };
-
-  /** Atualização otimista com rollback, no mesmo padrão do status de agendamento. */
-  const atualizarStatusDemanda = async (
-    id: number,
-    status: DemandaEstagio['status']
-  ): Promise<{ success: boolean; message: string }> => {
-    const anterior = demandas.find((d) => d.id === id)?.status;
-    if (!anterior) {
-      return { success: false, message: 'A demanda não está na fila.' };
-    }
-
-    // Otimista: a fila da recepção atualiza na hora e volta atrás se o servidor
-    // recusar. Retorna o resultado porque a tela precisa saber — a conciliação é
-    // o único trabalho da recepção com a fila do RF-009, e ela precisa conseguir
-    // agir nela.
-    setDemandas((prev) => prev.map((d) => (d.id === id ? { ...d, status } : d)));
-
-    try {
-      await api.updateDemandaStatus(id, status);
-      return {
-        success: true,
-        message:
-          status === 'Agendado'
-            ? 'Demanda conciliada com a agenda.'
-            : 'Demanda devolvida para pendente.',
-      };
-    } catch (err) {
-      setDemandas((prev) => prev.map((d) => (d.id === id ? { ...d, status: anterior } : d)));
-      const msg = mensagemDeErro(err, 'Falha ao atualizar a demanda.');
-      console.error('[UniCare] status da demanda revertido:', err);
-      return { success: false, message: msg };
-    }
   };
 
   const homologarEvolucaoPsico = async (
@@ -1103,7 +968,6 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
       value={{
         pacientes,
         agendamentos,
-        demandas,
         atribuicoes,
         evolucoesPsico,
         fichasOdonto,
@@ -1116,8 +980,6 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
         cadastrarPaciente,
         adicionarAgendamento,
         atualizarStatusAgendamento,
-        adicionarDemanda,
-        atualizarStatusDemanda,
         homologarEvolucaoPsico,
         adicionarEvolucaoPsico,
         adicionarFichaOdonto,
