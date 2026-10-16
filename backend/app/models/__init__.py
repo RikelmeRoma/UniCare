@@ -7,6 +7,7 @@ from app.models.demanda import DemandaEstagio, StatusDemanda, PrioridadeDemanda
 from app.models.anamnese import Anamnese
 from app.models.solicitacao import SolicitacaoCadastro, SituacaoSolicitacao
 from app.models.token_recuperacao import TokenRecuperacaoSenha
+from app.models.atribuicao import AtribuicaoClinica, SituacaoAtribuicao
 
 __all__ = [
     "Usuario",
@@ -26,4 +27,6 @@ __all__ = [
     "SolicitacaoCadastro",
     "SituacaoSolicitacao",
     "TokenRecuperacaoSenha",
+    "AtribuicaoClinica",
+    "SituacaoAtribuicao",
 ]

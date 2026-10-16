@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { api, type ApiPaciente, type ApiAgendamento, type ApiProntuarioPsico, type ApiFichaOdonto, type ApiDemanda, type ApiAnamnese } from '../../../services/api';
+import { api, type ApiPaciente, type ApiAgendamento, type ApiProntuarioPsico, type ApiFichaOdonto, type ApiDemanda, type ApiAnamnese, type ApiAtribuicao } from '../../../services/api';
 import { useAuth } from '../../auth/context/AuthContext';
 
 export type StatusAgendamento = 'AGENDADO' | 'PRESENTE' | 'EM_ATENDIMENTO' | 'CONCLUIDO' | 'FALTOU' | 'CANCELADO';
@@ -42,6 +42,21 @@ export interface DemandaEstagio {
   prioridade: 'Alta' | 'Média' | 'Normal';
   dataSolicitacao: string;
   status: 'Pendente' | 'Agendado';
+}
+
+export interface Atribuicao {
+  id: number;
+  pacienteId: number;
+  pacienteNome: string;
+  curso: string;
+  estagiarioNome: string;
+  estagiarioMatricula: string;
+  situacao: 'ATIVA' | 'SUBSTITUIDA';
+  motivo?: string | null;
+  atribuidoPorNome: string;
+  atribuidoPorMatricula: string;
+  dataAtribuicao: string;
+  dataEncerramento?: string | null;
 }
 
 export interface EvolucaoPsico {
@@ -114,6 +129,13 @@ interface ClinicContextType {
   pacientes: Paciente[];
   agendamentos: Agendamento[];
   demandas: DemandaEstagio[];
+  /** Pacientes com o estagiário autenticado como responsável (RF-001).
+   *  Quem tem sessão de recepção recebe a lista da clínica inteira, porque a
+   *  mesma tela monta o painel de atribuição. */
+  atribuicoes: Atribuicao[];
+  atribuirPaciente: (dados: { pacienteId: number; estagiarioNome: string; estagiarioMatricula: string }) => Promise<{ success: boolean; message: string }>;
+  transferirPaciente: (dados: { id: number; estagiarioNome: string; estagiarioMatricula: string; motivo: string }) => Promise<{ success: boolean; message: string }>;
+  recarregarAtribuicoes: () => Promise<void>;
   evolucoesPsico: EvolucaoPsico[];
   fichasOdonto: FichaOdonto[];
   /** Anamneses por id de paciente. Carregadas sob demanda pela ficha. */
@@ -437,6 +459,21 @@ const mapearDemanda = (d: ApiDemanda): DemandaEstagio => ({
   status: d.status,
 });
 
+const mapearAtribuicao = (a: ApiAtribuicao): Atribuicao => ({
+  id: a.id,
+  pacienteId: a.paciente_id,
+  pacienteNome: a.paciente_nome,
+  curso: a.curso,
+  estagiarioNome: a.estagiario_nome,
+  estagiarioMatricula: a.estagiario_matricula,
+  situacao: a.situacao,
+  motivo: a.motivo ?? null,
+  atribuidoPorNome: a.atribuido_por_nome,
+  atribuidoPorMatricula: a.atribuido_por_matricula,
+  dataAtribuicao: a.data_atribuicao,
+  dataEncerramento: a.data_encerramento ?? null,
+});
+
 /** Extrai a mensagem de erro do envelope do FastAPI ({ detail }). */
 const mensagemDeErro = (err: unknown, padrao: string): string =>
   err instanceof Error && err.message ? err.message : padrao;
@@ -468,6 +505,12 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return INITIAL_DEMANDAS;
     }
   });
+
+  // Vinculo paciente-estagiario (RF-001). Nao vem do mock nem do
+  // localStorage: lista vazia ate a API responder, porque mostrar um
+  // paciente aqui significaria atribuir responsabilidade a alguem
+  // antes de o servidor dizer quem e.
+  const [atribuicoes, setAtribuicoes] = useState<Atribuicao[]>([]);
 
   const [evolucoesPsico, setEvolucoesPsico] = useState<EvolucaoPsico[]>(() => {
     try {
@@ -521,12 +564,17 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
 
     // 403 em prontuarios e o comportamento esperado para o perfil de recepcao
     // (RN-001), nao uma falha de infraestrutura. Demais rejeicoes sao registradas.
-    const [apiPacientes, apiAgendamentos, apiProntuarios, apiFichasOdonto, apiDemandas] = await Promise.allSettled([
+    const [apiPacientes, apiAgendamentos, apiProntuarios, apiFichasOdonto, apiDemandas, apiMinhasAtribuicoes] = await Promise.allSettled([
       api.getPacientes(),
       api.getAgendamentos(),
       api.getProntuariosPsico(),
       api.getFichasOdonto(),
       api.getDemandas(),
+      // O vínculo decide quais pacientes o estagiário pode atender. Falha aqui
+      // é registrada como falha: esconder e devolver lista vazia é
+      // indistinguível de "a recepção ainda não atribuiu nada", e a diferença
+      // muda o que o aluno precisa fazer.
+      api.getMinhasAtribuicoesPsico(),
     ]);
 
     const falhas: string[] = [];
@@ -576,6 +624,12 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
       setDemandas(apiDemandas.value.map(mapearDemanda));
     } else {
       falhas.push(`demandas: ${apiDemandas.reason?.message ?? 'falhou'}`);
+    }
+
+    if (apiMinhasAtribuicoes.status === 'fulfilled') {
+      setAtribuicoes(apiMinhasAtribuicoes.value.map(mapearAtribuicao));
+    } else {
+      falhas.push(`vinculo de pacientes: ${apiMinhasAtribuicoes.reason?.message ?? 'falhou'}`);
     }
 
     if (falhas.length > 0) {
@@ -963,12 +1017,94 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
     }
   };
 
+  // --- Vinculo paciente-estagiario (RF-001) ---
+  //
+  // Falha de escrita nao volta com estado otimista: o vinculo so entra na tela
+  // depois da confirmacao do servidor. Anunciar "atribuido" para um POST que o
+  // servidor recusou deixaria a recepcao achando que o paciente tem responsavel
+  // quando ninguem tem.
+
+  const recarregarAtribuicoes = async () => {
+    try {
+      const lista = await api.getMinhasAtribuicoesPsico();
+      setAtribuicoes(lista.map(mapearAtribuicao));
+    } catch (err) {
+      console.error('[UniCare] vinculos de paciente nao carregaram:', err);
+    }
+  };
+
+  const atribuirPaciente = async (dados: {
+    pacienteId: number;
+    estagiarioNome: string;
+    estagiarioMatricula: string;
+  }): Promise<{ success: boolean; message: string }> => {
+    try {
+      const criada = await api.atribuirPaciente({
+        paciente_id: dados.pacienteId,
+        estagiario_nome: dados.estagiarioNome,
+        estagiario_matricula: dados.estagiarioMatricula,
+      });
+      // A tela da recepcao mostra a clinica inteira, entao ovinculo criado
+      // entra na lista local sem esperar a proxima sincronizacao.
+      setAtribuicoes((prev) => [mapearAtribuicao(criada), ...prev]);
+      return {
+        success: true,
+        message: `${criada.paciente_nome} sob responsabilidade de ${criada.estagiario_nome}.`,
+      };
+    } catch (err) {
+      const msg = mensagemDeErro(err, 'Falha ao atribuir o paciente.');
+      console.error('[UniCare] atribuicao de paciente falhou:', err);
+      return { success: false, message: msg };
+    }
+  };
+
+  const transferirPaciente = async (dados: {
+    id: number;
+    estagiarioNome: string;
+    estagiarioMatricula: string;
+    motivo: string;
+  }): Promise<{ success: boolean; message: string }> => {
+    // Guardado para desfazer: a tela otimista troca o responsavel na hora, e
+    // se o PATCH for recusado o vinculo antigo precisa voltar.
+    const anterior = atribuicoes.find((a) => a.id === dados.id);
+    if (anterior) {
+      setAtribuicoes((prev) =>
+        prev.map((a) => (a.id === dados.id ? { ...a, situacao: 'SUBSTITUIDA' } : a))
+      );
+    }
+
+    try {
+      const nova = await api.transferirPaciente(dados.id, {
+        estagiario_nome: dados.estagiarioNome,
+        estagiario_matricula: dados.estagiarioMatricula,
+        motivo: dados.motivo,
+      });
+      setAtribuicoes((prev) => {
+        const semAntiga = prev.filter((a) => a.id !== nova.id && a.id !== dados.id);
+        return [mapearAtribuicao(nova), ...semAntiga];
+      });
+      return {
+        success: true,
+        message: `Transferido para ${nova.estagiario_nome}. O motivo ficou no historico.`,
+      };
+    } catch (err) {
+      if (anterior) {
+        setAtribuicoes((prev) => prev.map((a) => (a.id === dados.id ? anterior : a)));
+      }
+      const msg = mensagemDeErro(err, 'Falha ao transferir o paciente.');
+      console.error('[UniCare] transferencia de paciente falhou:', err);
+      return { success: false, message: msg };
+    }
+  };
+
+
   return (
     <ClinicContext.Provider
       value={{
         pacientes,
         agendamentos,
         demandas,
+        atribuicoes,
         evolucoesPsico,
         fichasOdonto,
         anamnesesPorPaciente,
@@ -986,6 +1122,9 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
         adicionarEvolucaoPsico,
         adicionarFichaOdonto,
         homologarFichaOdonto,
+        atribuirPaciente,
+        transferirPaciente,
+        recarregarAtribuicoes,
       }}
     >
       {children}

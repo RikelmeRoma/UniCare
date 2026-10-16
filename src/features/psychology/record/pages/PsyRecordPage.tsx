@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { AppLayout } from '../../../../components/layout/AppLayout';
 import { useAuth } from '../../../auth/context/AuthContext';
 import { useClinic } from '../../../clinic/context/ClinicContext';
@@ -12,12 +12,33 @@ import {
 
 export function PsyRecordPage() {
   const { user } = useAuth();
-  const { pacientes, evolucoesPsico, adicionarEvolucaoPsico } = useClinic();
+  const { pacientes, evolucoesPsico, adicionarEvolucaoPsico, atribuicoes, sync } =
+    useClinic();
 
-  // Filtrar apenas pacientes com prontuário de psicologia ativo
-  const pacientesPsico = pacientes.filter(
-    (p) => p.curso === 'psicologia' || p.curso === 'ambos'
-  );
+  const isEstagiario = user?.perfil === 'estagiario';
+
+  // O vínculo decide quem o estagiário atende (RF-001). Supervisor e RT
+  // abrem esta tela para consultar e não têm paciente vinculado — o vínculo é
+  // de responsabilidade do aluno — então para eles a clínica continua inteira.
+  // O servidor aplica a mesma regra: `_validar_vinculo_estagiario` só roda para
+  // o perfil ESTAGIÁRIO.
+  const pacientesPsico = useMemo(() => {
+    const daClinica = pacientes.filter(
+      (p) => p.curso === 'psicologia' || p.curso === 'ambos'
+    );
+    if (!isEstagiario) return daClinica;
+    const meus = new Set(atribuicoes.map((a) => a.pacienteId));
+    return daClinica.filter((p) => meus.has(p.id));
+  }, [pacientes, atribuicoes, isEstagiario]);
+
+  // A API do vínculo não éfiltrada por clínica no cliente, e `atribuicoes` só
+  // recebe a lista de quem está chamando. Estagiário sem nenhum vínculo
+  // recebe 403 com a orientação de procurar a recepção — a tela repete a
+  // instrução em vez de mostrar um <select> vazio sem explicação.
+  const vinculoIndisponivel =
+    isEstagiario &&
+    (sync.estado === 'erro' || sync.estado === 'aguardando-login');
+  const semVinculo = isEstagiario && !vinculoIndisponivel && pacientesPsico.length === 0;
 
   // `?? 1` era id fixo: no primeiro render a lista real ainda não tinha chegado,
 // então o <select> ficava sem opção correspondente quando os ids do banco eram
@@ -130,19 +151,29 @@ export function PsyRecordPage() {
       actions={
         <div className="w-64 sm:w-72">
           <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-            Paciente Ativo (SPA)
+            {isEstagiario ? 'Meus Pacientes (SPA)' : 'Paciente Ativo (SPA)'}
           </label>
-          <select
-            value={pacienteSelecionado?.id ?? ''}
-            onChange={(e) => setSelectedPatientId(Number(e.target.value))}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-600 focus:outline-none"
-          >
-            {pacientesPsico.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome} ({p.cpf})
-              </option>
-            ))}
-          </select>
+          {semVinculo || vinculoIndisponivel ? (
+            // <select> vazio sem explicação deixava o aluno achando que o
+            // sistema quebrou. O que ele precisa fazer é falar com a recepção.
+            <p className="text-[11px] leading-relaxed text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+              {vinculoIndisponivel
+                ? 'Não foi possível carregar seus pacientes.'
+                : 'Nenhum paciente vinculado a você. Procure a recepção da clínica para ser atribuído.'}
+            </p>
+          ) : (
+            <select
+              value={pacienteSelecionado?.id ?? ''}
+              onChange={(e) => setSelectedPatientId(Number(e.target.value))}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-600 focus:outline-none"
+            >
+              {pacientesPsico.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nome} ({p.cpf})
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       }
     >

@@ -71,6 +71,22 @@ export interface ApiAgendamento {
   observacao_logistica?: string;
 }
 
+export interface ApiAtribuicao {
+  id: number;
+  paciente_id: number;
+  /** O backend junta; no wire pode vir vazio se o paciente foi removido. */
+  paciente_nome: string;
+  curso: string;
+  estagiario_nome: string;
+  estagiario_matricula: string;
+  situacao: 'ATIVA' | 'SUBSTITUIDA';
+  motivo?: string | null;
+  atribuido_por_nome: string;
+  atribuido_por_matricula: string;
+  data_atribuicao: string;
+  data_encerramento?: string | null;
+}
+
 export interface ApiProntuarioPsico {
   id: number;
   paciente_id: number;
@@ -454,6 +470,41 @@ async getUsuarios(): Promise<ApiUsuario[]> {
     return this.request<ApiProntuarioPsico>(`/prontuarios/psico/${id}/homologar`, {
       method: 'PATCH',
       body: JSON.stringify({ decisao, parecer }),
+    });
+  }
+
+  // --- Vínculo paciente ↔ estagiário (RF-001, clínica de psicologia) ---
+
+  async getAtribuicoesPsico(): Promise<ApiAtribuicao[]> {
+    return this.request<ApiAtribuicao[]>('/atribuicoes/psico');
+  }
+
+  async getMinhasAtribuicoesPsico(): Promise<ApiAtribuicao[]> {
+    return this.request<ApiAtribuicao[]>('/atribuicoes/psico/minha');
+  }
+
+  async atribuirPaciente(dados: {
+    paciente_id: number;
+    estagiario_nome: string;
+    estagiario_matricula: string;
+  }): Promise<ApiAtribuicao> {
+    return this.request<ApiAtribuicao>('/atribuicoes/psico', {
+      method: 'POST',
+      body: JSON.stringify(dados),
+    });
+  }
+
+  async transferirPaciente(
+    id: number,
+    dados: {
+      estagiario_nome: string;
+      estagiario_matricula: string;
+      motivo: string;
+    }
+  ): Promise<ApiAtribuicao> {
+    return this.request<ApiAtribuicao>(`/atribuicoes/psico/${id}/transferir`, {
+      method: 'PATCH',
+      body: JSON.stringify(dados),
     });
   }
 

@@ -92,6 +92,21 @@ pelo lifespan do FastAPI e a suíte inteira vira **69 erros de setup** — sem u
 assumida desigual pelo teste de `distribuicao_cursos`, e é por isso que o paciente
 novo é `ambos` e não `psicologia`.
 
+
+**Teste que vaza estado quebra a suíte inteira depois.** Dois exemplos que já
+aconteceram aqui: um teste desativava o `16032935` e não o reativava, e outro
+trocava a senha do `REC-001` por um resgate — os dois deixavam a conta no
+estado errado para todo o resto. Quem roda depois falha por motivo que não tem
+nada a ver com o que está testando, e o erro aponta para a regra nova, não para
+o vazamento. **Teste que mexe em cadastro de outro teste restaura no `finally`.**
+(`delete` é desativar, não apagar: para devolver a conta ao estado anterior, o
+`PATCH` precisa aceitar `ativo`.)
+
+**Uma feature nova cria os próprios dados de teste.** O bloco de vínculo
+paciente↔estagiário não usa nenhum usuário nem paciente do seed: ele cria os
+estagiários por `POST /usuarios` e os pacientes por `POST /pacientes`. Consumir o
+seed além de ler é o que produz dependência de ordem — um teste que transfere o
+paciente X quebra o seguinte que espera encontrá-lo com o aluno A.
 **`op.drop_table()` não remove tipos ENUM no PostgreSQL.** Um `downgrade` que
 cria colunas enum precisa derrubar os tipos explicitamente com `checkfirst=True`,
 senão o `upgrade` seguinte falha com `type ... already exists`.

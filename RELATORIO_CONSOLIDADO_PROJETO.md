@@ -53,6 +53,16 @@ flowchart TD
 - Agendamento ambulatorial por curso (Psicologia ou Odontologia) com status: *Agendado*, *Confirmado*, *Em Atendimento*, *Concluído* e *Faltou*.
 - Métricas em tempo real de absenteísmo ambulatorial e demanda reprimida.
 
+- **Vinculo paciente <-> estagiario responsavel (clinica de psicologia).** A recepcao
+  atribui cada paciente a um estagiario; o estagiario so registra evolucao de
+  paciente ativo em seu nome, e o servidor recusa a escrita nos demais. A transferencia
+  move a responsabilidade e guarda o motivo na linha encerrada, que e o historico de
+  quem esteve com aquele paciente. O prontuario ja registra o autor no momento da
+  escrita, entao o registro clinico anterior nao e reescrito pela troca.
+  *Emendado em 16/10/2026: o RF-001 descrevia recepcao e triagem sem qualquer vinculo
+  de responsavel. A regra foi acrescentada aqui e a tabela `ATRIBUICOES_CLINICAS`
+  entra no bloco de schema.*
+
 ### RF-002: Prontuário Eletrônico de Psicologia (SPA)
 - Em conformidade integral com a **Resolução CFP nº 06/2019**.
 - Registro de evolução estruturada: Identificação, Descrição da Demanda, Procedimento Técnico-Científico Adotado, Registro de Sessão e Devolutiva.
@@ -166,6 +176,23 @@ erDiagram
         string status "ENUM 6 estados"
         string observacao_logistica "opcional"
     }
+
+    ATRIBUICOES_CLINICAS {
+        int    id PK
+        int    paciente_id FK "idx"
+        string curso "clinica (psicologia)"
+        string estagiario_nome
+        string estagiario_matricula
+        string situacao "ATIVA | SUBSTITUIDA"
+        text   motivo "obrigatorio na transferencia"
+        string atribuido_por_nome "da recepcao, do token"
+        string atribuido_por_matricula
+        datetime data_atribuicao
+        datetime data_encerramento "se encerrada"
+        datetime criado_em
+    }
+        ^ indice unico parcial em (paciente_id, curso) WHERE situacao='ATIVA':
+          um responsavel ativo por paciente. Sem ele a aplicacao pode deixar dois.
 
     PRONTUARIOS_PSICO {
         int    id PK

@@ -5,6 +5,7 @@ from sqlmodel import Session, select
 from app.database import get_session
 from app.models.prontuario import ProntuarioPsico, FichaOdonto, StatusProntuario
 from app.models.paciente import Paciente
+from app.models.atribuicao import AtribuicaoClinica, SituacaoAtribuicao
 from app.models.usuario import Usuario, PerfilUsuario
 from app.schemas.prontuario import (
     ProntuarioPsicoCreate,
@@ -23,6 +24,59 @@ router = APIRouter(prefix="/prontuarios", tags=["Prontuários Clínicos & Homolo
 # compartilhada com as rotas de anamnese em pacientes.py.
 
 autorizado_homologacao = require_roles([PerfilUsuario.SUPERVISOR, PerfilUsuario.RT])
+
+
+def _validar_vinculo_estagiario(
+    session: Session,
+    usuario: Usuario,
+    paciente_id: int,
+) -> None:
+    """Estagiário só escreve de paciente que esteja ativo em seu nome (RF-001).
+
+    A regra é do vínculo paciente↔estagiário, e vale na escrita: filtrar só no
+    dropdown deixaria qualquer cliente chamar a rota direto e registrar síntese
+    em nome de quem não é o responsável.
+
+    **Só para o perfil ESTAGIÁRIO.** Supervisor e RT abrem esta tela para
+    consultar e, no fluxo da RT, para registrar o que a supervisao viu — e nenhum
+    dos dois tem paciente vinculado, porque o vínculo é de responsabilidade
+    do aluno. Aplicar a regra a eles trancaria a supervisão.
+
+    Bloqueia nos dois sentidos, e é proposital:
+      - paciente com outro responsável ativo → 403 (é o vínculo que protege);
+      - paciente sem ninguém vinculado → 403 também. Se abrisse aqui, o aluno
+        escreveria sem estar sob ninguém, e a recepção perderia o sentido de
+        "sob responsabilidade de". Quem não tem paciente pede à recepção.
+    """
+    if usuario.perfil != PerfilUsuario.ESTAGIARIO:
+        return
+
+    ativa = session.exec(
+        select(AtribuicaoClinica).where(
+            AtribuicaoClinica.paciente_id == paciente_id,
+            AtribuicaoClinica.curso == "psicologia",
+            AtribuicaoClinica.situacao == SituacaoAtribuicao.ATIVA,
+        )
+    ).first()
+
+    if ativa is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Este paciente ainda não está vinculado a um estagiário responsável. "
+                "Procure a recepção da clínica."
+            ),
+        )
+
+    if ativa.estagiario_matricula != usuario.matricula:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"Este paciente está sob responsabilidade de "
+                f"{ativa.estagiario_nome} ({ativa.estagiario_matricula}). "
+                "Peça à recepção a transferência para ficar no seu nome."
+            ),
+        )
 
 
 def _validar_paciente_do_curso(
@@ -82,14 +136,19 @@ def criar_evolucao_psico(
     current_user: Usuario = Depends(require_curso("psicologia", base=autorizado_clinico))
 ):
     _validar_paciente_do_curso(session, dados.paciente_id, "psicologia")
+    # O vínculo vem do token, não do corpo: `dados.estagiario_matricula` é
+    # ignorado aqui (é o que o Bloco 4 já fazia). Conferir o corpo deixaria
+    # qualquer cliente escrever em nome de outro estagiário.
+    _validar_vinculo_estagiario(session, current_user, dados.paciente_id)
 
     # RN-002 (CFP 06/2019) é garantido pelo schema: o validator de aspas roda
     # antes de chegar aqui, e o 422 é devolvido automaticamente.
     prontuario = ProntuarioPsico(
         paciente_id=dados.paciente_id,
         paciente_nome=dados.paciente_nome,
-        estagiario_nome=dados.estagiario_nome,
-        estagiario_matricula=dados.estagiario_matricula,
+        # Autoria pelo token, não pelo corpo — mesma regra acima.
+        estagiario_nome=current_user.nome,
+        estagiario_matricula=current_user.matricula,
         supervisor_nome=dados.supervisor_nome,
         data_sessao=dados.data_sessao,
         numero_sessao=dados.numero_sessao,

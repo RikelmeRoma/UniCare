@@ -147,6 +147,51 @@ Blocos 8 a 14.
   porque os erros estavam presos a código morto removido.
 
 
+### 🧩 Vinculo paciente-estagiario (RF-001, psicologia)
+
+Feature pedida para a clinica de psicologia: a recepcao vincula cada paciente ao
+estagiario responsavel, e o aluno so escreve de paciente ativo em seu nome.
+
+- **Tabela `atribuicoes_clinicas`.** A linha encerrada nao e apagada: vira
+  `SUBSTITUIDA` com o motivo e a data, e e ela que responde "quem esteve com
+  este paciente". Por isso a tabela e ao mesmo tempo o vinculo e o historico.
+- **Indice unico parcial em `(paciente_id, curso) WHERE situacao='ATIVA'`.** A
+  invariante e um responsavel ativo por paciente, e ela esta no banco: se a
+  aplicacao errar, o banco recusa o segundo INSERT.
+- **A regra vale na escrita, nao so na tela.** `POST /prontuarios/psico` confere
+  o vinculo a partir do token. Filtrar so no `<select>` deixaria qualquer cliente
+  chamar a rota direto e registrar sintese em nome de quem nao e o responsavel.
+- **Bloqueia nos dois sentidos.** Paciente de outro estagiario e paciente sem
+  ninguem dao 403. O segundo e deliberado: abrir ali deixaria o aluno escrever
+  sem estar sob ninguem.
+- **Supervisor e RT nao sao bloqueados.** A regra e de responsabilidade do aluno;
+  os dois abrem o prontuario para consultar e nenhum dos dois tem paciente
+  vinculado. Aplicar a eles trancaria a supervisao. Ha teste para isso.
+- **O prontuario antigo nao e reescrito.** `prontuario_psico` guarda o autor no
+  momento da escrita, entao apos a transferencia o registro anterior continua
+  identificando quem era o responsavel na epoca. E o que foi pedido, e ha teste.
+- **Escolha do estagiario sai da lista, nao de digitacao.** O modal de agendamento
+  aceita matricula fixa por clinica (`'16032935'` ou `'01498231'`) junto com o
+  nome digitado pelo usuario — o que gravava "Joao" com a matricula do colega.
+  Aqui a matricula real vem do cadastro, e o servidor recusa matricula
+  inexistente, de outra clinica ou de conta desativada.
+- **A tela da recepcao mostra quem nao tem responsavel.** Estagiario sem vinculo
+  recebe 403 com a orientacao de procurar a recepcao, e o proprio prontuario
+  repete a instrucao em vez de mostrar um `<select>` vazio sem explicacao.
+
+**Emenda normativa:** o RF-001 falava so em cadastro, agendamento e metricas.
+A regra do vinculo foi acrescentada ao RF-001, com a data da emenda, e a tabela
+entrou no bloco de schema do relatorio. Nenhum RF descrevia atribuir paciente a
+estagiario.
+
+**Dois testes antigos vazavam estado e foram corrigidos.** `test_conta_desativada_nao_recebe_codigo`
+deixava o `16032935` desativado ate o fim da suite, e `test_novo_pedido_invalida_o_codigo_anterior`
+deixava a senha do `REC-001` trocada. Os dois passaram a restaurar o que mudam.
+O bloco novo nao depende do seed: cria os proprios pacientes e estagiarios.
+
+**Verificado:** `pytest` **83 passed** (era 69); `npm run build` verde; `alembic
+check` limpo.
+
 ### ✅ Menor resolvido (rodada do dia)
 
 - **Taxa de absenteísmo na recepção de psicologia.** Cartão novo com

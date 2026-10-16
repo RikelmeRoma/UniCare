@@ -7,6 +7,7 @@ A ordem entre as funcoes nao e decorativa: agendamentos e prontuarios referencia
 pacientes precisa acontecer antes de qualquer agendamento, senao o INSERT viola a
 FK.
 """
+from datetime import datetime, timezone
 from typing import List
 
 from sqlmodel import Session, select
@@ -18,6 +19,7 @@ from app.models.prontuario import ProntuarioPsico, FichaOdonto, StatusProntuario
 from app.models.demanda import DemandaEstagio, StatusDemanda, PrioridadeDemanda
 from app.models.anamnese import Anamnese
 from app.models.solicitacao import SolicitacaoCadastro, SituacaoSolicitacao
+from app.models.atribuicao import AtribuicaoClinica, SituacaoAtribuicao
 from app.services.crypto_service import get_password_hash
 
 SENHA_DEMO = "unicare123"
@@ -40,6 +42,23 @@ def seed_usuarios(session: Session) -> None:
             perfil=PerfilUsuario.ESTAGIARIO,
             curso=CursoUsuario.PSICOLOGIA,
             matricula="16032935"
+        ),
+        Usuario(
+            # Segundo estagiário de psicologia. Sem ele a transferência de
+            # paciente não tem para quem ir: a fila do vínculo precisa de duas
+            # pontas para demonstrar a troca, e a tela de supervisão psi
+            # mostrava só um cartão de estagiário.
+            #
+            # Matrícula 16051234 e não 17031122: esse número já é o de um
+            # pedido pendente na fila da RT (seed_solicitacoes). Aprovar aquele
+            # pedido depois criaria um usuário com matrícula repetida e a
+            # unicidade do banco derrubaria a aprovação.
+            nome="Letícia Barbosa Monteiro",
+            email="leticia.barbosa@prof.uninassau.edu.br",
+            senha_hash=get_password_hash(SENHA_DEMO),
+            perfil=PerfilUsuario.ESTAGIARIO,
+            curso=CursoUsuario.PSICOLOGIA,
+            matricula="16051234"
         ),
         Usuario(
             nome="Augusto Cesar Farias Carvalho",
@@ -427,6 +446,54 @@ def seed_fichas_odonto(session: Session, pacientes: List[Paciente]) -> None:
     session.commit()
 
 
+def seed_atribuicoes(session: Session, pacientes: List[Paciente]) -> None:
+    """Vinculo paciente-estagiario da psicologia (RF-001).
+
+    O estagiario so escreve de paciente ativo em seu nome, entao sem esta etapa
+    o seed deixa os dois estagiarios de psicologia sem nenhum paciente e a tela
+    do prontuario abre vazia para todo mundo.
+
+    Os pacientes de psicologia vao para o Rikelme, exceto um, que ja entra com a
+    Leticia: e o que da para demonstrate a transferencia sem ter que montar o
+    cenario na mao.
+    """
+    if not _tabela_vazia(session, AtribuicaoClinica) or len(pacientes) < 4:
+        return
+
+    recepcao = session.exec(
+        select(Usuario).where(Usuario.matricula == "REC-002")
+    ).first()
+    # Atribuicao por nome e matricula da recepcao: quem vincula fica registrado
+    # como quem vinculou. Ausente so na importacao direta de um seed avulso.
+    por_nome = recepcao.nome if recepcao else "Recepção do Serviço de Psicologia"
+    por_matricula = recepcao.matricula if recepcao else "REC-002"
+
+    agora = datetime.now(timezone.utc)
+
+    alvos = [
+        (pacientes[0], "Rikelme Roma Santos", "16032935"),
+        (pacientes[2], "Letícia Barbosa Monteiro", "16051234"),
+    ]
+    for paciente, nome, matricula in alvos:
+        if paciente.curso not in ("psicologia", "ambos"):
+            continue
+        session.add(
+            AtribuicaoClinica(
+                paciente_id=paciente.id,
+                curso="psicologia",
+                estagiario_nome=nome,
+                estagiario_matricula=matricula,
+                situacao=SituacaoAtribuicao.ATIVA,
+                motivo=None,
+                atribuido_por_nome=por_nome,
+                atribuido_por_matricula=por_matricula,
+                data_atribuicao=agora,
+                criado_em=agora,
+            )
+        )
+    session.commit()
+
+
 def seed_demandas(session: Session) -> None:
     """Fila de trabalho dos estagiarios (RF-009)."""
     if not _tabela_vazia(session, DemandaEstagio):
@@ -558,5 +625,6 @@ def run_seed(session: Session) -> None:
     seed_prontuarios(session, pacientes)
     seed_fichas_odonto(session, pacientes)
     seed_anamneses(session, pacientes)
+    seed_atribuicoes(session, pacientes)
     seed_demandas(session)
     seed_solicitacoes(session)

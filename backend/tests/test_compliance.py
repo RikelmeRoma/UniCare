@@ -1566,6 +1566,16 @@ def test_novo_pedido_invalida_o_codigo_anterior(monkeypatch):
         "identificador": "REC-001", "codigo": segundo, "nova_senha": "senha-nova-123"
     }).status_code == 200
 
+    # Devolve a senha original. O resgate grava no cadastro: sem isto o REC-001
+    # fica com a senha deste teste e todo login posterior dele com `unicare123`
+    # responde 401 — sem que nada tenha mudado de verdade.
+    client.post("/api/v1/auth/senha/recuperar/solicitar",
+                json={"email_ou_matricula": "REC-001"})
+    volta = envio.codigo_do_ultimo()
+    assert client.post("/api/v1/auth/senha/recuperar/redeem", json={
+        "identificador": "REC-001", "codigo": volta, "nova_senha": "unicare123"
+    }).status_code == 200
+
 
 def test_smtp_desligado_da_resposta_honesta_e_nao_gera_token(monkeypatch):
     """Sem SMTP não pode haver "enviamos": seria mentira
@@ -1648,12 +1658,21 @@ def test_conta_desativada_nao_recebe_codigo(monkeypatch):
     lista = client.get("/api/v1/usuarios/", headers=rt).json()
     estagiario = next(u for u in lista if u["matricula"] == "16032935")
     client.delete(f"/api/v1/usuarios/{estagiario['id']}", headers=rt)
-
-    res = client.post("/api/v1/auth/senha/recuperar/solicitar",
-                      json={"email_ou_matricula": "16032935"})
-    # Mesma resposta de quem não existe, e nenhum e-mail disparado.
-    assert res.status_code == 200
-    assert not any("rikelmeroma13" in e[0] for e in envio.enviados)
+    try:
+        res = client.post("/api/v1/auth/senha/recuperar/solicitar",
+                          json={"email_ou_matricula": "16032935"})
+        # Mesma resposta de quem não existe, e nenhum e-mail disparado.
+        assert res.status_code == 200
+        assert not any("rikelmeroma13" in e[0] for e in envio.enviados)
+    finally:
+        # Devolve a conta. Sem isto o 16032935 fica desativado para o resto da
+        # suíte e qualquer teste posterior que dependa dele quebra por motivo
+        # que não tem nada a ver com o que está testando.
+        client.patch(
+            f"/api/v1/usuarios/{estagiario['id']}",
+            json={"ativo": True},
+            headers=rt,
+        )
 
 
 def test_recuperacao_deixa_rastro_na_auditoria(monkeypatch):
@@ -1685,3 +1704,409 @@ def test_solicitacao_e_resgate_sao_publicos(monkeypatch):
     assert client.post("/api/v1/auth/senha/recuperar/redeem", json={
         "identificador": "DOC-9122", "codigo": "AAAAAA", "nova_senha": "senha-nova-123"
     }).status_code == 400
+# ---------------------------------------------------------------------------
+# Vinculo paciente-estagiario (RF-001)
+#
+# A recepcao vincula cada paciente ao estagiario responsavel. O estagiario so
+# escreve de paciente ativo em seu nome, e a transferencia move a
+# responsabilidade sem reescrever o que ja foi registrado.
+# ---------------------------------------------------------------------------
+
+# Estagiários de psicologia criados aqui, não vindos do seed.
+#
+# Depender do 16032935 do seed já quebrou uma vez: um teste anterior o desativa
+# e não restaura, e a regra de vínculo — corretamente — recusa estagiário
+# desativado. Criar os dois aqui deixa o bloco independente do resto da suíte.
+_ESTAGIARIOS: dict[str, str] = {}
+
+
+def _criar_estagiario(chave: str, nome: str, matricula: str) -> str:
+    """Cadastra um estagiário de psicologia e devolve o token dele."""
+    if chave in _ESTAGIARIOS:
+        return _ESTAGIARIOS[chave]
+
+    rt = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
+    res = client.post(
+        "/api/v1/usuarios",
+        json={
+            "nome": nome,
+            "email": f"{matricula}@prof.uninassau.edu.br",
+            "senha": "unicare123",
+            "perfil": "estagiario",
+            "matricula": matricula,
+        },
+        headers=rt,
+    )
+    assert res.status_code in (201, 400), res.text
+    token = get_auth_token(matricula)
+    _ESTAGIARIOS[chave] = token
+    return token
+
+
+def _token_a() -> str:
+    return _criar_estagiario("A", "Aluno Vinculo A", "VINCU001")
+
+
+def _token_b() -> str:
+    return _criar_estagiario("B", "Aluno Vinculo B", "VINCU002")
+
+
+def _nome_a() -> str:
+    return "Aluno Vinculo A"
+
+
+def _nome_b() -> str:
+    return "Aluno Vinculo B"
+
+
+# Cada teste cria o próprio paciente. Consumir os do seed tornaria a
+# asserção dependente da ordem: um teste que transfere o paciente X quebra o
+# seguinte que espera encontrá-lo com o Aluno A.
+_SEQ = [0]
+
+
+def _paciente_novo(curso: str = "psicologia") -> int:
+    _SEQ[0] += 1
+    n = _SEQ[0]
+    recepcao = _psi(get_auth_token("REC-002" if curso != "odontologia" else "REC-001"))
+    res = client.post(
+        "/api/v1/pacientes",
+        json={
+            "nome": f"Paciente Vinculo {n}",
+            "cpf_rg": f"9{n:03d}.111.222-33",
+            "data_nascimento": "1995-05-05",
+            "telefone": f"(79) 9999{n:04d}",
+            "eh_menor": False,
+            "curso": curso,
+        },
+        headers=recepcao,
+    )
+    assert res.status_code == 201, res.text
+    return res.json()["id"]
+
+
+def _psi(token: str) -> dict:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _atribuir(paciente_id: int, token_est: str, nome: str, matricula: str) -> dict:
+    recepcao = _psi(get_auth_token("REC-002"))
+    res = client.post(
+        "/api/v1/atribuicoes/psico",
+        json={
+            "paciente_id": paciente_id,
+            "estagiario_nome": nome,
+            "estagiario_matricula": matricula,
+        },
+        headers=recepcao,
+    )
+    assert res.status_code == 201, res.text
+    return res.json()
+
+
+def _ativa_de(paciente_id: int) -> dict:
+    recepcao = _psi(get_auth_token("REC-002"))
+    ativas = client.get("/api/v1/atribuicoes/psico", headers=recepcao).json()
+    return next(
+        a for a in ativas if a["situacao"] == "ATIVA" and a["paciente_id"] == paciente_id
+    )
+
+
+def _sintese(paciente_id: int, texto: str = "Sessao descrita em paragrafos.") -> dict:
+    return {
+        "paciente_id": paciente_id,
+        "paciente_nome": "Paciente Teste Vinculo",
+        "estagiario_nome": "IGNORADO PELO SERVIDOR",
+        "estagiario_matricula": "IGNORADO",
+        "data_sessao": "10/10/2026",
+        "numero_sessao": "Sessao 01",
+        "redacao_texto": texto,
+    }
+
+
+def test_vinculo_permite_escrever_do_proprio_paciente():
+    """Regra basica: o estagiario escreve do paciente que esta em seu nome.
+
+    E a autoria vem do token: o corpo manda "IGNORADO" e o que grava e o
+    estagiario autenticado.
+    """
+    token_a = _token_a()
+    paciente_id = _paciente_novo()
+    _atribuir(paciente_id, token_a, _nome_a(), "VINCU001")
+
+    res = client.post(
+        "/api/v1/prontuarios/psico", json=_sintese(paciente_id), headers=_psi(token_a)
+    )
+    assert res.status_code == 201, res.text
+    assert res.json()["estagiario_matricula"] == "VINCU001"
+    assert res.json()["estagiario_nome"] == _nome_a()
+
+
+def test_vinculo_bloqueia_paciente_de_outro_estagiario():
+    """Paciente de outro estagiario nao entra: a regra vale na escrita"""
+    token_a, token_b = _token_a(), _token_b()
+    paciente_id = _paciente_novo()
+    _atribuir(paciente_id, token_a, _nome_a(), "VINCU001")
+
+    res = client.post(
+        "/api/v1/prontuarios/psico", json=_sintese(paciente_id), headers=_psi(token_b)
+    )
+    assert res.status_code == 403, res.text
+    assert _nome_a() in res.json()["detail"]
+
+
+def test_vinculo_bloqueia_paciente_sem_ninguem():
+    """Sem responsavel tambem nao entra.
+
+    Abrir aqui deixaria o aluno escrever sem estar sob ninguem, e a recepcao
+    perderia o sentido de "sob responsabilidade de".
+    """
+    res = client.post(
+        "/api/v1/prontuarios/psico",
+        json=_sintese(_paciente_novo()),
+        headers=_psi(_token_a()),
+    )
+    assert res.status_code == 403, res.text
+    assert "recep" in res.json()["detail"].lower()
+
+
+def test_recepcao_atribui_e_o_estagiario_assume():
+    """A recepcao vincula, e a partir dai o aluno consegue escrever."""
+    token_b = _token_b()
+    paciente_id = _paciente_novo()
+    estagiario = _psi(token_b)
+
+    assert client.post(
+        "/api/v1/prontuarios/psico", json=_sintese(paciente_id), headers=estagiario
+    ).status_code == 403
+
+    criada = _atribuir(paciente_id, token_b, _nome_b(), "VINCU002")
+    assert criada["situacao"] == "ATIVA"
+    assert criada["estagiario_matricula"] == "VINCU002"
+    # Quem vinculou vem do token da recepção, não do corpo.
+    assert criada["atribuido_por_matricula"] == "REC-002"
+
+    assert client.post(
+        "/api/v1/prontuarios/psico", json=_sintese(paciente_id), headers=estagiario
+    ).status_code == 201
+
+
+def test_atribuir_paciente_ja_vinculado_recusa_e_manda_transferir():
+    """Dois responsaveis ativos ao mesmo tempo é erro, não sobrescrita"""
+    token_a = _token_a()
+    paciente_id = _paciente_novo()
+    _atribuir(paciente_id, token_a, _nome_a(), "VINCU001")
+
+    res = client.post(
+        "/api/v1/atribuicoes/psico",
+        json={
+            "paciente_id": paciente_id,
+            "estagiario_nome": _nome_b(),
+            "estagiario_matricula": "VINCU002",
+        },
+        headers=_psi(get_auth_token("REC-002")),
+    )
+    assert res.status_code == 409, res.text
+    assert "transfer" in res.json()["detail"].lower()
+
+
+def test_transferencia_exige_motivo():
+    """Troca sem motivo é troca silenciosa, que a custódia precisa impedir"""
+    token_a, token_b = _token_a(), _token_b()
+    atual = _atribuir(_paciente_novo(), token_a, _nome_a(), "VINCU001")
+
+    res = client.patch(
+        f"/api/v1/atribuicoes/psico/{atual['id']}/transferir",
+        json={
+            "estagiario_nome": _nome_b(),
+            "estagiario_matricula": "VINCU002",
+            "motivo": "   ",
+        },
+        headers=_psi(get_auth_token("REC-002")),
+    )
+    assert res.status_code == 422, res.text
+
+
+def test_transferencia_marca_a_anterior_como_substituida():
+    """A linha antiga fica como historico; a nova entra ativa."""
+    token_a, token_b = _token_a(), _token_b()
+    paciente_id = _paciente_novo()
+    atual = _atribuir(paciente_id, token_a, _nome_a(), "VINCU001")
+
+    recepcao = _psi(get_auth_token("REC-002"))
+    res = client.patch(
+        f"/api/v1/atribuicoes/psico/{atual['id']}/transferir",
+        json={
+            "estagiario_nome": _nome_b(),
+            "estagiario_matricula": "VINCU002",
+            "motivo": "Paciente pediu troca: nao se adaptou ao horario.",
+        },
+        headers=recepcao,
+    )
+    assert res.status_code == 200, res.text
+    nova = res.json()
+    assert nova["situacao"] == "ATIVA"
+    assert nova["estagiario_matricula"] == "VINCU002"
+    assert nova["paciente_id"] == paciente_id
+
+    depois = client.get("/api/v1/atribuicoes/psico", headers=recepcao).json()
+    antiga = next(a for a in depois if a["id"] == atual["id"])
+    assert antiga["situacao"] == "SUBSTITUIDA"
+    assert "horario" in antiga["motivo"]
+    assert antiga["data_encerramento"] is not None
+
+    # A linha encerrada continua na listagem: e ela que responde
+    # "quem esteve com este paciente".
+    assert any(
+        a["id"] == atual["id"] and a["situacao"] == "SUBSTITUIDA" for a in depois
+    )
+
+
+def test_transferencia_move_a_responsabilidade_e_preserva_o_historico():
+    """O prontuário antigo continua apontando quem era o responsavel na epoca.
+
+    E o requisito de quem pediu a feature: apos a troca o novo estagiario
+    assume, mas o registro anterior continua identificando o responsavel antigo.
+    """
+    token_a, token_b = _token_a(), _token_b()
+    paciente_id = _paciente_novo()
+    atual = _atribuir(paciente_id, token_a, _nome_a(), "VINCU001")
+
+    estagiario_a = _psi(token_a)
+    estagiario_b = _psi(token_b)
+
+    criado = client.post(
+        "/api/v1/prontuarios/psico",
+        json=_sintese(paciente_id, "Sessao do Aluno A, antes da troca."),
+        headers=estagiario_a,
+    )
+    assert criado.status_code == 201, criado.text
+    prontuario_id = criado.json()["id"]
+
+    transf = client.patch(
+        f"/api/v1/atribuicoes/psico/{atual['id']}/transferir",
+        json={
+            "estagiario_nome": _nome_b(),
+            "estagiario_matricula": "VINCU002",
+            "motivo": "Preferencia manifestada pelo paciente.",
+        },
+        headers=_psi(get_auth_token("REC-002")),
+    )
+    assert transf.status_code == 200, transf.text
+
+    # o novo responsavel assume a escrita
+    assert client.post(
+        "/api/v1/prontuarios/psico",
+        json=_sintese(paciente_id, "Sessao do Aluno B, depois da troca."),
+        headers=estagiario_b,
+    ).status_code == 201
+
+    # e o anterior nao escreve mais
+    assert client.post(
+        "/api/v1/prontuarios/psico",
+        json=_sintese(paciente_id, "Tentativa indevida."),
+        headers=estagiario_a,
+    ).status_code == 403
+
+    # o prontuario anterior segue com o autor original
+    supervisor = _psi(get_auth_token("DOC-8821"))
+    lista = client.get("/api/v1/prontuarios/psico", headers=supervisor).json()
+    antigo = next(p for p in lista if p["id"] == prontuario_id)
+    assert antigo["estagiario_matricula"] == "VINCU001"
+    assert antigo["estagiario_nome"] == _nome_a()
+
+
+def test_supervisor_e_rt_nao_sao_bloqueados_pelo_vinculo():
+    """A regra é de responsabilidade do aluno, não de quem supervisiona.
+
+    Supervisor e RT abrem o prontuário para consultar. Nenhum dos dois tem
+    paciente vinculado — o vínculo é do estagiário — então aplicar a regra a
+    eles trancaria a supervisão e a auditoria.
+    """
+    paciente_id = _paciente_novo()  # fica sem nenhum responsável
+
+    for matricula in ("DOC-8821", "RT-002"):
+        res = client.post(
+            "/api/v1/prontuarios/psico",
+            json=_sintese(paciente_id, f"Registro de {matricula}."),
+            headers=_psi(get_auth_token(matricula)),
+        )
+        assert res.status_code == 201, f"{matricula}: {res.status_code} {res.text}"
+
+
+def test_estagiario_nao_atribui_paciente():
+    """Quem indica o proprio paciente anula a segregacao que a regra cria"""
+    res = client.post(
+        "/api/v1/atribuicoes/psico",
+        json={
+            "paciente_id": _paciente_novo(),
+            "estagiario_nome": _nome_b(),
+            "estagiario_matricula": "VINCU002",
+        },
+        headers=_psi(_token_b()),
+    )
+    assert res.status_code == 403, res.text
+
+
+def test_recepcao_nao_atribui_paciente_de_outra_clinica():
+    """Segregacao por clinica vale na escrita do vinculo.
+
+    O paciente de odontologia é criado pela REC-001 e a tentativa de vinculá-lo
+    vem da REC-002. Dá para listar os odonto para a REC-002? Não — e é
+    justamente isso que a regra garante: ela nem enxerga o paciente da outra
+    clínica, então a tentativa de vincular tem de vir por id.
+    """
+    paciente_id = _paciente_novo(curso="odontologia")
+    res = client.post(
+        "/api/v1/atribuicoes/psico",
+        json={
+            "paciente_id": paciente_id,
+            "estagiario_nome": "Augusto Cesar Farias",
+            "estagiario_matricula": "16024402",
+        },
+        headers=_psi(get_auth_token("REC-002")),
+    )
+    assert res.status_code == 403, res.text
+    assert "odontologia" in res.json()["detail"]
+
+
+def test_atribuicao_recusa_matricula_inexistente():
+    """Matricula digitada que nao existe cria vinculo apontando para o vazio"""
+    res = client.post(
+        "/api/v1/atribuicoes/psico",
+        json={
+            "paciente_id": _paciente_novo(),
+            "estagiario_nome": "Fantasma",
+            "estagiario_matricula": "00000000",
+        },
+        headers=_psi(get_auth_token("REC-002")),
+    )
+    assert res.status_code == 404, res.text
+
+
+def test_atribuicao_recusa_estagiario_de_outra_clinica():
+    """A matricula existe, mas e de odontologia"""
+    res = client.post(
+        "/api/v1/atribuicoes/psico",
+        json={
+            "paciente_id": _paciente_novo(),
+            "estagiario_nome": "Augusto Cesar Farias",
+            "estagiario_matricula": "16024402",
+        },
+        headers=_psi(get_auth_token("REC-002")),
+    )
+    assert res.status_code == 400, res.text
+
+
+def test_minhas_atribuicoes_devolve_so_os_pacientes_do_aluno():
+    """O prontuario lista por aqui — filtrar so na tela deixaria a API aberta"""
+    token_b = _token_b()
+    paciente_id = _paciente_novo()
+    _atribuir(paciente_id, token_b, _nome_b(), "VINCU002")
+
+    minhas = client.get(
+        "/api/v1/atribuicoes/psico/minha", headers=_psi(token_b)
+    ).json()
+    assert any(m["paciente_id"] == paciente_id for m in minhas)
+    assert all(m["estagiario_matricula"] == "VINCU002" for m in minhas)
+    assert all(m["situacao"] == "ATIVA" for m in minhas)
