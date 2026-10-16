@@ -145,11 +145,29 @@ Blocos 8 a 14.
   `no-useless-assignment` (2, no `PeriogramaViewer`), `'_' is defined but never
   used` (3) e `no-explicit-any` (1). O baseline **caiu de 13 para 11** sozinho,
   porque os erros estavam presos a código morto removido.
-- Indicador de absenteísmo na recepção de psicologia (odontologia tem; psi mede
-  cancelamentos).
-- Histórico de decisões em tabela na supervisão psi (hoje é lista inline).
-- Badge de origem/diagnóstico de falha da sincronização na recepção psi
-  (odontologia mostra; psi usa `-` por cartão).
+
+
+### ✅ Menor resolvido (rodada do dia)
+
+- **Taxa de absenteísmo na recepção de psicologia.** Cartão novo com
+  `faltas / (PRESENTE + EM_ATENDIMENTO + CONCLUIDO + FALTOU)`, a mesma conta de
+  `routers/relatorios.py:57-59`. Conferido cruzando o cartão com a rota real do
+  relatório: **33.3% nos dois lados**. Fica ao lado de Cancelamentos em vez de
+  substituí-lo — falta é sessão que existiu e o paciente não veio;
+  cancelamento é vaga liberada para remanejar. A recepção precisa das duas.
+- **O seed psi ganhou uma sessão `FALTOU`.** Sem ela o cartão abriria em `0.0%` —
+  número verdadeiro, mas que não demonstrava nada. Odontologia já tinha.
+- **Histórico de decisões virou tabela** em `PsyApprovalQueue`. Antes cada
+  decisão empilhava em lista e o nome do paciente ficava acima da decisão, obrigando
+  o olho a ir e voltar para comparar quem foi aprovado e quem foi devolvido. O
+  parecer continua expansível, agora numa linha de largura total.
+- **Badge de origem e falha na recepção psi.** Cinco estados, como a
+  odontologia já mostrava. A falha **não é despejada crua**: para uma conta de
+  recepção os 403 em prontuários e fichas são a RN-001 funcionando, e
+  mostrar o erro faria a recepção de psicologia achar todo dia que algo quebrou
+  sem nada estar quebrado. Quando as únicas falhas são essas, o texto fica em
+  prosa. Qualquer outra continua aparecendo crua: esconder um 403 de clínica errada
+  seria o erro oposto.
 
 ### ✅ Menor — resolvidos nesta rodada
 

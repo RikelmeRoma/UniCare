@@ -288,6 +288,22 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
             status=StatusAgendamento.FALTOU,
             observacao_logistica="Falta registrada na recepção"
         ),
+        # Falta em psicologia. A recepção de psi ganhou o cartão de taxa de
+        # absenteísmo, e sem nenhuma sessão com FALTOU ele abriria em 0.0% —
+        # número verdadeiro, mas que não demonstra nada. Odontologia já tinha.
+        Agendamento(
+            paciente_id=p1.id,
+            paciente_nome=p1.nome,
+            estagiario_nome="Rikelme Roma Santos",
+            estagiario_matricula="16032935",
+            curso="psicologia",
+            horario="11:00",
+            turno="manha",
+            sala_ou_cadeira="Consultório SPA-05",
+            tipo_consulta="Acompanhamento Psicológico de Ansiedade",
+            status=StatusAgendamento.FALTOU,
+            observacao_logistica="Falta registrada na recepção após contato sem sucesso"
+        ),
     ])
     session.commit()
 

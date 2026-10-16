@@ -309,46 +309,79 @@ const decidir = async (decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE') => {
           só de homologados — traz também as devolvidas. */}
           <span>Histórico de Decisões de Homologação (Custódia RT)</span>
         </h4>
-        <div className="divide-y divide-slate-100 text-xs">
-          {historico.map((h) => (
-            <div key={h.id} className="py-3 flex flex-col sm:flex-row justify-between sm:items-center gap-2">
-              <div>
-                <span className="font-bold text-slate-900">{h.pacienteNome}</span>
-                <span className="text-slate-300 mx-2">•</span>
-                <span className="text-slate-600 font-mono">{h.numeroSessao} ({h.dataSessao})</span>
-                <span className="text-slate-300 mx-2">•</span>
-                <span className="text-slate-500">Estagiário: {h.estagiarioNome}</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className={`border text-[10px] font-bold px-2 py-0.5 rounded-md inline-flex items-center gap-1 ${ROTULO_STATUS[h.status].classe}`}>
-                  {ROTULO_STATUS[h.status].texto}
-                </span>
-                {/* Autoridade real: o nome gravado na homologação (Bloco 7). O
-                    antigo "(CRP)" prometia assinatura digital sem registro. */}
-                {h.supervisorNome && (
-                  <span className="text-[10px] text-slate-500 font-semibold">
-                    por {h.supervisorNome}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={() =>
-                    setVisualizarParecerId(visualizarParecerId === h.id ? null : h.id)
-                  }
-                  className="text-blue-700 hover:underline font-semibold text-[11px]"
-                >
-                  {visualizarParecerId === h.id ? 'Fechar' : 'Ver Parecer'}
-                </button>
-              </div>
+        {/* Tabela em vez de lista inline: o supervisor precisa comparar linha a linha
+            quem foi aprovado e quem foi devolvido. Empilhado, o nome ficava acima
+            da decisão e o olho tinha que ir e voltar.
 
-              {visualizarParecerId === h.id && (
-                <div className="w-full mt-2 p-3 bg-blue-50/70 border border-blue-200/80 rounded-xl text-blue-900 italic">
-                  {h.parecerSupervisor || 'Sem parecer registrado pelo supervisor.'}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+            O parecer continua expansível numa linha própria (`colSpan`), porque
+            texto longo dentro de célula estreita quebra o alinhamento das
+            colunas — que é justamente o que a tabela veio para dar. */}
+        {historico.length === 0 ? (
+          <p className="text-xs text-slate-400 italic bg-slate-50 border border-dashed border-slate-200 rounded-xl p-4 text-center">
+            Nenhuma decisão registrada ainda.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 text-slate-500 border-b border-slate-200 text-[10px] uppercase tracking-wider">
+                <tr>
+                  <th className="p-2.5">Paciente</th>
+                  <th className="p-2.5">Sessão</th>
+                  <th className="p-2.5">Estagiário</th>
+                  <th className="p-2.5">Decisão</th>
+                  <th className="p-2.5">Visto de</th>
+                  <th className="p-2.5 text-right">Parecer</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {historico.map((h) => (
+                  <tr key={h.id} className="align-top hover:bg-slate-50/70">
+                    <td className="p-2.5 font-bold text-slate-900">{h.pacienteNome}</td>
+                    <td className="p-2.5 font-mono text-slate-600 whitespace-nowrap">
+                      {h.numeroSessao}
+                      <span className="block text-[10px] text-slate-400">{h.dataSessao}</span>
+                    </td>
+                    <td className="p-2.5">{h.estagiarioNome}</td>
+                    <td className="p-2.5">
+                      <span
+                        className={`border text-[10px] font-bold px-2 py-0.5 rounded-md inline-flex items-center gap-1 ${ROTULO_STATUS[h.status].classe}`}
+                      >
+                        {ROTULO_STATUS[h.status].texto}
+                      </span>
+                    </td>
+                    {/* Autoridade real: o nome gravado na homologação (Bloco 7). O
+                        antigo "(CRP)" prometia assinatura digital sem registro. */}
+                    <td className="p-2.5 text-[11px] text-slate-500">
+                      {h.supervisorNome || '—'}
+                    </td>
+                    <td className="p-2.5 text-right">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setVisualizarParecerId(visualizarParecerId === h.id ? null : h.id)
+                        }
+                        className="text-blue-700 hover:underline font-semibold text-[11px]"
+                      >
+                        {visualizarParecerId === h.id ? 'Fechar' : 'Ver'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {historico.some((h) => h.id === visualizarParecerId) && (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="p-2.5 bg-blue-50/70 border-t border-blue-200/80 text-blue-900 italic"
+                    >
+                      {historico.find((h) => h.id === visualizarParecerId)?.parecerSupervisor ||
+                        'Sem parecer registrado pelo supervisor.'}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
