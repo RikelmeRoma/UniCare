@@ -40,7 +40,8 @@ def seed_usuarios(session: Session) -> None:
             senha_hash=get_password_hash(SENHA_DEMO),
             perfil=PerfilUsuario.ESTAGIARIO,
             curso=CursoUsuario.PSICOLOGIA,
-            matricula="16032935"
+            matricula="16032935",
+            supervisor_matricula="DOC-8821",
         ),
         Usuario(
             # Segundo estagiário de psicologia. Sem ele a transferência de
@@ -57,7 +58,8 @@ def seed_usuarios(session: Session) -> None:
             senha_hash=get_password_hash(SENHA_DEMO),
             perfil=PerfilUsuario.ESTAGIARIO,
             curso=CursoUsuario.PSICOLOGIA,
-            matricula="16051234"
+            matricula="16051234",
+            supervisor_matricula="DOC-8821",
         ),
         Usuario(
             nome="Augusto Cesar Farias Carvalho",
@@ -65,7 +67,8 @@ def seed_usuarios(session: Session) -> None:
             senha_hash=get_password_hash(SENHA_DEMO),
             perfil=PerfilUsuario.ESTAGIARIO,
             curso=CursoUsuario.ODONTOLOGIA,
-            matricula="16024402"
+            matricula="16024402",
+            supervisor_matricula="DOC-9122",
         ),
         Usuario(
             nome="Prof. Dr. Robert Santos do Carmo",

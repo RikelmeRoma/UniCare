@@ -16,6 +16,9 @@ class UsuarioRead(BaseModel):
     matricula: str
     registro_profissional: Optional[str] = None
     ativo: bool
+    # `None` para quem não tem supervisor (RT, recepção, supervisor, estagiário
+    # recém-criado) ou para estagiário ainda não atribuído.
+    supervisor_matricula: Optional[str] = None
 
 
 class UsuarioCreate(BaseModel):
@@ -26,6 +29,8 @@ class UsuarioCreate(BaseModel):
     perfil: PerfilUsuario
     matricula: str = Field(min_length=2, max_length=32)
     registro_profissional: Optional[str] = Field(default=None, max_length=64)
+    # Só a RT informa ao cadastrar; supervisor não se atribui estagiário.
+    supervisor_matricula: Optional[str] = Field(default=None, max_length=32)
 
 
 class EstagiarioRead(BaseModel):
@@ -52,3 +57,5 @@ class UsuarioUpdate(BaseModel):
     registro_profissional: Optional[str] = Field(default=None, max_length=64)
     ativo: Optional[bool] = None
     senha: Optional[str] = Field(default=None, min_length=6, max_length=72)
+    # Só a RT pode trocar. Supervisor não se atribui estagiário nem se remove.
+    supervisor_matricula: Optional[str] = Field(default=None, max_length=32)

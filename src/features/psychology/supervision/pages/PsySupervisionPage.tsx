@@ -16,6 +16,8 @@ import {
 import { useAuth, type User } from '../../../auth/context/AuthContext';
 
 export function PsySupervisionPage() {
+  const { user } = useAuth();
+  const isRT = user?.perfil === 'rt';
   const { allUsers, createUser, updateUser, deleteUser } = useAuth();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [nome, setNome] = useState('');
@@ -41,9 +43,13 @@ export function PsySupervisionPage() {
   const [editRegistro, setEditRegistro] = useState('');
   const [internToDelete, setInternToDelete] = useState<{ key: string; nome: string } | null>(null);
 
-  // Estagiários de Psicologia registrados no sistema
+  // Estagiários de Psicologia registrados no sistema. O supervisor vê apenas
+  // os que estão vinculados a ele (RF-005); a RT vê todos da clínica.
   const psicoInterns = Object.entries(allUsers || {}).filter(
-    ([, u]) => u.curso === 'psicologia' && u.perfil === 'estagiario'
+    ([, u]) =>
+      u.curso === 'psicologia' &&
+      u.perfil === 'estagiario' &&
+      (isRT || u.supervisor_matricula === user?.matricula)
   );
 
   // Busca por nome ou matrícula: mesmo controle que a tela de duplas
@@ -204,9 +210,9 @@ export function PsySupervisionPage() {
                 <span>Estagiários sob Orientação Docente (Clínica de Psicologia • RF-004)</span>
               </h4>
               <p className="text-xs text-slate-500 mt-0.5">
-                Segregação por clínica: o supervisor gerencia exclusivamente os
-                estagiários de psicologia. O vínculo por turma não existe no schema — é
-                o que o relatório descreve e está por implementar.
+                {isRT
+                  ? 'A Referência Técnica vê todos os estagiários da clínica e pode atribuir supervisor. O supervisor vê apenas os vinculados a ele (RF-005).'
+                  : 'Você vê apenas os estagiários vinculados a você.'}
               </p>
             </div>
 

@@ -26,4 +26,12 @@ class Usuario(SQLModel, table=True):
     curso: CursoUsuario = Field(default=CursoUsuario.GERAL)
     matricula: str = Field(unique=True, index=True, max_length=32)
     registro_profissional: Optional[str] = Field(default=None, max_length=64)
+    # Vínculo supervisor ↔ estagiário (RF-005). Só faz sentido para
+    # estagiários: um supervisor gerencia quem está vinculado a ele, e a RT
+    # vê e gerencia todos. Nullable porque o cadastro pode vir sem supervisor
+    # definido (RT atribui depois) e porque supervisor/recepção/RT não têm.
+    # Referência fraca (string, não FK): segue o padrão do projeto para
+    # matrícula, e evita cascade delete silencioso se o supervisor for
+    # desativado.
+    supervisor_matricula: Optional[str] = Field(default=None, max_length=32, index=True)
     ativo: bool = Field(default=True)

@@ -20,6 +20,7 @@ export interface User {
    * estagiário podem mostrar o estado real.
    */
   ativo: boolean;
+  supervisor_matricula?: string | null;
 }
 
 interface AuthContextType {
@@ -96,7 +97,9 @@ const [allUsers, setAllUsers] = useState<Record<string, User>>({});
 matricula: u.matricula,
       registro_profissional: u.registro_profissional,
       ativo: u.ativo,
+      supervisor_matricula: u.supervisor_matricula,
     });
+
 
 const carregarUsuarios = useCallback(async () => {
   try {

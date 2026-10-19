@@ -24,6 +24,7 @@ export interface ApiUsuario {
   matricula: string;
   registro_profissional?: string;
   ativo: boolean;
+  supervisor_matricula?: string | null;
 }
 
 /** Estagiário disponível para a recepção montar a agenda. Só o que o
@@ -291,6 +292,7 @@ async getUsuarios(): Promise<ApiUsuario[]> {
     perfil: 'estagiario' | 'supervisor' | 'recepcao' | 'rt';
     matricula: string;
     registro_profissional?: string;
+    supervisor_matricula?: string;
   }): Promise<ApiUsuario> {
     return this.request<ApiUsuario>('/usuarios', {
       method: 'POST',
@@ -307,6 +309,7 @@ async getUsuarios(): Promise<ApiUsuario[]> {
       registro_profissional?: string;
       ativo?: boolean;
       senha?: string;
+      supervisor_matricula?: string | null;
     }
   ): Promise<ApiUsuario> {
     return this.request<ApiUsuario>(`/usuarios/${id}`, {

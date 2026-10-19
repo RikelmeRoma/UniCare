@@ -34,6 +34,40 @@ def _pode_gerenciar(gestor: Usuario, perfil_alvo: PerfilUsuario) -> bool:
     return gestor.perfil == PerfilUsuario.SUPERVISOR and perfil_alvo == PerfilUsuario.ESTAGIARIO
 
 
+def _supervisor_valido(session: Session, matricula: str, curso: str) -> Usuario:
+    """Confere que a matrícula é de um supervisor ativo da mesma clínica.
+
+    Sem isso a RT vincularia um estagiário a alguém que não existe, ou a um
+    estagiário de outra clínica — o mesmo furo que a matrícula fixa do modal
+    de agendamento tinha.
+    """
+    supervisor = session.exec(
+        select(Usuario).where(Usuario.matricula == matricula.strip().upper())
+    ).first()
+    if not supervisor:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Nenhum usuário com a matrícula {matricula}.",
+        )
+    if supervisor.perfil != PerfilUsuario.SUPERVISOR:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{matricula} é {supervisor.perfil.value}, não supervisor.",
+        )
+    if supervisor.curso != curso:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{matricula} é de {supervisor.curso.value} e não pode supervisionar "
+                   f"estagiário de {curso.value if hasattr(curso, 'value') else curso}.",
+        )
+    if not supervisor.ativo:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{matricula} está desativado e não pode receber estagiários.",
+        )
+    return supervisor
+
+
 def _negar_gestao(perfil_alvo: PerfilUsuario) -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
@@ -59,6 +93,18 @@ def listar_usuarios(
     query = select(Usuario).where(Usuario.curso == current_user.curso)
 
     if current_user.perfil == PerfilUsuario.SUPERVISOR:
+        # Supervisor vê apenas os estagiários vinculados a ele. Antes via todos
+        # da clínica, porque não existia vínculo formal — o RF-005 resolve isso.
+        query = query.where(
+            Usuario.perfil == PerfilUsuario.ESTAGIARIO,
+            Usuario.supervisor_matricula == current_user.matricula,
+        )
+    elif current_user.perfil == PerfilUsuario.RT:
+        # RT vê a clínica inteira, inclusive os estagiários sem supervisor ainda.
+        pass
+    else:
+        # Recepção não administra ninguém — mas a rota exige autorizado_gestao,
+        # então nunca chega aqui.
         query = query.where(Usuario.perfil == PerfilUsuario.ESTAGIARIO)
 
     return session.exec(query).all()
@@ -112,6 +158,7 @@ def criar_usuario_para_gestor(
     perfil: PerfilUsuario,
     senha: str,
     registro_profissional: Optional[str] = None,
+    supervisor_matricula: Optional[str] = None,
 ) -> Usuario:
     """Cria um usuário na clínica de quem está autorizando.
 
@@ -137,6 +184,11 @@ def criar_usuario_para_gestor(
         curso=gestor.curso,
         matricula=matricula.strip().upper(),
         registro_profissional=(registro_profissional or None),
+        supervisor_matricula=(
+            gestor.matricula
+            if gestor.perfil == PerfilUsuario.SUPERVISOR and perfil == PerfilUsuario.ESTAGIARIO
+            else None
+        ),
         ativo=True
     )
 
@@ -183,7 +235,9 @@ def cadastrar_usuario(
         perfil=dados.perfil,
         senha=dados.senha,
         registro_profissional=dados.registro_profissional,
+        supervisor_matricula=dados.supervisor_matricula,
     )
+
 
 
 @router.patch("/{usuario_id}", response_model=UsuarioRead)
@@ -219,6 +273,16 @@ def atualizar_usuario(
     if not _pode_gerenciar(current_user, usuario.perfil):
         raise _negar_gestao(usuario.perfil)
 
+    # Supervisor só edita estagiário vinculado a ele. A RT pode editar todos.
+    if (
+        current_user.perfil == PerfilUsuario.SUPERVISOR
+        and usuario.supervisor_matricula != current_user.matricula
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso negado: este estagiário não está vinculado a você (RF-005).",
+        )
+
     if dados.nome is not None:
         usuario.nome = dados.nome.strip()
     if dados.email is not None:
@@ -229,6 +293,20 @@ def atualizar_usuario(
         usuario.registro_profissional = dados.registro_profissional or None
     if dados.ativo is not None:
         usuario.ativo = dados.ativo
+    # Atribuir supervisor é ato da RT. Supervisor não se auto-atribui estagiário.
+    if dados.supervisor_matricula is not None:
+        if current_user.perfil != PerfilUsuario.RT:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Atribuir estagiário a supervisor é ato da Referência Técnica (RF-009).",
+            )
+        if dados.supervisor_matricula == '':
+            usuario.supervisor_matricula = None
+        else:
+            supervisor = _supervisor_valido(
+                session, dados.supervisor_matricula, usuario.curso
+            )
+            usuario.supervisor_matricula = supervisor.matricula
 
     # Trocar a senha é uma operação separada e explícita, para o hash nunca ser
     # sobrescrito por um PATCH de nome/e-mail.
@@ -290,6 +368,16 @@ def desativar_usuario(
 
     if not _pode_gerenciar(current_user, usuario.perfil):
         raise _negar_gestao(usuario.perfil)
+
+    # Supervisor só desativa estagiário vinculado a ele.
+    if (
+        current_user.perfil == PerfilUsuario.SUPERVISOR
+        and usuario.supervisor_matricula != current_user.matricula
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso negado: este estagiário não está vinculado a você (RF-005).",
+        )
 
     usuario.ativo = False
     session.add(usuario)
