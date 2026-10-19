@@ -7,7 +7,7 @@ A ordem entre as funcoes nao e decorativa: agendamentos e prontuarios referencia
 pacientes precisa acontecer antes de qualquer agendamento, senao o INSERT viola a
 FK.
 """
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import List
 
 from sqlmodel import Session, select
@@ -207,6 +207,12 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
     # lifespan inteiro — 69 testes de erro por um unpacking.
     p1, p2, p3, p4 = pacientes[:4]
 
+    # Datas relativas a hoje, e nao fixas: e o que faz a agenda abrir com
+    # sentido. Sessao de ontem que ficou CONCLUIDO, de hoje que esta PRESENTE e
+    # de semana que vem que esta AGENDADO -- o filtro por data e o cartao de
+    # absenteismo so demonstram alguma coisa com isso.
+    hoje = date.today()
+
     session.add_all([
         Agendamento(
             paciente_id=p1.id,
@@ -214,6 +220,7 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
             estagiario_nome="Rikelme Roma Santos",
             estagiario_matricula="16032935",
             curso="psicologia",
+            data_sessao=hoje,
             horario="14:00",
             turno="tarde",
             sala_ou_cadeira="Consultório SPA-02",
@@ -226,10 +233,16 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
             paciente_nome=p3.nome,
             # Era "João Kaio Rodrigues / 16031730", que não existe em
             # seed_usuarios: o agendamento aparecia sem nenhum operador que
-            # pudesseoretical abrir.
-            estagiario_nome="Rikelme Roma Santos",
-            estagiario_matricula="16032935",
+            # pudesse theoretical abrir.
+            #
+            # Letícia (16051234) e não Rikelme: `seed_atribuicoes` vincula esta
+            # paciente a ela, e as duas telas que o vínculo alimenta discordam
+            # quando a sessão aponta para outro — o aluno via a sessão sem ter a
+            # paciente na lista, e a paciente aparecia sem nenhuma sessão.
+            estagiario_nome="Letícia Barbosa Monteiro",
+            estagiario_matricula="16051234",
             curso="psicologia",
+            data_sessao=hoje + timedelta(days=2),
             horario="15:00",
             turno="tarde",
             sala_ou_cadeira="Consultório SPA-04",
@@ -243,6 +256,7 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
             estagiario_nome="Augusto Cesar Farias & Gabriela Prado",
             estagiario_matricula="16024402",
             curso="odontologia",
+            data_sessao=hoje,
             horario="14:00",
             turno="tarde",
             sala_ou_cadeira="Cadeira Odonto 04",
@@ -257,6 +271,7 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
             estagiario_nome="Augusto Cesar Farias & Gabriela Prado",
             estagiario_matricula="16024402",
             curso="odontologia",
+            data_sessao=hoje + timedelta(days=2),
             horario="15:30",
             turno="tarde",
             sala_ou_cadeira="Cadeira Odonto 02 (Odontopediatria)",
@@ -270,9 +285,10 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
         Agendamento(
             paciente_id=p3.id,
             paciente_nome=p3.nome,
-            estagiario_nome="Rikelme Roma Santos",
-            estagiario_matricula="16032935",
+            estagiario_nome="Letícia Barbosa Monteiro",
+            estagiario_matricula="16051234",
             curso="psicologia",
+            data_sessao=hoje - timedelta(days=3),
             horario="16:00",
             turno="tarde",
             sala_ou_cadeira="Consultório SPA-01",
@@ -286,6 +302,7 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
             estagiario_nome="Rikelme Roma Santos",
             estagiario_matricula="16032935",
             curso="psicologia",
+            data_sessao=hoje - timedelta(days=7),
             horario="10:00",
             turno="manha",
             sala_ou_cadeira="Consultório SPA-03",
@@ -299,6 +316,7 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
             estagiario_nome="Augusto Cesar Farias & Gabriela Prado",
             estagiario_matricula="16024402",
             curso="odontologia",
+            data_sessao=hoje - timedelta(days=7),
             horario="09:00",
             turno="manha",
             sala_ou_cadeira="Cadeira Odonto 07",
@@ -315,6 +333,7 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
             estagiario_nome="Rikelme Roma Santos",
             estagiario_matricula="16032935",
             curso="psicologia",
+            data_sessao=hoje - timedelta(days=2),
             horario="11:00",
             turno="manha",
             sala_ou_cadeira="Consultório SPA-05",
@@ -324,6 +343,7 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
         ),
     ])
     session.commit()
+
 
 
 def seed_prontuarios(session: Session, pacientes: List[Paciente]) -> None:

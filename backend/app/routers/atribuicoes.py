@@ -10,6 +10,11 @@ from app.models.usuario import PerfilUsuario, Usuario
 from app.schemas.atribuicao import AtribuicaoCreate, AtribuicaoRead, TransferenciaRequest
 from app.services.auditoria_service import registrar_log, ip_do_cliente
 from app.services.auth_service import get_current_user, require_curso, require_roles
+from app.services.vinculo_service import (
+    exigir_estagiario_da_clinica,
+    paciente_da_clinica,
+    vinculo_ativo,
+)
 
 router = APIRouter(prefix="/atribuicoes", tags=["Vinculo Paciente-Estagiario"])
 
@@ -21,75 +26,12 @@ CLINICA = "psicologia"
 autorizado_recepcao = require_roles([PerfilUsuario.RECEPCAO, PerfilUsuario.RT])
 
 
-def _paciente_da_clinica(session: Session, paciente_id: int) -> Paciente:
-    paciente = session.get(Paciente, paciente_id)
-    if not paciente:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Paciente não localizado."
-        )
-    # `ambos` pertence às duas clínicas, então um paciente de clínica dupla é
-    # vinculável na psicologia — é a exceção legítima, diferente do agendamento
-    # (que tem cadeira fixa e por isso nunca é `ambos`).
-    if paciente.curso not in (CLINICA, "ambos"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                f"Clínica restrita: o paciente pertence a {paciente.curso} e não "
-                f"pode receber vínculo em {CLINICA}."
-            ),
-        )
-    return paciente
-
-
-def _exigir_estagiario_da_clinica(
-    session: Session, matricula: str, nome: str, curso: str
-) -> Usuario:
-    """Confere que a matrícula existe, é de estagiário e é da clínica.
-
-    Sem isso a recepção digitaria uma matrícula inventada e o vínculo nasceria
-    apontando para alguém que não existe — o mesmo furo que a matricula fixa do
-    modal de agendamento tinha.
-    """
-    estagiario = session.exec(
-        select(Usuario).where(Usuario.matricula == matricula.strip().upper())
-    ).first()
-    if not estagiario:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Nenhum usuário com a matrícula {matricula}.",
-        )
-    if estagiario.perfil != PerfilUsuario.ESTAGIARIO:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"{matricula} é {estagiario.perfil.value}, não estagiário. O "
-                "vínculo é entre paciente e estagiário responsável."
-            ),
-        )
-    if estagiario.curso != curso:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"{matricula} é de {estagiario.curso} e não pode receber pacientes "
-                f"de {curso}."
-            ),
-        )
-    if not estagiario.ativo:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"{matricula} está desativado e não pode receber pacientes.",
-        )
-    return estagiario
-
-
-def _atribuicao_ativa(session: Session, paciente_id: int) -> Optional[AtribuicaoClinica]:
-    return session.exec(
-        select(AtribuicaoClinica).where(
-            AtribuicaoClinica.paciente_id == paciente_id,
-            AtribuicaoClinica.curso == CLINICA,
-            AtribuicaoClinica.situacao == SituacaoAtribuicao.ATIVA,
-        )
-    ).first()
+# As três regras de quem pode receber um paciente — paciente da clínica,
+# matrícula de estagiário ativo e a linha ATIVA — vivem em
+# `app/services/vinculo_service.py`. Elas não são exclusividade deste router: o
+# agendamento precisa das mesmas, e duplicá-las é como "matrícula válida" e
+# "paciente vinculado" passam a divergir, com a agenda aceitando alguém que o
+# prontuário recusa.
 
 
 def _serializar(session: Session, a: AtribuicaoClinica) -> AtribuicaoRead:
@@ -142,12 +84,12 @@ def atribuir_paciente(
     transferência, que guarda o motivo. Aceitar os dois deixaria dois
     responsáveis sem que ninguém decidisse por isso.
     """
-    _paciente_da_clinica(session, dados.paciente_id)
-    estagiario = _exigir_estagiario_da_clinica(
+    paciente_da_clinica(session, dados.paciente_id, CLINICA)
+    estagiario = exigir_estagiario_da_clinica(
         session, dados.estagiario_matricula, dados.estagiario_nome, CLINICA
     )
 
-    existente = _atribuicao_ativa(session, dados.paciente_id)
+    existente = vinculo_ativo(session, dados.paciente_id, CLINICA)
     if existente:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -217,7 +159,7 @@ def transferir_paciente(
             detail="Este vínculo já foi encerrado. Só o responsável ativo pode ser trocado.",
         )
 
-    novo_estagiario = _exigir_estagiario_da_clinica(
+    novo_estagiario = exigir_estagiario_da_clinica(
         session, dados.estagiario_matricula, dados.estagiario_nome, CLINICA
     )
     if novo_estagiario.matricula == atual.estagiario_matricula:

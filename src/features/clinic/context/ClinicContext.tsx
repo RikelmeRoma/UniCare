@@ -25,6 +25,8 @@ export interface Agendamento {
   estagiarioNome: string;
   estagiarioMatricula: string;
   curso: 'psicologia' | 'odontologia';
+  /** ISO `YYYY-MM-DD`, ou `undefined` nas sessões anteriores à coluna. */
+  dataSessao?: string | null;
   horario: string; // Ex: '14:00'
   turno: 'manha' | 'tarde' | 'noite';
   salaOuCadeira: string; // Ex: 'Sala 03' ou 'Cadeira 04'
@@ -118,8 +120,11 @@ interface ClinicContextType {
   pacientes: Paciente[];
   agendamentos: Agendamento[];
   /** Pacientes com o estagiário autenticado como responsável (RF-001).
-   *  Quem tem sessão de recepção recebe a lista da clínica inteira, porque a
-   *  mesma tela monta o painel de atribuição. */
+   *  O estagiário recebe só os próprios, de `/minha`. Recepção, RT e supervisor
+   *  recebem a clínica inteira (`/psico`, ativas e encerradas), porque a mesma
+   *  tela monta o painel de atribuição. A distinção é por perfil — trocar a
+   *  chamada para todo mundo faria o seletor de pacientes do prontuário do
+   *  aluno mostrar a clínica inteira. */
   atribuicoes: Atribuicao[];
   atribuirPaciente: (dados: { pacienteId: number; estagiarioNome: string; estagiarioMatricula: string }) => Promise<{ success: boolean; message: string }>;
   transferirPaciente: (dados: { id: number; estagiarioNome: string; estagiarioMatricula: string; motivo: string }) => Promise<{ success: boolean; message: string }>;
@@ -137,7 +142,10 @@ interface ClinicContextType {
   sync: SyncStatus;
   sincronizar: () => Promise<void>;
   cadastrarPaciente: (p: Omit<Paciente, 'id' | 'prontuarioAtivo'>) => Promise<{ success: boolean; message: string; paciente?: Paciente }>;
-  adicionarAgendamento: (a: Omit<Agendamento, 'id'>) => Promise<{ success: boolean; message: string; agendamento?: Agendamento }>;
+  /** `dataSessao` é obrigatória na criação (`data_sessao ?? ''` viraria 422
+   *  em runtime). No `Agendamento` ela é opcional porque as sessões anteriores
+   *  à coluna existem sem dia. */
+  adicionarAgendamento: (a: Omit<Agendamento, 'id' | 'dataSessao'> & { dataSessao: string }) => Promise<{ success: boolean; message: string; agendamento?: Agendamento }>;
   atualizarStatusAgendamento: (id: number, status: StatusAgendamento) => void;
   homologarEvolucaoPsico: (id: number, decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE', parecer: string) => Promise<{ success: boolean; message: string }>;
   adicionarEvolucaoPsico: (e: Omit<EvolucaoPsico, 'id' | 'status' | 'submetidoEm'>) => Promise<{ success: boolean; message: string; evolucao?: EvolucaoPsico }>;
@@ -362,6 +370,7 @@ const mapearAgendamento = (a: ApiAgendamento): Agendamento => ({
   estagiarioNome: a.estagiario_nome,
   estagiarioMatricula: a.estagiario_matricula,
   curso: a.curso,
+  dataSessao: a.data_sessao,
   horario: a.horario,
   turno: a.turno,
   salaOuCadeira: a.sala_ou_cadeira,
@@ -500,16 +509,21 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
 
     // 403 em prontuarios e o comportamento esperado para o perfil de recepcao
     // (RN-001), nao uma falha de infraestrutura. Demais rejeicoes sao registradas.
-      const [apiPacientes, apiAgendamentos, apiProntuarios, apiFichasOdonto, apiMinhasAtribuicoes] = await Promise.allSettled([
+      const [apiPacientes, apiAgendamentos, apiProntuarios, apiFichasOdonto, apiVinculos] = await Promise.allSettled([
       api.getPacientes(),
       api.getAgendamentos(),
       api.getProntuariosPsico(),
       api.getFichasOdonto(),
-      // O vínculo decide quais pacientes o estagiário pode atender. Falha aqui
-      // é registrada como falha: esconder e devolver lista vazia é
-      // indistinguível de "a recepção ainda não atribuiu nada", e a diferença
-      // muda o que o aluno precisa fazer.
-      api.getMinhasAtribuicoesPsico(),
+      // `/minha` é a rota do próprio aluno; os demais perfis montam o painel de
+      // atribuição e precisam da clínica inteira. Chamar `/minha` para todo
+      // mundo devolvia `[]` para recepção e RT — 200 com lista vazia, sem
+      // indicação de erro, e o painel dizia que ninguém tinha responsável.
+      // A distinção precisa ser por perfil, e não "chamar a da clínica para
+      // todos": o prontuário do aluno filtra a lista de pacientes por aqui, e
+      // com a clínica inteira o seletor passaria a mostrar todo mundo.
+      user?.perfil === 'estagiario'
+        ? api.getMinhasAtribuicoesPsico()
+        : api.getAtribuicoesPsico(),
     ]);
 
     const falhas: string[] = [];
@@ -556,10 +570,10 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
     }
 
 
-    if (apiMinhasAtribuicoes.status === 'fulfilled') {
-      setAtribuicoes(apiMinhasAtribuicoes.value.map(mapearAtribuicao));
+    if (apiVinculos.status === 'fulfilled') {
+      setAtribuicoes(apiVinculos.value.map(mapearAtribuicao));
     } else {
-      falhas.push(`vinculo de pacientes: ${apiMinhasAtribuicoes.reason?.message ?? 'falhou'}`);
+      falhas.push(`vinculo de pacientes: ${apiVinculos.reason?.message ?? 'falhou'}`);
     }
 
     if (falhas.length > 0) {
@@ -573,7 +587,10 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
       falhas,
       ultimoEm: new Date().toISOString(),
     });
-  }, [isAuthenticated, matriculaAutenticada]);
+  // `user?.perfil` entra porque a escolha entre `/minha` e a rota da clínica
+  // depende dele. Sem esta dependência, um logout que troque o perfil mantendo a
+  // matrícula não recarregaria os vínculos da clínica certa.
+  }, [isAuthenticated, matriculaAutenticada, user?.perfil]);
 
   // Sincroniza quando a matrícula autenticada muda (login e logout). Não cita
   // mais switchUser: o atalho de troca de usuário foi removido com o caminho
@@ -669,7 +686,7 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
 
   /** Agendamento tambem aguarda o backend: o id so entra na tela quando e real. */
   const adicionarAgendamento = async (
-    novo: Omit<Agendamento, 'id'>
+    novo: Omit<Agendamento, 'id' | 'dataSessao'> & { dataSessao: string }
   ): Promise<{ success: boolean; message: string; agendamento?: Agendamento }> => {
     try {
       const created = await api.createAgendamento({
@@ -678,6 +695,7 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
         estagiario_nome: novo.estagiarioNome,
         estagiario_matricula: novo.estagiarioMatricula,
         curso: novo.curso,
+        data_sessao: novo.dataSessao,
         horario: novo.horario,
         turno: novo.turno,
         sala_ou_cadeira: novo.salaOuCadeira,
@@ -891,7 +909,14 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
 
   const recarregarAtribuicoes = async () => {
     try {
-      const lista = await api.getMinhasAtribuicoesPsico();
+      // Mesma escolha de rota de `sincronizar`: o aluno lê os próprios
+      // vínculos, os demais perfis leem a clínica. Agendar uma sessão cria ou
+      // troca o vínculo no servidor, então é este recarregamento que faz o
+      // painel da recepção refletir o que acabou de ser agendado.
+      const lista =
+        user?.perfil === 'estagiario'
+          ? await api.getMinhasAtribuicoesPsico()
+          : await api.getAtribuicoesPsico();
       setAtribuicoes(lista.map(mapearAtribuicao));
     } catch (err) {
       console.error('[UniCare] vinculos de paciente nao carregaram:', err);

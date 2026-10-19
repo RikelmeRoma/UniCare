@@ -26,6 +26,14 @@ export interface ApiUsuario {
   ativo: boolean;
 }
 
+/** Estagiário disponível para a recepção montar a agenda. Só o que o
+ *  agendamento precisa — o `GET /usuarios` é gestão de usuário e exige RT ou
+ *  supervisor, então a recepção recebia 403 e acabava digitando o nome à mão. */
+export interface ApiEstagiario {
+  nome: string;
+  matricula: string;
+}
+
 export interface ApiAnamnese {
   id: number;
   paciente_id: number;
@@ -63,6 +71,9 @@ export interface ApiAgendamento {
   estagiario_nome: string;
   estagiario_matricula: string;
   curso: 'psicologia' | 'odontologia';
+  /** ISO `YYYY-MM-DD`. O backend tipa como `Date` e devolve string no JSON.
+   *  Ausente nas linhas anteriores à coluna — `null`, não string vazia. */
+  data_sessao?: string | null;
   horario: string;
   turno: 'manha' | 'tarde' | 'noite';
   sala_ou_cadeira: string;
@@ -269,6 +280,10 @@ async getUsuarios(): Promise<ApiUsuario[]> {
     return this.request<ApiUsuario[]>('/usuarios');
   }
 
+  async getEstagiarios(): Promise<ApiEstagiario[]> {
+    return this.request<ApiEstagiario[]>('/usuarios/estagiarios');
+  }
+
   async createUsuario(dados: {
     nome: string;
     email: string;
@@ -410,6 +425,7 @@ async getUsuarios(): Promise<ApiUsuario[]> {
     estagiario_nome: string;
     estagiario_matricula: string;
     curso: string;
+    data_sessao: string;
     horario: string;
     turno: string;
     sala_ou_cadeira: string;

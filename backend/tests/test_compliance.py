@@ -2046,6 +2046,13 @@ def test_atribuicao_recusa_estagiario_de_outra_clinica():
     assert res.status_code == 400, res.text
 
 
+# Dia usado pelos agendamentos criados aqui. Fixo, não `date.today()`: um teste
+# que passa na segunda e falha na terça porque o dia virou não serve para
+# afirmar nada. `data_sessao` é obrigatório em `AgendamentoCreate` — sessão sem
+# dia não existe, e quem atende precisa saber quando.
+DATA_SESSAO_TESTE = "2026-10-20"
+
+
 def test_minhas_atribuicoes_devolve_so_os_pacientes_do_aluno():
     """O prontuario lista por aqui — filtrar so na tela deixaria a API aberta"""
     token_b = _token_b()
@@ -2058,3 +2065,352 @@ def test_minhas_atribuicoes_devolve_so_os_pacientes_do_aluno():
     assert any(m["paciente_id"] == paciente_id for m in minhas)
     assert all(m["estagiario_matricula"] == "VINCU002" for m in minhas)
     assert all(m["situacao"] == "ATIVA" for m in minhas)
+
+
+def test_estagiario_so_enxerga_a_propria_agenda():
+    """A agenda é do estagiário, não da clínica inteira.
+
+    Filtrar por curso não resolve: o colega continua na mesma clínica. A
+    segregação precisa acontecer no servidor, como já acontece no prontuário
+    psicológico — senão o nome e o CPF de todo paciente da psicologia chegam na
+    resposta e o filtro do navegador só esconde o que já foi baixado.
+    """
+    token_a, token_b = _token_a(), _token_b()
+    paciente_id = _paciente_novo()
+    nome = f"Paciente Vinculo {_SEQ[0]}"
+
+    criado = client.post(
+        "/api/v1/agendamentos",
+        json={
+            "paciente_id": paciente_id,
+            "paciente_nome": nome,
+            "estagiario_nome": _nome_a(),
+            "estagiario_matricula": "VINCU001",
+            "curso": "psicologia",
+            "data_sessao": DATA_SESSAO_TESTE,
+            "horario": "09:00",
+            "turno": "manha",
+            "sala_ou_cadeira": "Consultório SPA-09",
+            "tipo_consulta": "Psicoterapia Individual",
+        },
+        headers=_psi(get_auth_token("REC-002")),
+    )
+    assert criado.status_code == 201, criado.text
+    agendamento_id = criado.json()["id"]
+
+    agenda_a = client.get("/api/v1/agendamentos", headers=_psi(token_a)).json()
+    agenda_b = client.get("/api/v1/agendamentos", headers=_psi(token_b)).json()
+
+    assert any(a["id"] == agendamento_id for a in agenda_a)
+    assert all(a["estagiario_matricula"] == "VINCU001" for a in agenda_a)
+    assert not any(a["id"] == agendamento_id for a in agenda_b)
+
+
+def test_recepcao_continua_vendo_a_agenda_inteira_da_clinica():
+    """A segregação é do estagiário, não da recepção.
+
+    Quem monta a agenda precisa ver as duas: uma sessão de colega que acabou de
+    ser transferida continua na clínica mesmo depois de o vínculo mudar de mão.
+    """
+    token_a = _token_a()
+    paciente_id = _paciente_novo()
+
+    criado = client.post(
+        "/api/v1/agendamentos",
+        json={
+            "paciente_id": paciente_id,
+            "paciente_nome": f"Paciente Vinculo {_SEQ[0]}",
+            "estagiario_nome": _nome_a(),
+            "estagiario_matricula": "VINCU001",
+            "curso": "psicologia",
+            "data_sessao": DATA_SESSAO_TESTE,
+            "horario": "10:30",
+            "turno": "manha",
+            "sala_ou_cadeira": "Consultório SPA-09",
+            "tipo_consulta": "Psicoterapia Individual",
+        },
+        headers=_psi(get_auth_token("REC-002")),
+    )
+    assert criado.status_code == 201, criado.text
+
+    clinica = client.get(
+        "/api/v1/agendamentos", headers=_psi(get_auth_token("REC-002"))
+    ).json()
+    assert any(a["id"] == criado.json()["id"] for a in clinica)
+    assert all(a["curso"] in ("psicologia", "ambos") for a in clinica)
+
+
+# ---------------------------------------------------------------------------
+# Lista de estagiarios para a recepcao montar a agenda
+#
+# O <select> do modal de agendar precisa de quem esta disponivel. `GET /usuarios`
+# e gestao de usuario e devolve 403 para a recepcao (RN-001), entao o campo virou
+# texto livre -- e o nome digitado era gravado junto com uma matricula fixa, os
+# dois de gente diferente.
+# ---------------------------------------------------------------------------
+
+
+def test_recepcao_recebe_a_lista_de_estagiarios_da_propria_clinica():
+    """E a lista de psicologia, e so isso."""
+    lista = client.get(
+        "/api/v1/usuarios/estagiarios", headers=_psi(get_auth_token("REC-002"))
+    )
+    assert lista.status_code == 200, lista.text
+    matriculas = [e["matricula"] for e in lista.json()]
+
+    assert "16032935" in matriculas, "o estagiario do seed sumiu da lista"
+    assert "16051234" in matriculas
+    assert "16024402" not in matriculas, "vazou estagiario de odontologia"
+
+
+def test_a_lista_de_estagiarios_nao_carrega_dado_de_conta():
+    """Nome e matricula, e so. Email e hash nao fazem parte de montar agenda."""
+    lista = client.get(
+        "/api/v1/usuarios/estagiarios", headers=_psi(get_auth_token("REC-002"))
+    ).json()
+    assert lista, "a lista veio vazia e o <select> cairia em texto livre"
+    for estagiario in lista:
+        assert set(estagiario) == {"nome", "matricula"}
+
+
+def test_recepcao_de_odontologia_nao_enxerga_estagiario_de_psicologia():
+    """A segregação por curso atravessa também esta rota."""
+    lista = client.get(
+        "/api/v1/usuarios/estagiarios", headers=_psi(get_auth_token("REC-001"))
+    )
+    assert lista.status_code == 200, lista.text
+    matriculas = [e["matricula"] for e in lista.json()]
+
+    assert "16024402" in matriculas
+    assert "16032935" not in matriculas
+
+
+def test_estagiario_desativado_some_da_lista():
+    """Desativar é fechar a conta, não apagar: quem não pode atender não é opção."""
+    _criar_estagiario("D", "Aluno Vinculo D", "VINCU004")
+    rt = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
+
+    cadastro = client.get("/api/v1/usuarios", headers=rt).json()
+    alvo = next(u for u in cadastro if u["matricula"] == "VINCU004")
+    try:
+        client.delete(f"/api/v1/usuarios/{alvo['id']}", headers=rt)
+
+        matriculas = [
+            e["matricula"] for e in client.get(
+                "/api/v1/usuarios/estagiarios", headers=_psi(get_auth_token("REC-002"))
+            ).json()
+        ]
+        assert "VINCU004" not in matriculas
+    finally:
+        # `DELETE` desativa. Sem o PATCH de volta, a conta fica fechada para o
+        # resto da suíte e o próximo teste que precisar dele quebra por motivo
+        # que não tem nada a ver com o que está testando.
+        client.patch(f"/api/v1/usuarios/{alvo['id']}", json={"ativo": True}, headers=rt)
+
+
+# ---------------------------------------------------------------------------
+# Agendar sessao psicologica vincula o paciente ao estagiario
+#
+# A recepcao escolhe quem atende e o vinculo nasce na mesma transacao do
+# agendamento. Fazer isso na tela deixaria dois passos, com o vinculo criado sem
+# sessao se a segunda chamada falhasse.
+# ---------------------------------------------------------------------------
+
+
+def _agendar_psicologia(
+    paciente_id: int,
+    nome_estagiario: str,
+    matricula: str,
+    hora: str = "11:00",
+):
+    return client.post(
+        "/api/v1/agendamentos",
+        json={
+            "paciente_id": paciente_id,
+            # Nome errado de propósito: o servidor tem que usar o do cadastro.
+            "paciente_nome": "NOME QUE NAO EXISTE",
+            "estagiario_nome": nome_estagiario,
+            "estagiario_matricula": matricula,
+            "curso": "psicologia",
+            "data_sessao": DATA_SESSAO_TESTE,
+            "horario": hora,
+            "turno": "manha",
+            "sala_ou_cadeira": "Consultório SPA-01",
+            "tipo_consulta": "Psicoterapia Individual",
+        },
+        headers=_psi(get_auth_token("REC-002")),
+    )
+
+
+def _vinculos_da_clinica() -> list:
+    return client.get(
+        "/api/v1/atribuicoes/psico", headers=_psi(get_auth_token("REC-002"))
+    ).json()
+
+
+def test_agendar_sessao_psicologica_cria_o_vinculo():
+    """Paciente sem responsável: agendar é o que atribui."""
+    _token_a()
+    paciente_id = _paciente_novo()
+
+    res = _agendar_psicologia(paciente_id, _nome_a(), "VINCU001")
+    assert res.status_code == 201, res.text
+
+    # O nome do paciente sai do cadastro, não do corpo: dado clínico digitado na
+    # tela é dado que pode divergir do prontuário.
+    assert res.json()["paciente_nome"] == f"Paciente Vinculo {_SEQ[0]}"
+
+    ativos = [
+        v for v in _vinculos_da_clinica()
+        if v["paciente_id"] == paciente_id and v["situacao"] == "ATIVA"
+    ]
+    assert len(ativos) == 1, "o agendamento não virou vínculo"
+    assert ativos[0]["estagiario_matricula"] == "VINCU001"
+    # Quem atribuiu vem do token, não do corpo.
+    assert ativos[0]["atribuido_por_matricula"] == "REC-002"
+
+
+def test_agendar_troca_o_responsavel_e_guarda_o_historico():
+    """Já tem responsável e a recepção escolhe outro: a linha antiga fica.
+
+    Um estagiário pode ter N pacientes — são N linhas e nada impede. O limite é
+    no outro lado: o paciente tem UM responsável ativo, e a troca precisa deixar
+    registro de que houve.
+    """
+    _token_a()
+    _token_b()
+    paciente_id = _paciente_novo()
+    _atribuir(paciente_id, _token_a(), _nome_a(), "VINCU001")
+
+    res = _agendar_psicologia(paciente_id, _nome_b(), "VINCU002")
+    assert res.status_code == 201, res.text
+
+    do_paciente = [v for v in _vinculos_da_clinica() if v["paciente_id"] == paciente_id]
+    ativas = [v for v in do_paciente if v["situacao"] == "ATIVA"]
+    encerradas = [v for v in do_paciente if v["situacao"] != "ATIVA"]
+
+    assert len(ativas) == 1, "o paciente ficou com dois responsáveis ativos"
+    assert ativas[0]["estagiario_matricula"] == "VINCU002"
+
+    assert len(encerradas) == 1, "a linha antiga foi apagada em vez de encerrada"
+    assert encerradas[0]["estagiario_matricula"] == "VINCU001"
+    assert encerradas[0]["data_encerramento"] is not None
+    assert "agendamento" in encerradas[0]["motivo"].lower()
+
+
+def test_agendar_recusa_matricula_inexistente():
+    """Fecha o furo que o texto livre abria: matrícula de ninguém."""
+    _token_a()
+    res = _agendar_psicologia(_paciente_novo(), "Aluno Inventado", "NAOEXISTE99")
+    assert res.status_code == 404, res.text
+    assert "NAOEXISTE99" in res.json()["detail"]
+
+
+def test_agendar_recusa_paciente_de_outra_clinica():
+    """A sessão é da psicologia; o paciente é de odontologia."""
+    _token_a()
+    res = _agendar_psicologia(_paciente_novo("odontologia"), _nome_a(), "VINCU001")
+    assert res.status_code == 403, res.text
+    assert "odontologia" in res.json()["detail"]
+
+
+def test_estagiario_nao_agenda_sessao_psicologica():
+    """Agendar é atribuir, e atribuir é ato da recepção.
+
+    Sem esta trava o aluno criaria o próprio vínculo — o `POST /atribuicoes` já
+    barra isso, e o agendamento não podia virar a porta dos fundos.
+    """
+    _token_a()
+    res = client.post(
+        "/api/v1/agendamentos",
+        json={
+            "paciente_id": _paciente_novo(),
+            "paciente_nome": "Qualquer",
+            "estagiario_nome": _nome_a(),
+            "estagiario_matricula": "VINCU001",
+            "curso": "psicologia",
+            "data_sessao": DATA_SESSAO_TESTE,
+            "horario": "11:00",
+            "turno": "manha",
+            "sala_ou_cadeira": "Consultório SPA-01",
+            "tipo_consulta": "Psicoterapia Individual",
+        },
+        headers=_psi(_token_a()),
+    )
+    assert res.status_code == 403, res.text
+    assert "RN-001" in res.json()["detail"]
+
+
+
+def test_odontologia_continua_agendando_sem_vinculo():
+    """Odontologia não tem vínculo: a mudança não pode vazar para lá."""
+    antes = len(_vinculos_da_clinica())
+    res = client.post(
+        "/api/v1/agendamentos",
+        json={
+            "paciente_id": _paciente_novo("odontologia"),
+            "paciente_nome": "Paciente Vinculo Odonto",
+            "estagiario_nome": "Lucas Vasconcelos",
+            "estagiario_matricula": "16024402",
+            "curso": "odontologia",
+            "data_sessao": DATA_SESSAO_TESTE,
+            "horario": "08:00",
+            "turno": "manha",
+            "sala_ou_cadeira": "Cadeira Odonto 04",
+            "tipo_consulta": "Dentística Restauradora",
+        },
+        headers=_psi(get_auth_token("REC-001")),
+    )
+    assert res.status_code == 201, res.text
+    assert res.json()["estagiario_matricula"] == "16024402"
+    assert len(_vinculos_da_clinica()) == antes, "odontologia criou vínculo de psicologia"
+
+
+def test_sessao_sem_data_e_recusada():
+    """Sessão sem dia não existe: quem atende precisa saber quando.
+
+    A regra é do schema, e vale para as duas clínicas — a odontologia também
+    não tem data, e o mesmo `AgendamentoCreate` atende as duas.
+    """
+    _token_a()
+    res = client.post(
+        "/api/v1/agendamentos",
+        json={
+            "paciente_id": _paciente_novo(),
+            "paciente_nome": "Paciente Sem Data",
+            "estagiario_nome": _nome_a(),
+            "estagiario_matricula": "VINCU001",
+            "curso": "psicologia",
+            "horario": "11:00",
+            "turno": "manha",
+            "sala_ou_cadeira": "Consultório SPA-01",
+            "tipo_consulta": "Psicoterapia Individual",
+        },
+        headers=_psi(get_auth_token("REC-002")),
+    )
+    assert res.status_code == 422, res.text
+    assert "data_sessao" in res.text
+
+    # E recusar antes de gravar: nenhum vínculo pode nascer de uma sessão que
+    # não foi aceita.
+    assert not any(
+        v["situacao"] == "ATIVA" and v["paciente_nome"] == "Paciente Sem Data"
+        for v in _vinculos_da_clinica()
+    )
+
+
+def test_a_data_volta_na_leitura_da_agenda():
+    """A data é `Date` no banco e string ISO no JSON. Se a tela não receber,
+    ela mostra `—` numa sessão que tem dia."""
+    _token_a()
+    paciente_id = _paciente_novo()
+
+    res = _agendar_psicologia(paciente_id, _nome_a(), "VINCU001", hora="16:45")
+    assert res.status_code == 201, res.text
+    assert res.json()["data_sessao"] == DATA_SESSAO_TESTE
+
+    agenda = client.get(
+        "/api/v1/agendamentos", headers=_psi(_token_a())
+    ).json()
+    minha = next(a for a in agenda if a["id"] == res.json()["id"])
+    assert minha["data_sessao"] == DATA_SESSAO_TESTE

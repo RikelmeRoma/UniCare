@@ -198,6 +198,19 @@ export function AppSidebar() {
                   </li>
                 )}
 
+                {/* Meus Agendamentos: só o estagiário. Supervisor e RT têm a
+                    agenda da clínica inteira na recepção; aqui a lista é filtrada
+                    pela matrícula de quem chama, e a deles não é de estagiário
+                    nenhum — veria uma tela vazia sem motivo. */}
+                {user?.perfil === 'estagiario' && mostrarRecepcaoPsi && (
+                  <li>
+                    <NavLink to="/psi/agendamentos" className={getLinkStyle}>
+                      <CalendarIcon className="w-4 h-4 shrink-0 text-slate-500" />
+                      <span>Meus Agendamentos</span>
+                    </NavLink>
+                  </li>
+                )}
+
                 {/* Supervisão Docente SPA: Apenas Supervisor e RT (Não aparece para Estagiário) */}
                 {(user?.perfil === 'supervisor' || isRT) && (
                   <li>

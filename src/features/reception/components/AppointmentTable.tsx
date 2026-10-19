@@ -1,43 +1,58 @@
 import { useState } from 'react';
-import { useClinic } from '../../clinic/context/ClinicContext';
+import { useClinic, type StatusAgendamento } from '../../clinic/context/ClinicContext';
+import { rotuloStatus } from '../../../shared/statusAgendamento';
 import {
   LockClosedIcon,
   MagnifyingGlassIcon,
   CheckIcon,
 } from '../../../components/icons/CorporateIcons';
 
+function StatusBadge({ status }: { status: StatusAgendamento }) {
+  const s = rotuloStatus(status);
+  return <span className={s.classes}>{s.rotulo}</span>;
+}
+
+const MES_ABREVIADO = [
+  'jan', 'fev', 'mar', 'abr', 'mai', 'jun',
+  'jul', 'ago', 'set', 'out', 'nov', 'dez',
+];
+
+/** `17/10/2026`, ou `—` quando a sessão é anterior à coluna de data.
+ *
+ * A parte da data do ISO é lida direto, sem `new Date()`: `new Date('2026-10-17')`
+ * é meia-noite UTC e, em Aracaju (UTC-3), `toLocaleDateString` devolveria
+ * 16/10. A data não tem fuso, e a formatação não pode inventar um. */
+function rotuloData(iso?: string | null): string {
+  if (!iso) return '—';
+  const [ano, mes, dia] = iso.split('-');
+  if (!ano || !mes || !dia) return '—';
+  return `${dia}/${mes}/${ano}`;
+}
+
 export function AppointmentTable() {
   const { agendamentos, atualizarStatusAgendamento } = useClinic();
   const [statusFiltro, setStatusFiltro] = useState<string>('TODOS');
   const [busca, setBusca] = useState<string>('');
 
-  const itensFiltrados = agendamentos.filter((item) => {
-    const matchStatus = statusFiltro === 'TODOS' || item.status === statusFiltro;
-    const matchBusca =
-      item.pacienteNome.toLowerCase().includes(busca.toLowerCase()) ||
-      item.estagiarioNome.toLowerCase().includes(busca.toLowerCase()) ||
-      item.salaOuCadeira.toLowerCase().includes(busca.toLowerCase());
-    return matchStatus && matchBusca;
-  });
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'AGENDADO':
-        return <span className="bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-md text-[10px] font-bold border border-slate-200">Agendado</span>;
-      case 'PRESENTE':
-        return <span className="bg-amber-50 text-amber-800 px-2.5 py-0.5 rounded-md text-[10px] font-bold border border-amber-200">Na Recepção</span>;
-      case 'EM_ATENDIMENTO':
-        return <span className="bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-md text-[10px] font-bold border border-blue-200">Em Atendimento</span>;
-      case 'CONCLUIDO':
-        return <span className="bg-emerald-50 text-emerald-800 px-2.5 py-0.5 rounded-md text-[10px] font-bold border border-emerald-200">Atendido</span>;
-      case 'FALTOU':
-        return <span className="bg-red-50 text-red-700 px-2.5 py-0.5 rounded-md text-[10px] font-bold border border-red-200">Faltou</span>;
-      case 'CANCELADO':
-        return <span className="bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-md text-[10px] font-bold border border-slate-200">Cancelado</span>;
-      default:
-        return null;
-    }
-  };
+  const itensFiltrados = agendamentos
+    .filter((item) => {
+      const matchStatus = statusFiltro === 'TODOS' || item.status === statusFiltro;
+      const matchBusca =
+        item.pacienteNome.toLowerCase().includes(busca.toLowerCase()) ||
+        item.estagiarioNome.toLowerCase().includes(busca.toLowerCase()) ||
+        item.salaOuCadeira.toLowerCase().includes(busca.toLowerCase());
+      return matchStatus && matchBusca;
+    })
+    // Ordenar por dia e hora: sem isso a agenda sai na ordem de inserção e o
+    // próximo paciente nao aparece no topo. A comparação é de string ISO, que
+    // ordena igual a data — e as sessões sem dia vão para o fim, não para o
+    // começo fingindo que são a mais antiga.
+    .sort((a, b) => {
+      const da = a.dataSessao ?? '9999-12-31';
+      const db = b.dataSessao ?? '9999-12-31';
+      if (da !== db) return da < db ? -1 : 1;
+      return a.horario < b.horario ? -1 : a.horario > b.horario ? 1 : 0;
+    });
 
   return (
     <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden font-sans">
@@ -89,7 +104,7 @@ export function AppointmentTable() {
         <table className="w-full text-left text-xs">
           <thead className="bg-slate-50 text-slate-500 uppercase font-bold border-b border-slate-200 text-[10px] tracking-wider">
             <tr>
-              <th className="py-3 px-4">Horário / Turno</th>
+              <th className="py-3 px-4">Data / Horário</th>
               <th className="py-3 px-4">Paciente</th>
               <th className="py-3 px-4">Local / Especialidade</th>
               <th className="py-3 px-4">Estagiário Responsável</th>
@@ -107,9 +122,35 @@ export function AppointmentTable() {
             ) : (
               itensFiltrados.map((item) => (
                 <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="py-3.5 px-4 font-mono">
-                    <p className="font-bold text-slate-900 text-sm">{item.horario}</p>
-                    <p className="text-[10px] text-slate-400 capitalize">Turno: {item.turno}</p>
+                  {/* Data e horário na MESMA célula. Com a data em coluna
+                      própria a tabela passou de seis para sete colunas e os
+                      botões de "Ações de Recepção" ficaram cortados pela
+                      rolagem horizontal em tela de 1366px — que é onde a
+                      recepção trabalha. Seis colunas cabem. */}
+                  <td className="py-3.5 px-4">
+                    {item.dataSessao ? (
+                      <>
+                        <p className="font-mono text-xs font-bold text-slate-900">
+                          {rotuloData(item.dataSessao)}
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-mono">
+                          {MES_ABREVIADO[Number(item.dataSessao.split('-')[1]) - 1]} ·{' '}
+                          {item.horario}
+                        </p>
+                        <p className="text-[10px] text-slate-400 capitalize">Turno: {item.turno}</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-mono text-xs font-bold text-slate-300">—</p>
+                        <p className="text-[10px] text-slate-400 font-mono">{item.horario}</p>
+                        <p
+                          className="text-[10px] text-slate-400 italic"
+                          title="Sessão registrada antes de o sistema passar a exigir data"
+                        >
+                          data não registrada
+                        </p>
+                      </>
+                    )}
                   </td>
 
                   <td className="py-3.5 px-4">
@@ -132,7 +173,7 @@ export function AppointmentTable() {
                   </td>
 
                   <td className="py-3.5 px-4">
-                    {getStatusBadge(item.status)}
+                    <StatusBadge status={item.status} />
                   </td>
 
                   <td className="py-3.5 px-4 text-right">

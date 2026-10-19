@@ -28,6 +28,18 @@ class UsuarioCreate(BaseModel):
     registro_profissional: Optional[str] = Field(default=None, max_length=64)
 
 
+class EstagiarioRead(BaseModel):
+    """Quem está disponível para atender, para a recepção montar a agenda.
+
+    Só nome e matrícula. Email, id e hash de senha não são parte disso: a
+    recepção precisa saber a quem atribuir a sessão, e o resto é gestão de
+    usuário — que é o `GET /usuarios`, restrito a RT e supervisor pelo RN-001.
+    """
+
+    nome: str
+    matricula: str
+
+
 class UsuarioUpdate(BaseModel):
     """Edição parcial. Perfil e curso são imutáveis por esta rota.
 

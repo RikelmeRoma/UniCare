@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { AppLayout } from '../../../../components/layout/AppLayout';
 import { useAuth } from '../../../auth/context/AuthContext';
 import { useClinic } from '../../../clinic/context/ClinicContext';
@@ -41,11 +42,20 @@ export function PsyRecordPage() {
   const semVinculo = isEstagiario && !vinculoIndisponivel && pacientesPsico.length === 0;
 
   // `?? 1` era id fixo: no primeiro render a lista real ainda não tinha chegado,
-// então o <select> ficava sem opção correspondente quando os ids do banco eram
-// outros. O valor exibido é derivado do paciente resolvido, não do estado cru.
+  // então o <select> ficava sem opção correspondente quando os ids do banco eram
+  // outros. O valor exibido é derivado do paciente resolvido, não do estado cru.
+  //
+  // "Meus Agendamentos" manda o paciente escolhido pelo `state` da navegação.
+  // Lido uma vez, na montagem: depois disso quem muda o paciente é o <select>,
+  // pelo caminho de sempre.
+  const location = useLocation();
+  const pacienteDaNavegacao = (location.state as { pacienteId?: number } | null)
+    ?.pacienteId;
+
   const [selectedPatientId, setSelectedPatientId] = useState<number | undefined>(
-    undefined
+    pacienteDaNavegacao ?? undefined
   );
+
 
   const pacienteSelecionado =
     pacientesPsico.find((p) => p.id === selectedPatientId) || pacientesPsico[0];

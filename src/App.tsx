@@ -19,6 +19,7 @@ import { RTManagementPage } from './features/supervision/pages/RTManagementPage'
 // Psicologia
 import { PsyReceptionDashboard } from './features/psychology/reception/pages/PsyReceptionDashboard';
 import { PsyRecordPage } from './features/psychology/record/pages/PsyRecordPage';
+import { PsyAppointmentsPage } from './features/psychology/appointments/pages/PsyAppointmentsPage';
 import { PsySupervisionPage } from './features/psychology/supervision/pages/PsySupervisionPage';
 
 export default function App() {
@@ -72,6 +73,18 @@ export default function App() {
               element={
                 <ProtectedRoute allowedRoles={['recepcao', 'rt']} allowedCourses={['psicologia']}>
                   <PsyReceptionDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Agenda do próprio estagiário de psicologia. Só ele: a lista é
+                filtrada pela matrícula de quem chama, e supervisor e RT já têm a
+                agenda da clínica inteira em /psi/recepcao. */}
+            <Route
+              path="/psi/agendamentos"
+              element={
+                <ProtectedRoute allowedRoles={['estagiario']} allowedCourses={['psicologia']}>
+                  <PsyAppointmentsPage />
                 </ProtectedRoute>
               }
             />

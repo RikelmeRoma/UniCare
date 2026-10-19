@@ -44,16 +44,26 @@ def get_current_user(
         raise credentials_exception
     return usuario
 
+def exigir_perfil(usuario: Usuario, allowed_roles: List[PerfilUsuario]) -> None:
+    """Recusa quem não está na lista, com o detalhe do RN-001.
+
+    Vive fora do `require_roles` porque este precisa ser chamado de dentro da
+    função: o agendamento só sabe a clínica depois de ler o corpo, e uma
+    dependência do FastAPI age antes disso.
+    """
+    # A Referência Técnica (RT) possui salvaguarda institucional ampla (RN-003)
+    if usuario.perfil == PerfilUsuario.RT:
+        return
+    if usuario.perfil not in allowed_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Acesso negado: Perfil '{usuario.perfil.value}' não tem permissão para este recurso (RN-001)"
+        )
+
+
 def require_roles(allowed_roles: List[PerfilUsuario]):
     def role_checker(current_user: Usuario = Depends(get_current_user)) -> Usuario:
-        # A Referência Técnica (RT) possui salvaguarda institucional ampla (RN-003)
-        if current_user.perfil == PerfilUsuario.RT:
-            return current_user
-        if current_user.perfil not in allowed_roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Acesso negado: Perfil '{current_user.perfil.value}' não tem permissão para este recurso (RN-001)"
-            )
+        exigir_perfil(current_user, allowed_roles)
         return current_user
     return role_checker
 

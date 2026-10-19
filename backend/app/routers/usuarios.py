@@ -6,8 +6,8 @@ from sqlmodel import Session, select
 
 from app.database import get_session
 from app.models.usuario import Usuario, PerfilUsuario, CursoUsuario
-from app.schemas.usuario import UsuarioCreate, UsuarioUpdate, UsuarioRead
-from app.services.auth_service import require_roles, require_curso
+from app.schemas.usuario import UsuarioCreate, UsuarioUpdate, UsuarioRead, EstagiarioRead
+from app.services.auth_service import require_roles, require_curso, get_current_user
 from app.services.crypto_service import get_password_hash
 from app.services.auditoria_service import registrar_log, ip_do_cliente
 
@@ -62,6 +62,44 @@ def listar_usuarios(
         query = query.where(Usuario.perfil == PerfilUsuario.ESTAGIARIO)
 
     return session.exec(query).all()
+
+
+@router.get("/estagiarios", response_model=List[EstagiarioRead])
+def listar_estagiarios(
+    session: Session = Depends(get_session),
+    current_user: Usuario = Depends(get_current_user)
+):
+    """Estagiários ativos da clínica de quem pergunta.
+
+    Não é gestão de usuário: é dado de referência para a recepção montar a
+    agenda. Por isso não usa `autorizado_gestao` — a recepção precisa escolher
+    quem atende a sessão, e `GET /usuarios` devolve 403 para ela (RN-001).
+    Fica no mesmo prefixo porque a origem do dado é a mesma.
+
+    Devolve só nome e matrícula, nunca email nem hash.
+
+    O filtro é pelo ENUM `cursousuario`, e aqui NÃO se pode usar
+    `cursos_visiveis`: ele devolve `[curso, "ambos"]`, e "ambos" é convenção das
+    colunas VARCHAR de paciente e agendamento — não é valor do ENUM. Contra
+    `usuarios.curso` a query morre com InvalidTextRepresentation. A RT, cujo curso
+    é `geral`, recebe as duas clínicas.
+    """
+    query = select(Usuario).where(
+        Usuario.perfil == PerfilUsuario.ESTAGIARIO,
+        Usuario.ativo.is_(True),
+    )
+    if current_user.curso == CursoUsuario.GERAL:
+        query = query.where(
+            Usuario.curso.in_([CursoUsuario.PSICOLOGIA, CursoUsuario.ODONTOLOGIA])
+        )
+    else:
+        query = query.where(Usuario.curso == current_user.curso)
+
+    estagiarios = session.exec(query).all()
+    return [
+        {"nome": u.nome, "matricula": u.matricula}
+        for u in sorted(estagiarios, key=lambda u: u.nome)
+    ]
 
 
 def criar_usuario_para_gestor(
