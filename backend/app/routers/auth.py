@@ -230,6 +230,13 @@ def solicitar_recuperacao(
         )
 
         if not resultado.enviou:
+            # O token foi gravado antes do envio (a invalidate dos anteriores
+            # depende disso), então a falha deixaria um token válido e órfão:
+            # existe no banco, ninguém sabe o código e ele sobrevive até
+            # expirar. Apagá-lo aqui deixa o estado igual ao de antes do pedido.
+            session.delete(token)
+            session.commit()
+
             # A tela distingue "SMTP não configurado" de "SMTP quebrado", e as
             # duas precisam dizer alguma coisa honesta. Sem esta checagem, um
             # serviço devolvendo NAO_CONFIGURADO cairia no texto genérico de

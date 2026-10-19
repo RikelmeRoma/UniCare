@@ -117,6 +117,85 @@ execução, garantindo estado limpo. O banco é criado automaticamente pelo scri
 
 ---
 
+## 📧 Envio de e-mail (recuperação de senha)
+
+A recuperação de senha só funciona se o e-mail sair. Sem SMTP configurado, a
+rota `POST /auth/senha/recuperar/solicitar` responde **503** e a tela orienta
+procurar a coordenação — ela não finge que enviou.
+
+### Configurar
+
+| Variável | Exemplo | Observação |
+|---|---|---|
+| `MAIL_HOST` | `smtp.gmail.com` | `smtp-mail.outlook.com` no Outlook |
+| `MAIL_PORT` | `587` | `465` é TLS implícito (o código usa `SMTP_SSL`) |
+| `MAIL_USER` | `conta@dominio` | a conta que se autentica |
+| `MAIL_PASSWORD` | senha de app | **16 caracteres, sem espaços** |
+| `MAIL_FROM` | `conta@dominio` | vazio = a própria `MAIL_USER` |
+| `MAIL_TLS` | `true` | só relevante na porta 587 (STARTTLS) |
+
+**A senha é de *app*, não da conta.** No Gmail: *Conta do Google → Segurança →
+Verificação em duas etapas → Senhas de app*. O Google mostra a senha em quatro
+grupos de quatro (`raxa oyuh rppn soet`), mas o segredo são os **16 caracteres
+colados** — com os espaços ou com a senha da conta, o servidor responde `535`
+e o e-mail não sai. O código também normaliza essa forma colada, mas o `.env`
+é o lugar certo para os 16 caracteres.
+
+`MAIL_FROM` vazio é de propósito: Gmail e Yahoo exigem que o `From:` seja a
+conta autenticada, e um remetente diferente é reescrito ou recusado.
+
+### Diagnosticar antes de acreditar
+
+```powershell
+.\.venv\Scripts\python.exe scripts\verificar_smtp.py
+```
+
+O script percorre o caminho real — conexão, banner, mecanismos `AUTH`
+anunciados, `STARTTLS`, login e envio de um e-mail de teste para a própria
+conta. Ele **nunca imprime a senha**: só o comprimento, se tem espaços internos
+e o comprimento da forma compacta. Diagnóstico que imprime a senha põe a
+credencial no histórico do terminal.
+
+### Teste de rede
+
+```powershell
+$env:UNICARE_TESTE_SMTP = "1"
+.\.venv\Scripts\python.exe -m pytest -m rede -q
+```
+
+A suíte padrão **não** toca a rede: `pytest.ini` traz `addopts = -m "not rede"`.
+O teste de rede é o que fecha a pendência "verificar o envio real contra um
+SMTP de verdade" — dublê prova que o código chama o serviço, não que o
+serviço aceita a credencial.
+
+### Teste de ponta a ponta (pela tela)
+
+1. Abra `http://localhost:5173/recuperar-senha`.
+2. **Enviar código** com o e-mail ou a matrícula de uma conta **ativa**. A
+   resposta é genérica de propósito — ela não diz se a conta existe, para a
+   rota não servir de oráculo de enumeração do cadastro.
+3. O código chega no **e-mail cadastrado da conta** (não no remetente). Vale
+   15 minutos, funciona uma vez, e pedir outro invalida o anterior.
+4. **Trocar senha** com o código e a senha nova. Depois, entrar em `/login`
+   com a senha nova.
+5. Se aparecer a **caixa âmbar "O envio por e-mail está indisponível"**, o
+   SMTP falhou — o `verificar_smtp.py` diz o motivo. Não é problema do
+   identificador digitado, e a mensagem da tela distingue os dois casos.
+
+Para conferir no banco (o código em claro não existe em lugar nenhum — só o
+SHA-256):
+
+```sql
+SELECT id, usuario_id, expira_em, usado_em FROM tokens_recuperacao_senha;
+SELECT acao, endereco_ip FROM logs_auditoria WHERE acao LIKE 'RECUPERACAO%';
+```
+
+> O e-mail chega no endereço cadastrado. Se a conta usa um endereço que não
+> tem caixa de entrada real, o SMTP **aceita** a mensagem e ela morre depois
+> — é a realidade do domínio, não defeito do sistema.
+
+---
+
 ## 🗂️ Migrações (Alembic)
 
 O schema vive em `migrations/versions/`. O `create_all()` foi **removido**: ele

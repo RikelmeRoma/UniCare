@@ -1,6 +1,54 @@
 # STATUS — UniCare
 ```
-npm run lint     → 11 erros preexistentes (13 → 12 na Fatia D, 12 → 11 no F(b); nenhum novo)
+npm run lint     → 10 erros preexistentes (o "11" desta linha estava desatualizado:
+                    o commit d7716d5 removeu um deles; nenhum erro novo)
+
+### ✉️ E-mail do Bloco 14 — o envio real passou
+
+O código da recuperação já existia e estava coberto por 11 testes com dublê. O
+que faltava era o **handshake**: nenhuma mensagem real tinha saído, porque o
+`backend/.env` não tinha **nenhuma** variável `MAIL_*` e a rota respondia
+**503**. Agora o envio sai de verdade, contra o Gmail.
+
+- **A causa do `535 5.7.3` anterior era o formato da senha, não a credencial.**
+  A senha de app do Google aparece em quatro grupos de quatro
+  (`raxa oyuh rppn soet`), mas o segredo são os **16 caracteres colados** — o
+  servidor recusa com 535 quando os espaços vão junto. `settings.mail_senha`
+  normaliza essa forma colada (só a compacta de 16 caracteres; uma senha
+  institucional com espaço no meio continua sendo usada como é), e o `.env`
+  agora guarda os 16.
+- **O handshake está diagnosticado, não suposto.**
+  `backend/scripts/verificar_smtp.py` percorre o caminho real — conexão, banner,
+  mecanismos `AUTH` anunciados, `STARTTLS`, login e envio de um e-mail de teste
+  para a própria conta. **Nunca imprime a senha**: só o comprimento, os espaços
+  internos e o comprimento da forma compacta.
+- **A porta 465 passou a funcionar** (pendência aberta do Bloco 14): 465 é TLS
+  implícito (`SMTP_SSL`) e 587 é STARTTLS. A porta decide porque é ela que o
+  provedor publica.
+- **`MAIL_FROM` deixou de ser obrigatório.** Vazio = o e-mail sai da conta
+  autenticada, que é o que Gmail e Yahoo exigem: um `From:` diferente da conta
+  autenticada é reescrito ou recusado pelo servidor. `mail_configurado` agora
+  exige host, usuário e senha — o remetente tem valor padrão.
+- **O corpo sai em base64.** O texto tem acento ("recuperação", "você") e, sem
+  forçar a codificação, sairia como 8-bit — o que depende de o servidor
+  aceitar `BODY=8BITMIME`. Base64 é 7-bit puro e qualquer servidor aceita.
+- **O token órfão saiu.** O token era gravado *antes* do envio, então uma
+  falha de SMTP deixava um token válido e órfão no banco: existia, ninguém
+  sabia o código e sobrevivia até expirar. Agora ele é apagado no caminho de
+  falha, e o estado volta ao de antes do pedido.
+- **O teste de rede virou parte do projeto** (`backend/tests/test_email_rede.py`,
+  marcador `rede`). A suíte padrão **não** toca a rede: `pytest.ini` traz
+  `addopts = -m "not rede"`, e o teste só roda com `UNICARE_TESTE_SMTP=1` e
+  `-m rede`. É o que fecha a pendência "verificar o envio real": dublê prova que
+  o código chama o serviço, não que o serviço aceita a credencial.
+
+**Verificado:** `pytest` **100 passed** (1 deselected — o de rede; os 100 são os
+do RF-005 do commit `4502dfc`, mais o meu de rede); `npm run build` verde;
+`alembic check` limpo; head `d8a2f0b3c194`; container `unicare_api` recriado
+para receber as `MAIL_*` do `.env` (o `env_file` só é lido na criação do
+container, e o código vem por volume com `RELOAD=1`); pedido de código
+respondeu 200 com a mensagem genérica, token gravado **só como SHA-256** e
+trilha com `RECUPERACAO_SOLICITADA` e IP real.
 
 ### ✏️ Emenda normativa nesta rodada
 
@@ -130,19 +178,19 @@ Blocos 8 a 14.
 
 ### 🟠 Importante
 
-**E-mail do Bloco 14**
+**E-mail do Bloco 14 — fechado nesta rodada.** As três pendências do envio
+real foram resolvidas; o bloco "✉️ E-mail do Bloco 14" no topo do arquivo
+conta o que mudou.
 
-1. **Verificar o envio real contra um SMTP de verdade.** O código está pronto e
-   coberto por 11 testes com dublê, mas **nenhum envio real chegou a lugar
-   nenhum**: o único teste de rede, contra o Outlook pessoal, falhou com
-   `535 5.7.3` (credencial). O que falta é o handshake, não o código.
-   → *Começar por aqui; destrava todo o resto do item.*
-2. **`email_service` não cobre a porta 465.** Só há caminho STARTTLS (587). Um
-   servidor institucional que só ofereça TLS implícito (465) não funciona, e vai
-   falhar com erro de conexão sem pista do motivo.
-3. **`MAIL_FROM` diferente de `MAIL_USER`.** O remetente sai de `MAIL_FROM`,
-   independente da conta autenticada. Yahoo e alguns servidores exigem que os dois
-   sejam iguais e reescrevem ou rejeitam o envio.
+1. ~~**Verificar o envio real contra um SMTP de verdade.**~~ **Resolvido:** o
+   envio real passa, contra o Gmail. A causa do `535 5.7.3` anterior era o
+   **formato** da senha de app (os grupos de quatro que o Google exibe), não a
+   credencial. O handshake ficou diagnosticado em
+   `backend/scripts/verificar_smtp.py` e repetível em `pytest -m rede`.
+2. ~~**`email_service` não cobre a porta 465.**~~ **Resolvido:** 465 é TLS
+   implícito (`SMTP_SSL`), 587 é STARTTLS. A porta decide.
+3. ~~**`MAIL_FROM` diferente de `MAIL_USER`.**~~ **Resolvido:** o remetente
+   vazio cai para a conta autenticada, que é o que Gmail e Yahoo exigem.
 
 **Dados e ordenação** — mesma raiz, dá para render uma migration só
 
@@ -1488,9 +1536,9 @@ Conhecimentos que não são dedutíveis do código e que custaram tempo diagnós
 ## Estado verificado
 
 ```
-pytest           → 69 passed (de backend/ e da raiz)
+pytest           → 100 passed, 1 deselected (de backend/ e da raiz)
 alembic check    → No new upgrade operations detected
-alembic current  → d7f2a9c4e1b8 (head)
+alembic current  → d8a2f0b3c194 (head)
 /health          → dialect: postgresql, conectado: true
 unicare_db       → usuarios=8 pacientes=4 agendamentos=4 prontuarios_psico=2 fichas_odonto=4 anamneses=0
 unicare_test     → banco dedicado da suíte, nunca tocado em dev
@@ -1502,5 +1550,8 @@ GET /demandas    → OK (RF-009, Bloco 1)
 imagem api       → 418 MB (era 1.06 GB; sem .env e sem .venv)
 container api    → healthy; token cruza com o dev local nos dois sentidos
 npm run build    → VERDE
-npm run lint     → 11 erros preexistentes (13 → 12 na Fatia D, 12 → 11 no F(b); nenhum novo)
+npm run lint     → 10 erros preexistentes (o "11" estava desatualizado desde d7716d5; nenhum novo)
+SMTP real        → smtp.gmail.com:587, STARTTLS, login OK, e-mail de teste entregue
+scripts/verificar_smtp.py → conexão, banner, AUTH anunciados, TLS, login e envio
+pytest -m rede   → teste de SMTP real (pulado por padrão; exige UNICARE_TESTE_SMTP=1)
 ```

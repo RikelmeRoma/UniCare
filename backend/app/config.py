@@ -66,13 +66,52 @@ class Settings(BaseSettings):
 
     @property
     def mail_configurado(self) -> bool:
-        """E-mail só é considerado configurado com host, usuário, senha e remetente.
+        """E-mail só é considerado configurado com host, usuário e senha.
 
-        Sem a checagem do remetente, um envio sairia com `From:` vazio ou
-        inventado — o servidor SMTP rejeitaria e o erro chegaria como "falha
-        genérica", escondendo que o problema é configuração incompleta.
+        O remetente **não** entra na checagem: quando está vazio, ele cai
+        para a própria conta autenticada (ver `mail_remetente`), que é o que
+        o Gmail e o Yahoo exigem. Exigir os quatro antes deixava o
+        agrupamento em quatro campos que ninguém preenche igual.
         """
-        return bool(self.MAIL_HOST and self.MAIL_USER and self.MAIL_PASSWORD and self.MAIL_FROM)
+        return bool(self.MAIL_HOST and self.MAIL_USER and self.MAIL_PASSWORD)
+
+    @property
+    def mail_remetente(self) -> str:
+        """De quem o e-mail sai. Vazio = a conta que se autentica.
+
+        Gmail e Yahoo exigem que o `From:` seja a conta autenticada: com um
+        remetente diferente, o servidor reescreve o cabeçalho ou recusa o
+        envio. O padrão — a própria conta — é o que funciona, e a opção de
+        mudar continua existindo para quem tem alias configurado no provedor.
+        """
+        return self.MAIL_FROM.strip() or self.MAIL_USER.strip()
+
+    @property
+    def mail_senha(self) -> str:
+        """Senha do SMTP sem os espaços que a tela do Google mostra.
+
+        A senha de app do Google aparece em quatro grupos de quatro
+        ("raxa oyuh rppn soet"), mas o segredo são os 16 caracteres sem
+        espaço — e o servidor recusa com 535 quando os espaços vão junto.
+        Só a forma compacta de 16 caracteres é normalizada: uma senha
+        institucional que tenha espaço no meio continua sendo usada como é.
+        """
+        senha = self.MAIL_PASSWORD.strip()
+        compacta = senha.replace(" ", "")
+        if " " in senha and len(compacta) == 16:
+            return compacta
+        return senha
+
+    @property
+    def mail_tls_implicito(self) -> bool:
+        """465 é TLS implícito (SMTP_SSL); 587 é STARTTLS.
+
+        A porta decide porque é ela que o provedor publica: a 465 abre a
+        conexão já criptografada, a 587 sobe em texto puro e vira TLS depois
+        do greeting. `MAIL_TLS` continua valendo na 587, onde dá para
+        desligar o STARTTLS contra servidor de teste.
+        """
+        return self.MAIL_PORT == 465
 
 
 settings = Settings()
