@@ -49,7 +49,31 @@ npm run lint     → 11 erros preexistentes (13 → 12 na Fatia D, 12 → 11 no 
   rota libera `estagiario`, `supervisor` e `rt`, e a RN-001 é normativa, com teste
   affirmando o 403. O módulo da recepção é a agenda e a triagem, não o prontuário.
 ```
-# STATUS — UniCare
+## Atualização — 2026-10-18 (commit 5faea90)
+
+**Agenda de psicologia ganhou data, estagiário no modal e tela do aluno.**
+- `agendamentos.data_sessao` (sa.Date, nullable no banco, obrigatório na API) + migration `b3e8f1a94c25`. Seed com 8 sessões em datas relativas; Juliana passou a ser da Letícia (16051234).
+- `GET /agendamentos` segrega o estagiário por matrícula (o prontuário já fazia). Recepção e RT continuam vendo a clínica.
+- `GET /usuarios/estagiarios`: lista de estagiários ativos da clínica (nome + matrícula), sem ser gestão de usuário.
+- `POST /agendamentos` em psicologia valida paciente, matrícula e cria/transfere o vínculo na mesma transação (motivo "Agendamento criado pela recepção").
+- Regras de vínculo extraídas para `app/services/vinculo_service.py`.
+- `ClinicContext` escolhe `/minha` ou `/psico` por perfil (recepção via 0 antes).
+- Modal de agendar: select de estagiários, pré-seleciona o responsável, aviso de troca, campo de data nativo (uncontrolled — React não reescreve o campo ao digitar).
+- `AppointmentTable`: coluna data/horário, ordena por data+hora, badge extraído para `src/shared/statusAgendamento.ts`.
+- `PsyAppointmentsPage`: agenda do estagiário, agrupada por paciente, data, link para prontuário via state.
+- **96 testes** (era 84). Head: `b3e8f1a94c25`. `alembic check` limpo.
+- Pendência "Data em agendamentos" (STATUS.md:118) resolvida.
+
+## Atualização — 2026-10-18 (pendente, em execução)
+
+Correções de 1 a 5 da lista de defeitos em psicologia:
+1. `NewPatientModal`: condição invertida no select de destino (oferecia Odontologia em vez de Psicologia).
+2. `PatientAssignmentPanel`: `allUsers` → `api.getEstagiarios()` (painel inoperante para recepção).
+3. `PsyRecordPage`: linha do tempo não ordenada (data era str); citação RF-008/RN-005 removida.
+4. `PsyRecordPage`: remoção do supervisor fictício "Prof. Dr. Robert Santos do Carmo (CRP 19/0844)".
+5. `PsySupervisionPage`: rótulos "Excluir Estagiário" → "Desativar", "E-mail (Opcional)" → "E-mail", e remoção da afirmação sobre a tela de login.
+
+---
 
 **Última atualização:** 2026-10-15 (Blocos 1 a 14 concluídos — recuperação de senha com envio real ainda pendente · rodada de paridade de psicologia fechada)
 **Branch:** `augusto` · **Remote:** `github.com/RikelmeRoma/UniCare`
