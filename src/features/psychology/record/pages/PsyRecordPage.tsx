@@ -11,6 +11,18 @@ import {
   ClockIcon,
 } from '../../../../components/icons/CorporateIcons';
 
+/** Converte `dd/mm/aaaa` para `YYYY-MM-DD` para que a comparação de strings
+ *  ordene por dia real. Devolve `null` quando a string não é uma data válida
+ *  (sessões anteriores à validação, ou campo vazio) — aí a sessão vai para o
+ *  fim da lista, não vira a mais antiga. */
+function parseDataPt(s?: string | null): string | null {
+  if (!s) return null;
+  const m = s.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return null;
+  const [, dia, mes, ano] = m;
+  return `${ano}-${mes}-${dia}`;
+}
+
 export function PsyRecordPage() {
   const { user } = useAuth();
   const { pacientes, evolucoesPsico, adicionarEvolucaoPsico, atribuicoes, sync } =
@@ -62,15 +74,33 @@ export function PsyRecordPage() {
 
   const [activeTab, setActiveTab] = useState<'registro' | 'historico'>('registro');
 
-  // Histórico de sessões do paciente atual (RF-008 & RN-005)
-  const historicoSessoes = evolucoesPsico.filter(
-    (e) => e.pacienteId === pacienteSelecionado?.id
-  );
+  // Histórico de sessões do paciente atual. A ordenação é feita a partir de
+  // `dataSessao`, que chega como `dd/mm/aaaa` (texto livre no schema): tentar
+  // ordenar a string não funciona entre meses, então converte para ISO antes
+  // de comparar. Sessões sem data ficam no fim, não viram a mais antiga.
+  const historicoSessoes = evolucoesPsico
+    .filter((e) => e.pacienteId === pacienteSelecionado?.id)
+    .sort((a, b) => {
+      const da = parseDataPt(a.dataSessao);
+      const db = parseDataPt(b.dataSessao);
+      if (da === null && db === null) return 0;
+      if (da === null) return 1;
+      if (db === null) return -1;
+      return da < db ? -1 : da > db ? 1 : 0;
+    });
 
   // Parâmetros da sessão
   const proximaSessaoNumero = `Sessão ${(historicoSessoes.length + 1).toString().padStart(2, '0')}`;
   const [numeroSessao, setNumeroSessao] = useState(proximaSessaoNumero);
-  const [dataSessao, setDataSessao] = useState(new Date().toISOString().split('T')[0]);
+  // `new Date().toISOString()` vira UTC e, em Aracaju (UTC-3), entre 21h e 24h
+  // sai como o dia seguinte. O mesmo cuidado que o modal de agendamento e o
+  // `rotuloData` de `PsyAppointmentsPage` já tomam.
+  const hojeLocal = new Date();
+  const mes = String(hojeLocal.getMonth() + 1).padStart(2, '0');
+  const dia = String(hojeLocal.getDate()).padStart(2, '0');
+  const [dataSessao, setDataSessao] = useState(
+    `${hojeLocal.getFullYear()}-${mes}-${dia}`
+  );
 
   // Parametros da sessao e o texto redigido abaixo.
   // Nascem VAZIOS de propósito. Antes cada textarea vinha com uma evolução
@@ -274,7 +304,8 @@ export function PsyRecordPage() {
             }`}
           >
             <ClockIcon className="w-4 h-4" />
-            <span>Linha do Tempo Cronológica (RF-008)</span>
+              <span>Linha do Tempo Cronológica</span>
+
             <span
               className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${
                 activeTab === 'historico' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
@@ -323,7 +354,7 @@ export function PsyRecordPage() {
                   <span>1. Parâmetros da Sessão Psicoterápica</span>
                 </h3>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Ordem Cronológica (RF-008)
+                  Ordem Cronológica
                 </span>
               </div>
 
@@ -357,8 +388,8 @@ export function PsyRecordPage() {
                   <input
                     type="text"
                     readOnly
-                    value="Prof. Dr. Robert Santos do Carmo (CRP 19/0844)"
-                    className="w-full bg-slate-100 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-700 outline-none font-medium cursor-not-allowed"
+                    value="Preenchido na homologação pelo supervisor docente"
+                    className="w-full bg-slate-100 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-500 outline-none font-medium cursor-not-allowed italic"
                   />
                 </div>
               </div>
@@ -442,7 +473,8 @@ export function PsyRecordPage() {
             )}
           </div>
         ) : (
-          /* ABA 2: LINHA DO TEMPO CRONOLÓGICA (RF-008 & RN-005) */
+           /* ABA 2: LINHA DO TEMPO CRONOLÓGICA */
+
           <div className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-6">
             <div className="flex justify-between items-center pb-4 border-b border-slate-100">
               <div>
@@ -455,7 +487,7 @@ export function PsyRecordPage() {
                 </p>
               </div>
               <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-full">
-                {historicoSessoes.length} registros cronológicos
+                {historicoSessoes.length} sessões registradas
               </span>
             </div>
 

@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useClinic, type Atribuicao } from '../../../clinic/context/ClinicContext';
-import { useAuth } from '../../../auth/context/AuthContext';
+import { api, type ApiEstagiario } from '../../../../services/api';
 import {
   UserGroupIcon,
   PlusIcon,
@@ -23,7 +23,6 @@ import {
  */
 export function PatientAssignmentPanel({ cursoFiltro = 'psicologia' }: { cursoFiltro?: 'psicologia' }) {
   const { pacientes, atribuicoes, atribuirPaciente, transferirPaciente, sync } = useClinic();
-  const { allUsers } = useAuth();
 
   const [atribuindoPara, setAtribuindoPara] = useState<number | null>(null);
   const [trocandoId, setTrocandoId] = useState<number | null>(null);
@@ -32,12 +31,45 @@ export function PatientAssignmentPanel({ cursoFiltro = 'psicologia' }: { cursoFi
   const [msg, setMsg] = useState<{ texto: string; ok: boolean } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  const [estagiariosApi, setEstagiariosApi] = useState<ApiEstagiario[]>([]);
+  const [carregandoEstagiarios, setCarregandoEstagiarios] = useState(true);
+  const [erroEstagiarios, setErroEstagiarios] = useState('');
+
+  // `allUsers` do AuthContext só é carregado para RT e supervisor. Para a
+  // recepção `GET /usuarios` devolve 403 (RN-001), então a lista ficava vazia e
+  // o painel dizia "Nenhum estagiário ativo na clínica" — mentira. A rota
+  // `GET /usuarios/estagiarios` não é gestão de usuário: existe para isso.
+  useEffect(() => {
+    let cancelado = false;
+    api
+      .getEstagiarios()
+      .then((lista) => {
+        if (cancelado) return;
+        setEstagiariosApi(lista);
+        setCarregandoEstagiarios(false);
+      })
+      .catch((err: unknown) => {
+        if (cancelado) return;
+        setErroEstagiarios(
+          err instanceof Error ? err.message : 'Não foi possível carregar os estagiários.'
+        );
+        setCarregandoEstagiarios(false);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
   const estagiarios = useMemo(
     () =>
-      Object.values(allUsers || {}).filter(
-        (u) => u.perfil === 'estagiario' && u.curso === cursoFiltro && u.ativo
-      ),
-    [allUsers, cursoFiltro]
+      estagiariosApi.map((u) => ({
+        perfil: 'estagiario' as const,
+        curso: cursoFiltro,
+        ativo: true,
+        nome: u.nome,
+        matricula: u.matricula,
+      })),
+    [estagiariosApi, cursoFiltro]
   );
 
   const pacientesDaClinica = useMemo(
@@ -184,12 +216,20 @@ export function PatientAssignmentPanel({ cursoFiltro = 'psicologia' }: { cursoFi
           <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
             Estagiário responsável
           </label>
-          <select
-            value={estagiarioEscolhido}
-            onChange={(e) => setEstagiarioEscolhido(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-slate-800 focus:border-blue-600 focus:outline-none"
-          >
-            {estagiarios.length === 0 && <option value="">Nenhum estagiário ativo na clínica</option>}
+            <select
+              value={estagiarioEscolhido}
+              onChange={(e) => setEstagiarioEscolhido(e.target.value)}
+              disabled={carregandoEstagiarios || Boolean(erroEstagiarios)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-slate-800 focus:border-blue-600 focus:outline-none disabled:opacity-50"
+            >
+
+            {carregandoEstagiarios ? (
+              <option value="">Carregando estagiários…</option>
+            ) : erroEstagiarios ? (
+              <option value="">Não foi possível carregar a lista</option>
+            ) : estagiarios.length === 0 ? (
+              <option value="">Nenhum estagiário ativo na clínica</option>
+            ) : null}
             {estagiarios.map((e) => (
               <option key={e.matricula} value={e.matricula}>
                 {e.nome} ({e.matricula})
@@ -214,6 +254,12 @@ export function PatientAssignmentPanel({ cursoFiltro = 'psicologia' }: { cursoFi
                 com o nome dele.
               </p>
             </>
+          )}
+
+          {erroEstagiarios && (
+            <p className="text-[10px] font-semibold px-2 py-1 rounded-lg text-rose-800 bg-rose-50">
+              {erroEstagiarios}
+            </p>
           )}
 
           {msg && (

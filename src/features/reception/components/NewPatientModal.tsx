@@ -163,8 +163,8 @@ export function NewPatientModal({ onClose, defaultCurso = 'odontologia' }: NewPa
                 onChange={(e) => setCurso(e.target.value as 'psicologia' | 'odontologia' | 'ambos')}
                 className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none"
               >
-                {defaultCurso !== 'odontologia' && <option value="odontologia">Odontologia</option>}
-                {defaultCurso !== 'psicologia' && <option value="psicologia">Psicologia (SPA)</option>}
+                {defaultCurso === 'odontologia' && <option value="odontologia">Odontologia</option>}
+                {defaultCurso === 'psicologia' && <option value="psicologia">Psicologia (SPA)</option>}
                 <option value="ambos">Clínicas Integradas (Ambos)</option>
               </select>
             </div>

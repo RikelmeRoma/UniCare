@@ -43,7 +43,7 @@ export function PsySupervisionPage() {
 
   // Estagiários de Psicologia registrados no sistema
   const psicoInterns = Object.entries(allUsers || {}).filter(
-    ([_, u]) => u.curso === 'psicologia' && u.perfil === 'estagiario'
+    ([, u]) => u.curso === 'psicologia' && u.perfil === 'estagiario'
   );
 
   // Busca por nome ou matrícula: mesmo controle que a tela de duplas
@@ -316,7 +316,8 @@ export function PsySupervisionPage() {
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">Cadastrar Estagiário (Psicologia)</h3>
                   <p className="text-[10px] text-slate-500">
-                    O perfil será gerado e exibido automaticamente na tela de login.
+                    O estagiário será criado com a senha institucional
+                    Unicare123, que ele troca no primeiro acesso.
                   </p>
                 </div>
               </div>
@@ -375,7 +376,7 @@ export function PsySupervisionPage() {
 
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  E-mail Institucional (Opcional)
+                  E-mail Institucional
                 </label>
                 <input
                   type="email"
@@ -567,7 +568,7 @@ export function PsySupervisionPage() {
                 <TrashIcon className="w-5 h-5 text-red-600" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Excluir Estagiário</h3>
+                <h3 className="text-sm font-bold text-slate-900">Desativar Estagiário</h3>
                 <p className="text-[11px] text-slate-500">Revogação de acesso de estagiário</p>
               </div>
             </div>
@@ -588,7 +589,7 @@ export function PsySupervisionPage() {
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
               >
                 <TrashIcon className="w-4 h-4" />
-                <span>Excluir Estagiário</span>
+                <span>Desativar Estagiário</span>
               </button>
             </div>
           </div>
