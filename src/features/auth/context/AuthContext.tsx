@@ -41,6 +41,7 @@ interface AuthContextType {
   createUser: (userData: Omit<User, 'id' | 'registro_profissional' | 'ativo' | 'curso'> & { registro_profissional?: string; senha: string }) => Promise<{ success: boolean; message: string }>;
   updateUser: (key: string, updatedData: Partial<User> & { senha?: string }) => Promise<{ success: boolean; message: string }>;
   deleteUser: (key: string) => Promise<{ success: boolean; message: string }>;
+  vincularSupervisor: (key: string, supervisorMatricula?: string) => Promise<{ success: boolean; message: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -219,6 +220,31 @@ const updateUser = async (
   }
 };
 
+/** Assume um estagiário que já estava no sistema (RF-005).
+ *
+ *  Rota própria no servidor, e não um PATCH: vincular é decisão, não edição de
+ *  campo. O supervisor se vincula a si mesmo — a matrícula vem do token. */
+const vincularSupervisor = async (
+  key: string,
+  supervisorMatricula?: string
+): Promise<{ success: boolean; message: string }> => {
+  try {
+    const vinculado = await api.vincularSupervisor(
+      Number(key),
+      supervisorMatricula
+    );
+    setAllUsers((prev) => ({ ...prev, [key]: mapearUsuario(vinculado) }));
+    return {
+      success: true,
+      message: `${vinculado.nome} agora está sob sua orientação.`,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Falha ao vincular estagiário.';
+    console.error('[UniCare] vínculo de supervisor falhou:', err);
+    return { success: false, message: msg };
+  }
+};
+
 const deleteUser = async (key: string): Promise<{ success: boolean; message: string }> => {
   try {
     // Desativa, não apaga: o backend preserva a linha para a trilha de auditoria.
@@ -331,6 +357,7 @@ try {
         createUser,
         updateUser,
         deleteUser,
+        vincularSupervisor,
         carregarUsuarios,
       }}
     >

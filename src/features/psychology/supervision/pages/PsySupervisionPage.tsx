@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AppLayout } from '../../../../components/layout/AppLayout';
 import { PsyTeacherHeader } from '../components/PsyTeacherHeader';
 import { PsySupervisionStats } from '../components/PsySupervisionStats';
@@ -14,18 +14,35 @@ import {
   MagnifyingGlassIcon,
 } from '../../../../components/icons/CorporateIcons';
 import { useAuth, type User } from '../../../auth/context/AuthContext';
+import { api, type ApiEstagiarioDisponivel } from '../../../../services/api';
+
+/** Os dez períodos do curso. O campo começa vazio: "9º Período" como padrão
+ *  era palpite do código, não escolha de ninguém. */
+const PERIODOS_CURSO = [
+  '1º Período',
+  '2º Período',
+  '3º Período',
+  '4º Período',
+  '5º Período',
+  '6º Período',
+  '7º Período',
+  '8º Período',
+  '9º Período',
+  '10º Período',
+];
 
 export function PsySupervisionPage() {
   const { user } = useAuth();
   const isRT = user?.perfil === 'rt';
-  const { allUsers, createUser, updateUser, deleteUser } = useAuth();
+  const { allUsers, createUser, updateUser, deleteUser, vincularSupervisor } =
+    useAuth();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [nome, setNome] = useState('');
   const [matricula, setMatricula] = useState('');
   const [email, setEmail] = useState('');
   // Senha obrigatoria: o backend grava com bcrypt e nao aceita usuario sem ela.
   const [senha, setSenha] = useState('');
-  const [periodo, setPeriodo] = useState('9º Período');
+  const [periodo, setPeriodo] = useState('');
   // Antes vinha preenchida com 'Turma Terça Tarde (SPA)' e era gravada em
   // registro_profissional: um nome de turma que ninguém escolheu, e que ainda
   // aparecia no cabeçalho como se fosse a turma real da clínica.
@@ -33,6 +50,14 @@ export function PsySupervisionPage() {
   const [feedbackSuccess, setFeedbackSuccess] = useState('');
   const [validationError, setValidationError] = useState('');
   const [busca, setBusca] = useState('');
+
+  // Estagiários que já estão no sistema e ainda não têm supervisor. É o que
+  // permite ao supervisor assumir um aluno que a RT cadastrou — antes ele só
+  // enxergava quem ele mesmo criou.
+  const [disponiveis, setDisponiveis] = useState<ApiEstagiarioDisponivel[]>([]);
+  const [disponivelEscolhido, setDisponivelEscolhido] = useState('');
+  const [vinculando, setVinculando] = useState(false);
+  const [vincularErro, setVincularErro] = useState('');
 
   // Estados de Edição e Exclusão de Estagiários
   const [showEditModal, setShowEditModal] = useState(false);
@@ -65,6 +90,58 @@ export function PsySupervisionPage() {
         u.matricula.toLowerCase().includes(buscaIntern)
       )
     : psicoInterns;
+
+  // A lista de quem ainda não tem supervisor. O filtro é do servidor: aqui só
+  // chega quem de fato pode ser assumido, e a tela não precisa saber de onde
+  // veio o critério.
+  useEffect(() => {
+    let cancelado = false;
+    api
+      .getEstagiariosDisponiveis()
+      .then((lista) => {
+        if (!cancelado) setDisponiveis(lista);
+      })
+      .catch(() => {
+        // Falha aqui não impede o cadastro de um estagiário novo: a lista é um
+        // caminho a mais, não o principal.
+        if (!cancelado) setDisponiveis([]);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  const handleVincular = async () => {
+    if (!disponivelEscolhido) {
+      setVincularErro('Escolha o estagiário que você vai assumir.');
+      return;
+    }
+    const alvo = disponiveis.find((e) => e.matricula === disponivelEscolhido);
+    if (!alvo) {
+      setVincularErro('Não foi possível localizar esse estagiário.');
+      return;
+    }
+
+    setVincularErro('');
+    setVinculando(true);
+
+    // O supervisor se vincula a si mesmo — a matrícula vem do token. A RT
+    // escolhe a quem vincular, e aí a matrícula vai no corpo.
+    const resultado = await vincularSupervisor(
+      String(alvo.id),
+      isRT ? disponivelEscolhido : undefined
+    );
+    setVinculando(false);
+
+    if (!resultado.success) {
+      setVincularErro(resultado.message);
+      return;
+    }
+
+    setDisponiveis((prev) => prev.filter((e) => e.matricula !== disponivelEscolhido));
+    setDisponivelEscolhido('');
+    setFeedbackSuccess(resultado.message);
+  };
 
   const handleCreateIntern = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -249,7 +326,9 @@ export function PsySupervisionPage() {
           {psicoInternsFiltrados.length === 0 ? (
             <p className="text-xs text-slate-400 italic bg-slate-50 border border-dashed border-slate-200 rounded-xl p-4 text-center">
               {psicoInterns.length === 0
-                ? 'Nenhum estagiário de psicologia cadastrado.'
+                ? isRT
+                  ? 'Nenhum estagiário de psicologia cadastrado.'
+                  : 'Nenhum estagiário vinculado a você. Use "Cadastrar Estagiário" para criar um aluno ou vincular um que já estava no sistema.'
                 : 'Nenhum estagiário corresponde à busca.'}
             </p>
           ) : (
@@ -374,8 +453,16 @@ export function PsySupervisionPage() {
                     onChange={(e) => setPeriodo(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-600"
                   >
-                    <option value="9º Período">9º Período</option>
-                    <option value="10º Período">10º Período</option>
+                    {/* Antes eram só 9º e 10º, com o 9º marcado por padrão — um
+                        palpite do código, não uma escolha de ninguém. Agora são
+                        os dez períodos do curso, e o campo começa vazio para
+                        ninguém gravar um período que não escolheu. */}
+                    <option value="">Selecione o período</option>
+                    {PERIODOS_CURSO.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -434,6 +521,57 @@ export function PsySupervisionPage() {
                   não fica visível depois. Passe ao estagiário — ele entra com a matrícula e
                   essa senha.
                 </p>
+              </div>
+
+              {/* Assumir um estagiário que já está no sistema. É outra ação que
+                  criar um acadêmico novo: o aluno cadastrado pela RT não
+                  aparece na lista de ninguém, e sem isto o supervisor só
+                  enxerga quem ele mesmo criou. */}
+              <div className="pt-3 border-t border-slate-200 space-y-2">
+                <p className="text-[11px] font-bold text-slate-700">
+                  Vincular estagiário já cadastrado
+                </p>
+                <p className="text-[10px] text-slate-500 leading-relaxed">
+                  Estagiários ativos da clínica que ainda não têm supervisor.
+                  Assumir um aluno alheio não é permitido — a troca de responsável
+                  é ato da Referência Técnica.
+                </p>
+
+                {disponiveis.length === 0 ? (
+                  <p className="text-[10px] text-slate-400 italic bg-slate-50 border border-dashed border-slate-200 rounded-lg px-3 py-2">
+                    Nenhum estagiário ativo sem supervisor nesta clínica.
+                  </p>
+                ) : (
+                  <>
+                    <div className="flex gap-2">
+                      <select
+                        value={disponivelEscolhido}
+                        onChange={(e) => setDisponivelEscolhido(e.target.value)}
+                        className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-600 text-xs"
+                      >
+                        <option value="">Selecione o estagiário…</option>
+                        {disponiveis.map((e) => (
+                          <option key={e.id} value={e.matricula}>
+                            {e.nome} ({e.matricula})
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => void handleVincular()}
+                        disabled={vinculando}
+                        className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs transition-colors disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {vinculando ? 'Vinculando...' : 'Vincular'}
+                      </button>
+                    </div>
+                    {vincularErro && (
+                      <p className="text-[10px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5">
+                        {vincularErro}
+                      </p>
+                    )}
+                  </>
+                )}
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">

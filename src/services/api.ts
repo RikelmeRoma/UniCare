@@ -35,6 +35,14 @@ export interface ApiEstagiario {
   matricula: string;
 }
 
+/** Estagiário sem supervisor ainda — o que o supervisor pode assumir (RF-005).
+ *  Traz o `id` porque a ação de vincular é por id. */
+export interface ApiEstagiarioDisponivel {
+  id: number;
+  nome: string;
+  matricula: string;
+}
+
 export interface ApiAnamnese {
   id: number;
   paciente_id: number;
@@ -283,6 +291,22 @@ async getUsuarios(): Promise<ApiUsuario[]> {
 
   async getEstagiarios(): Promise<ApiEstagiario[]> {
     return this.request<ApiEstagiario[]>('/usuarios/estagiarios');
+  }
+
+  /** Estagiários ativos da clínica que ainda não têm supervisor — os que o
+   *  supervisor pode assumir (RF-005). */
+  async getEstagiariosDisponiveis(): Promise<ApiEstagiarioDisponivel[]> {
+    return this.request<ApiEstagiarioDisponivel[]>('/usuarios/estagiarios/disponiveis');
+  }
+
+  async vincularSupervisor(
+    id: number,
+    supervisorMatricula?: string
+  ): Promise<ApiUsuario> {
+    return this.request<ApiUsuario>(`/usuarios/${id}/vincular-supervisor`, {
+      method: 'POST',
+      body: JSON.stringify({ supervisor_matricula: supervisorMatricula ?? null }),
+    });
   }
 
   async createUsuario(dados: {

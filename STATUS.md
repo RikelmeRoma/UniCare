@@ -64,16 +64,26 @@ npm run lint     → 11 erros preexistentes (13 → 12 na Fatia D, 12 → 11 no 
 - **96 testes** (era 84). Head: `b3e8f1a94c25`. `alembic check` limpo.
 - Pendência "Data em agendamentos" (STATUS.md:118) resolvida.
 
-## Atualização — 2026-10-18 (pendente, em execução)
+## Atualização — 2026-10-19 (RF-005 e os 5 defeitos de psicologia)
 
-Correções de 1 a 5 da lista de defeitos em psicologia:
-1. `NewPatientModal`: condição invertida no select de destino (oferecia Odontologia em vez de Psicologia).
-2. `PatientAssignmentPanel`: `allUsers` → `api.getEstagiarios()` (painel inoperante para recepção).
-3. `PsyRecordPage`: linha do tempo não ordenada (data era str); citação RF-008/RN-005 removida.
-4. `PsyRecordPage`: remoção do supervisor fictício "Prof. Dr. Robert Santos do Carmo (CRP 19/0844)".
-5. `PsySupervisionPage`: rótulos "Excluir Estagiário" → "Desativar", "E-mail (Opcional)" → "E-mail", e remoção da afirmação sobre a tela de login.
+**Supervisor ↔ estagiário (RF-005).** O supervisor via **todos** os estagiários da clínica, porque não existia vínculo formal entre os dois — `registro_profissional` guardava texto livre ("Turma Terça Tarde") e o front filtrava só por curso.
+- `usuarios.supervisor_matricula` (nullable, index) + migration `d8a2f0b3c194`.
+- `GET /usuarios`: supervisor filtra por `supervisor_matricula`; RT vê a clínica inteira.
+- `PATCH /usuarios/{id}`: supervisor só edita/desativa estagiário vinculado a ele. Atribuir supervisor é ato da RT, com validação (supervisor ativo da mesma clínica).
+- **`GET /usuarios/estagiarios/disponiveis`**: ativos da clínica **sem** supervisor, filtro no servidor — devolver todos e filtrar no browser entregaria ao supervisor o nome de todos os colegas.
+- **`POST /usuarios/{id}/vincular-supervisor`**: rota própria (vincular é decisão, não edição de campo — ação `VINCULO_SUPERVISOR` na trilha). Supervisor vincula a si mesmo, pela matrícula do token; RT escolhe a quem. Só estagiário, da mesma clínica, e **apenas se ainda não tiver supervisor** — estagiário com dono não é roubado por outro supervisor.
+- Supervisor que cadastra estagiário vincula automaticamente.
+- Frontend: `PsySupervisionPage` filtra por vínculo; modal ganhou **"Vincular estagiário já cadastrado"** (select + botão) e o **período do curso com as 10 opções** (antes eram 2, com o 9º marcado por padrão — palpite do código). Estado vazio da lista deixou de dizer "nenhum estagiário cadastrado" quando existem alunos sem supervisor.
+- Seed: estagiários ligados aos supervisores da clínica.
+
+**Os 5 defeitos de psicologia (commit d7716d5):** destino do paciente invertido no `NewPatientModal` (oferecia Odontologia em vez de Psicologia); painel de atribuição da recepção usando `allUsers` (que nunca carrega para recepção) em vez de `GET /usuarios/estagiarios`; linha do tempo do prontuário sem ordenação e com citação de RF-008/RN-005 inexistentes; supervisor fictício "Prof. Dr. Robert Santos do Carmo (CRP 19/0844)" em campo read-only; rótulos "Excluir Estagiário", "E-mail (Opcional)" e a afirmação sobre a tela de login.
+
+**100 testes** (era 96). Head `d8a2f0b3c194`. `alembic check` limpo.
+
+**Ainda aberto:** desvincular (o supervisor não devolve o aluno) — fora de escopo por decisão. E os 3 furos de segurança que sobraram em psicologia: `GET /atribuicoes/psico` sem guard de papel (o estagiário lê a clínica inteira), `POST /pacientes` e `PATCH /agendamentos/{id}/status` sem guard de papel.
 
 ---
+
 
 **Última atualização:** 2026-10-15 (Blocos 1 a 14 concluídos — recuperação de senha com envio real ainda pendente · rodada de paridade de psicologia fechada)
 **Branch:** `augusto` · **Remote:** `github.com/RikelmeRoma/UniCare`

@@ -2414,3 +2414,166 @@ def test_a_data_volta_na_leitura_da_agenda():
     ).json()
     minha = next(a for a in agenda if a["id"] == res.json()["id"])
     assert minha["data_sessao"] == DATA_SESSAO_TESTE
+
+
+# ---------------------------------------------------------------------------
+# Vinculo supervisor-estagiario (RF-005)
+#
+# O supervisor gerencia os estagiarios vinculados a ele. A vinculo nasce quando
+# ele cadastra o aluno, e tambem quando ele assume um aluno que ja estava no
+# sistema (o que a RT cadastrou).
+# ---------------------------------------------------------------------------
+
+
+def _criar_estagiario_sem_supervisor(chave: str, matricula: str, nome: str) -> dict:
+    """Cadastra um estagiario pela RT, sem supervisor.
+
+    A RT nao atribui supervisor no cadastro: quem decide e o supervisor que
+    vai assumir, ou a RT depois via `vincular-supervisor`.
+    """
+    rt = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
+    res = client.post(
+        "/api/v1/usuarios",
+        json={
+            "nome": nome,
+            "email": f"{matricula.lower()}@prof.uninassau.edu.br",
+            "senha": "unicare123",
+            "perfil": "estagiario",
+            "matricula": matricula,
+        },
+        headers=rt,
+    )
+    assert res.status_code in (201, 400), res.text
+    return res.json() if res.status_code == 201 else {}
+
+
+def test_lista_de_disponiveis_traz_so_quem_nao_tem_supervisor():
+    """A lista que o supervisor usa para assumir um aluno já cadastrado.
+
+    O filtro é do servidor. Devolver todos e filtrar no navegador entregaria ao
+    supervisor o nome de todos os colegas da clínica — inclusive os que já são
+    de outro supervisor, que é a segregação que o RF-005 cria.
+    """
+    estagiario = _criar_estagiario_sem_supervisor(
+        "DISP001", "DISP001", "Aluno Sem Supervisor"
+    )
+    assert estagiario, "não foi possível criar o estagiário de teste"
+
+    supervisor = {"Authorization": f"Bearer {get_auth_token('DOC-8821')}"}
+    lista = client.get(
+        "/api/v1/usuarios/estagiarios/disponiveis", headers=supervisor
+    )
+    assert lista.status_code == 200, lista.text
+    matriculas = [e["matricula"] for e in lista.json()]
+
+    assert "DISP001" in matriculas, "o estagiário sem supervisor não apareceu"
+    # Quem já tem supervisor não entra na lista.
+    assert "16032935" not in matriculas, "estagiário já vinculado apareceu na lista"
+    assert "16051234" not in matriculas, "estagiário já vinculado apareceu na lista"
+    # E o id vem junto, que é o que a ação de vincular usa.
+    assert all("id" in e and "nome" in e for e in lista.json())
+
+
+def test_supervisor_assume_estagiario_e_passou_a_enxerga_lo():
+    """O ciclo completo: assumir, e o aluno entra na lista do supervisor."""
+    estagiario = _criar_estagiario_sem_supervisor(
+        "DISP002", "DISP002", "Aluno A Ser Assumido"
+    )
+    assert estagiario
+
+    supervisor = {"Authorization": f"Bearer {get_auth_token('DOC-8821')}"}
+    antes = client.get("/api/v1/usuarios", headers=supervisor).json()
+    assert not any(u["matricula"] == "DISP002" for u in antes)
+
+    res = client.post(
+        f"/api/v1/usuarios/{estagiario['id']}/vincular-supervisor",
+        json={"supervisor_matricula": None},
+        headers=supervisor,
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["supervisor_matricula"] == "DOC-8821"
+
+    depois = client.get("/api/v1/usuarios", headers=supervisor).json()
+    assert any(u["matricula"] == "DISP002" for u in depois), (
+        "o estagiário vinculado não apareceu para o supervisor"
+    )
+
+    # E some da lista de disponíveis.
+    disponiveis = client.get(
+        "/api/v1/usuarios/estagiarios/disponiveis", headers=supervisor
+    ).json()
+    assert not any(e["matricula"] == "DISP002" for e in disponiveis)
+
+
+def test_supervisor_nao_puxa_estagiario_de_outro_supervisor():
+    """Estagiário com dono não é roubado. A troca é ato da RT.
+
+    Sem esta trava o RF-005 vira decorativo: um supervisor puxaria o aluno do
+    colega e a segregação existiria só no rótulo.
+    """
+    estagiario = _criar_estagiario_sem_supervisor(
+        "DISP003", "DISP003", "Aluno Ja Vinculado"
+    )
+    assert estagiario
+
+    primeiro = {"Authorization": f"Bearer {get_auth_token('DOC-8821')}"}
+    ok = client.post(
+        f"/api/v1/usuarios/{estagiario['id']}/vincular-supervisor",
+        json={"supervisor_matricula": None},
+        headers=primeiro,
+    )
+    assert ok.status_code == 200, ok.text
+
+    # O RT vincula o mesmo aluno a outro supervisor.
+    rt = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
+    outro = client.post(
+        "/api/v1/usuarios",
+        json={
+            "nome": "Supervisor Segundo",
+            "email": "supervisor.segundo@prof.uninassau.edu.br",
+            "senha": "unicare123",
+            "perfil": "supervisor",
+            "matricula": "DOC-SUP2",
+        },
+        headers=rt,
+    )
+    assert outro.status_code in (201, 400), outro.text
+
+    # O primeiro supervisor tenta pegar de volta.
+    res = client.post(
+        f"/api/v1/usuarios/{estagiario['id']}/vincular-supervisor",
+        json={"supervisor_matricula": None},
+        headers=primeiro,
+    )
+    assert res.status_code == 409, res.text
+    assert "Referência Técnica" in res.json()["detail"]
+
+    # E a RT consegue reatribuir.
+    trocar = client.patch(
+        f"/api/v1/usuarios/{estagiario['id']}",
+        json={"supervisor_matricula": "DOC-SUP2"},
+        headers=rt,
+    )
+    assert trocar.status_code == 200, trocar.text
+    assert trocar.json()["supervisor_matricula"] == "DOC-SUP2"
+
+
+def test_estagiario_nao_se_vincula():
+    """Ninguém se auto-atribui supervisor."""
+    token = _token_a()
+    res = client.post(
+        f"/api/v1/usuarios/{_estagiario_id(token)}/vincular-supervisor",
+        json={"supervisor_matricula": None},
+        headers=_psi(token),
+    )
+    assert res.status_code == 403, res.text
+    assert "RN-001" in res.json()["detail"]
+
+
+def _estagiario_id(token: str) -> int:
+    """Id de um estagiário qualquer, lido pela rota de gestão da RT."""
+    rt = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
+    cadastro = client.get("/api/v1/usuarios", headers=rt).json()
+    estagiarios = [u for u in cadastro if u["perfil"] == "estagiario"]
+    assert estagiarios, "não há estagiário no banco para o teste"
+    return estagiarios[0]["id"]

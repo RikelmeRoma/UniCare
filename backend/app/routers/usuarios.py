@@ -6,8 +6,21 @@ from sqlmodel import Session, select
 
 from app.database import get_session
 from app.models.usuario import Usuario, PerfilUsuario, CursoUsuario
-from app.schemas.usuario import UsuarioCreate, UsuarioUpdate, UsuarioRead, EstagiarioRead
-from app.services.auth_service import require_roles, require_curso, get_current_user
+from app.schemas.usuario import (
+    UsuarioCreate,
+    UsuarioUpdate,
+    UsuarioRead,
+    EstagiarioRead,
+    EstagiarioDisponivelRead,
+    VincularSupervisorRequest,
+)
+from app.services.auth_service import (
+    require_roles,
+    require_curso,
+    get_current_user,
+    cursos_visiveis,
+    exigir_perfil,
+)
 from app.services.crypto_service import get_password_hash
 from app.services.auditoria_service import registrar_log, ip_do_cliente
 
@@ -148,6 +161,45 @@ def listar_estagiarios(
     ]
 
 
+@router.get("/estagiarios/disponiveis", response_model=List[EstagiarioDisponivelRead])
+def listar_estagiarios_disponiveis(
+    session: Session = Depends(get_session),
+    current_user: Usuario = Depends(get_current_user)
+):
+    """Estagiários ativos da clínica que ainda NÃO têm supervisor.
+
+    É a lista que o supervisor usa para assumir um aluno que já estava no
+    sistema — o que a RT cadastrou, por exemplo. Sem esta rota o supervisor
+    só enxergava quem ele mesmo criou, e um aluno criado pela RT ficava
+    invisível para todo mundo.
+
+    O filtro `supervisor_matricula IS NULL` é NO SERVIDOR. Devolver todos e
+    filtrar no navegador entregaria ao supervisor o nome de todos os
+    colegas da clínica — inclusive os que já são de outro supervisor, que é
+    justamente a segregação que o RF-005 cria.
+
+    Só supervisor e RT. A recepção não precisa: para a agenda ela usa
+    `GET /usuarios/estagiarios`, que traz todos os estagiários da clínica.
+    """
+    exigir_perfil(current_user, [PerfilUsuario.SUPERVISOR, PerfilUsuario.RT])
+
+    query = select(Usuario).where(
+        Usuario.perfil == PerfilUsuario.ESTAGIARIO,
+        Usuario.ativo.is_(True),
+        Usuario.supervisor_matricula.is_(None),
+    )
+    if current_user.curso == CursoUsuario.GERAL:
+        query = query.where(Usuario.curso.in_([CursoUsuario.PSICOLOGIA, CursoUsuario.ODONTOLOGIA]))
+    else:
+        query = query.where(Usuario.curso == current_user.curso)
+
+    estagiarios = session.exec(query).all()
+    return [
+        {"id": u.id, "nome": u.nome, "matricula": u.matricula}
+        for u in sorted(estagiarios, key=lambda u: u.nome)
+    ]
+
+
 def criar_usuario_para_gestor(
     session: Session,
     gestor: Usuario,
@@ -238,6 +290,94 @@ def cadastrar_usuario(
         supervisor_matricula=dados.supervisor_matricula,
     )
 
+
+
+@router.post("/{usuario_id}/vincular-supervisor", response_model=UsuarioRead)
+def vincular_supervisor(
+    usuario_id: int,
+    dados: VincularSupervisorRequest,
+    http_request: Request,
+    session: Session = Depends(get_session),
+    current_user: Usuario = Depends(get_current_user)
+):
+    """Vincula um estagiário a um supervisor (RF-005).
+
+    Ato próprio, e não um PATCH: vincular é decisão, não edição de campo, e
+    merece ação própria na trilha de auditoria — o mesmo motivo do vínculo
+    paciente↔estagiário ter rota própria.
+
+    Quem pode:
+    - o supervisor vincula **a si mesmo**. A matrícula vem do token; mandar a
+      de outro no corpo seria o supervisor montar lista dos colegas;
+    - a RT vincula a um supervisor escolhido, e aí o corpo é consultado.
+
+    Regras que não cedem:
+    - só estagiário, e da mesma clínica de quem está chamando;
+    - **apenas se ainda não tiver supervisor**. Estagiário com dono não é
+      puxado por outro supervisor: a troca de dono é ato da RT, senão a
+      segregação que o RF-005 cria vira decorativa.
+    """
+    if current_user.perfil == PerfilUsuario.RT:
+        matricula_alvo = dados.supervisor_matricula
+        if not matricula_alvo:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Informe a matrícula do supervisor que vai assumir o estagiário.",
+            )
+        supervisor = _supervisor_valido(
+            session, matricula_alvo, current_user.curso
+        )
+    elif current_user.perfil == PerfilUsuario.SUPERVISOR:
+        supervisor = current_user
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"Acesso negado: Perfil '{current_user.perfil.value}' não tem "
+                "permissão para este recurso (RN-001)"
+            ),
+        )
+
+    estagiario = session.get(Usuario, usuario_id)
+    if not estagiario:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuário não localizado.",
+        )
+    if estagiario.perfil != PerfilUsuario.ESTAGIARIO:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Só estagiário recebe supervisor.",
+        )
+    if estagiario.curso != current_user.curso and current_user.curso != CursoUsuario.GERAL:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"Acesso negado: usuário pertence à clínica de {estagiario.curso.value}. "
+                f"Seu cadastro é da clínica de {current_user.curso.value}."
+            ),
+        )
+    if estagiario.supervisor_matricula:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Este estagiário já está sob responsabilidade de "
+                f"{estagiario.supervisor_matricula}. Trocar o responsável é ato "
+                "da Referência Técnica."
+            ),
+        )
+
+    estagiario.supervisor_matricula = supervisor.matricula
+    session.add(estagiario)
+    session.commit()
+    session.refresh(estagiario)
+
+    registrar_log(
+        session, current_user, "VINCULO_SUPERVISOR", "usuarios",
+        estagiario.id, endereco_ip=ip_do_cliente(http_request)
+    )
+
+    return estagiario
 
 
 @router.patch("/{usuario_id}", response_model=UsuarioRead)

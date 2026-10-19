@@ -45,6 +45,30 @@ class EstagiarioRead(BaseModel):
     matricula: str
 
 
+class EstagiarioDisponivelRead(BaseModel):
+    """Estagiário que ainda não tem supervisor, para o supervisor assumir.
+
+    Traz o `id` porque a ação de vincular é por id. A rota da agenda
+    (`EstagiarioRead`) segue com nome e matrícula — a recepção só precisa
+    escolher quem atende, e o id de conta alheia não é dado que ela deva ter.
+    """
+
+    id: int
+    nome: str
+    matricula: str
+
+
+class VincularSupervisorRequest(BaseModel):
+    """Quem vincular como supervisor.
+
+    Só a RT precisa preencher: o supervisor se vincula a si mesmo, e a
+    matrícula dele vem do token, não do corpo. O campo existe para a RT
+    atribuir um estagiário a um supervisor específico.
+    """
+
+    supervisor_matricula: Optional[str] = Field(default=None, max_length=32)
+
+
 class UsuarioUpdate(BaseModel):
     """Edição parcial. Perfil e curso são imutáveis por esta rota.
 
