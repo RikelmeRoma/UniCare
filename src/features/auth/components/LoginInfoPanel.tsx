@@ -72,7 +72,7 @@ export function LoginInfoPanel({ activeDomain }: LoginInfoPanelProps) {
           description:
             'Painel executivo da Responsável Técnica (RT Master) para governança hospitalar unificada, gestão de capacidade das clínicas e salvaguardas regulatórias.',
           items: [
-            'Cumprimento rigoroso da Salvaguarda RN-001 para a Recepção',
+            'Cumprimento rigoroso da salvaguarda de acesso clínico para a Recepção',
             'Trilha de auditoria criptográfica imutável (LGPD Art. 11)',
             'Custódia legal documental com retenção de dados por 20 anos',
           ],

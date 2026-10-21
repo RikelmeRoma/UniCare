@@ -126,7 +126,7 @@ export function DentalRecordPage() {
             }`}
           >
             <PhotoIcon className="w-4 h-4" />
-            <span>Radiografias & Exames (RF02)</span>
+            <span>Radiografias & Exames</span>
           </button>
         </div>
 

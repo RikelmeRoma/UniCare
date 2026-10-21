@@ -97,7 +97,7 @@ export function DentalRadiologyTab() {
         <div>
           <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
             <PhotoIcon className="w-4 h-4 text-emerald-800" />
-            <span>Exames de Imagem & Radiografias (RF02 / UC-05)</span>
+            <span>Exames de Imagem & Radiografias</span>
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
             Digitalização, upload fotográfico e emissão de laudo de radiografias periapicais, panorâmicas e fotografias clínicas

@@ -186,8 +186,6 @@ export function PsyRecordPage() {
     <AppLayout
       title="Prontuário Psicológico Individual"
       subtitle="Registro estruturado de psicoterapia e histórico longitudinal sob conformidade com a Resolução CFP nº 06/2019 e LGPD Artigo 11"
-      badge="Resolução CFP nº 06/2019"
-      badgeType="blue"
       actions={
         <div className="w-64 sm:w-72">
           <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
@@ -209,7 +207,7 @@ export function PsyRecordPage() {
             >
               {pacientesPsico.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.nome} ({p.cpf})
+                  {p.nome}
                 </option>
               ))}
             </select>
@@ -251,10 +249,6 @@ export function PsyRecordPage() {
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 mt-0.5 font-mono">
-                Nasc: {pacienteSelecionado?.dataNascimento} • CPF: {pacienteSelecionado?.cpf} •{' '}
-                {pacienteSelecionado?.telefone}
-              </p>
             </div>
           </div>
 
@@ -323,7 +317,7 @@ export function PsyRecordPage() {
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900 bg-amber-200 px-2 py-0.5 rounded">
-                  Inconformidade Técnica • RN-002
+                  Inconformidade Técnica
                 </span>
                 <span className="text-xs font-bold text-amber-900">
                   Uso de Citações / Aspas Identificado
@@ -402,9 +396,6 @@ export function PsyRecordPage() {
                   <span className="w-2 h-2 rounded-full bg-blue-700"></span>
                   <span>2. Registro da Sintese Clinica</span>
                 </h3>
-                <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">
-                  Texto livre, sem aspas (RN-002)
-                </span>
               </div>
 
               <div>

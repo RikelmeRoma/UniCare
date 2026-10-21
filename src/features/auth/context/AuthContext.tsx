@@ -304,8 +304,11 @@ try {
           err.message.includes('NetworkError') ||
           err.message.includes('Load failed')
         ) {
+          // Sem URL fixa e sem nome de framework: a tela de login já mostra o
+          // estado real do serviço (ver `BackendStatus`), e uma mensagem com
+          // "localhost:8000" mente em qualquer outro ambiente.
           errorMsg =
-            'Servidor backend FastAPI indisponível (http://localhost:8000). Certifique-se de que a API Python está em execução.';
+            'O serviço de autenticação está indisponível no momento. Tente novamente em instantes.';
         } else {
           errorMsg = err.message;
         }

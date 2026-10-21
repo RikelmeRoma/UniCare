@@ -180,9 +180,6 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
       <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
           <div>
-            <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
-              Logística de Recepção • UC-02 / RF-002
-            </span>
             <h2 className="text-lg font-bold text-slate-900 mt-1">Novo Agendamento Clínico</h2>
           </div>
           <button
@@ -366,7 +363,7 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Observações Logísticas (RN-001)</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Observações Logísticas</label>
             <input
               type="text"
               value={observacaoLogistica}

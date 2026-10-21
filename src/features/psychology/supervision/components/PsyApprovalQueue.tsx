@@ -199,10 +199,10 @@ const decidir = async (decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE') => {
                       {temAspas(item) ? (
                         <span
                           className="text-amber-900 font-semibold bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 text-[10px] inline-flex items-center gap-1"
-                          title="A síntese contém aspas. O servidor recusa por RN-002."
+                          title="A síntese contém aspas. O servidor recusa aspas."
                         >
                           <ExclamationTriangleIcon className="w-3 h-3 text-amber-700" />
-                          Aspas na síntese — reprovada no servidor (RN-002)
+                          Aspas na síntese — reprovada no servidor
                         </span>
                       ) : (
                         <span className="text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 text-[10px] inline-flex items-center gap-1">

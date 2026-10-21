@@ -128,21 +128,11 @@ export function PsyReceptionStats() {
             : { texto: 'Aguardando login', classe: 'bg-slate-100 text-slate-500' };
 
   // A recepção leva 403 em prontuários e fichas odonto **por desenho** — a RN-001
-  // bloqueia dado clínico. Dumpar "prontuários: 403 (perfil sem acesso - RN-001)"
-  // na tela faria a recepção de psicologia achar todo dia que algo quebrou, e
-  // todo dia estaria certo em não estar quebrado nada. Quando as únicas falhas
-  // são essas, o texto é em prosa. Qualquer outra falha continua aparecendo
-  // crua: esconder um 403 de clínica errada seria o erro oposto.
-  const falhasSaoClinicasEsperadas =
-    sync.falhas.length > 0 &&
-    sync.falhas.every((f) => f.includes('403') && f.includes('RN-001'));
-
+  // bloqueia dado clínico. O `ClinicContext` não conta esse 403 como falha, então
+  // ele nem chega aqui: o que aparece é falha de verdade, e ela aparece crua.
+  // Esconder uma falha real seria o erro oposto.
   const detalheFalha =
-    sync.estado === 'parcial' && falhasSaoClinicasEsperadas
-      ? 'acesso clínico restrito (RN-001)'
-      : sync.estado === 'parcial' && sync.falhas.length > 0
-        ? sync.falhas[0]
-        : null;
+    sync.estado === 'parcial' && sync.falhas.length > 0 ? sync.falhas[0] : null;
 
   return (
     <>

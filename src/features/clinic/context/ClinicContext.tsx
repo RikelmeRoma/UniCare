@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { api, type ApiPaciente, type ApiAgendamento, type ApiProntuarioPsico, type ApiFichaOdonto, type ApiAnamnese, type ApiAtribuicao } from '../../../services/api';
+import { api, ApiError, type ApiPaciente, type ApiAgendamento, type ApiProntuarioPsico, type ApiFichaOdonto, type ApiAnamnese, type ApiAtribuicao } from '../../../services/api';
 import { useAuth } from '../../auth/context/AuthContext';
 
 export type StatusAgendamento = 'AGENDADO' | 'PRESENTE' | 'EM_ATENDIMENTO' | 'CONCLUIDO' | 'FALTOU' | 'CANCELADO';
@@ -431,6 +431,27 @@ const mapearAtribuicao = (a: ApiAtribuicao): Atribuicao => ({
 const mensagemDeErro = (err: unknown, padrao: string): string =>
   err instanceof Error && err.message ? err.message : padrao;
 
+/**
+ * O 403 que a RN-001 produz para a recepção é a regra funcionando, não uma
+ * falha de sincronização.
+ *
+ * Três condições, todas necessárias:
+ *
+ * - **status 403**, lido do `ApiError` (que carrega o status do servidor). O
+ *   `detail` do servidor — "Acesso negado: Perfil 'recepcao' não tem
+ *   permissão para este recurso (RN-001)" — não contém "403" em lugar
+ *   nenhum, então procurar "403" na mensagem nunca acertava;
+ * - **a mensagem cita RN-001**: um 403 por outro motivo (clínica errada, por
+ *   exemplo) não cita a regra e precisa aparecer na tela. A citação é lida do
+ *   `detalhe` cru, porque a mensagem que a tela vê já vem sem identificador;
+ * - **o perfil é o de recepção**: é a recepção que, por desenho, não tem
+ *   acesso a dado clínico.
+ */
+const e403Esperado = (motivo: unknown, perfil?: string): boolean => {
+  if (!(motivo instanceof ApiError)) return false;
+  return motivo.status === 403 && motivo.detalhe.includes('RN-001') && perfil === 'recepcao';
+};
+
 export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [pacientes, setPacientes] = useState<Paciente[]>(() => {
     try {
@@ -552,8 +573,16 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
       const msg = apiProntuarios.reason?.message ?? 'falhou';
       // RN-001: recepcao e supervisor sem prontuarios proprios recebem 403. Isso e
       // esperado e nao deve aparecer como falha de sistema.
-      const eh403 = msg.includes('403');
-      falhas.push(eh403 ? 'prontuários: 403 (perfil sem acesso — RN-001)' : `prontuários: ${msg}`);
+      //
+      // A classificacao usa o STATUS HTTP, nao o texto: o `detail` do servidor
+      // ("Acesso negado: Perfil 'recepcao' nao tem permissao para este recurso
+      // (RN-001)") nao contem "403", entao procurar "403" na mensagem nunca
+      // acertava e o 403 esperado acabava despejado cru na tela da recepcao.
+      // A regra funcionando: a recepcao nao acessa dado clinico, por desenho.
+      // Nao e falha de sincronizacao e nao deve virar aviso na tela.
+      if (!e403Esperado(apiProntuarios.reason, user?.perfil)) {
+        falhas.push(msg.includes('403') ? 'prontuários: 403 (perfil sem acesso)' : `prontuários: ${msg}`);
+      }
     }
 
     if (apiFichasOdonto.status === 'fulfilled') {
@@ -565,8 +594,10 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
     } else {
       const msg = apiFichasOdonto.reason?.message ?? 'falhou';
       // Mesma regra do prontuário psicológico: recepção é barrada pelo RN-001.
-      const eh403 = msg.includes('403');
-      falhas.push(eh403 ? 'fichas odonto: 403 (perfil sem acesso — RN-001)' : `fichas odonto: ${msg}`);
+      // Bloqueio por desenho, não falha de sincronização.
+      if (!e403Esperado(apiFichasOdonto.reason, user?.perfil)) {
+        falhas.push(msg.includes('403') ? 'fichas odonto: 403 (perfil sem acesso)' : `fichas odonto: ${msg}`);
+      }
     }
 
 

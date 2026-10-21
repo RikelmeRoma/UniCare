@@ -16,7 +16,7 @@ export function ReceptionDashboard() {
   return (
     <AppLayout
       title="Recepção Odontológica Integrada"
-      subtitle="Controle de acolhimento presencial, confirmação de agendamentos e alocação de cadeiras sob salvaguarda da norma RN-001"
+      subtitle="Controle de acolhimento presencial, confirmação de agendamentos e alocação de cadeiras sob salvaguarda institucional"
       badge="Recepção & Triagem CFO"
       badgeType="emerald"
       actions={

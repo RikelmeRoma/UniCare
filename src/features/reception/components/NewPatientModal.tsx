@@ -77,9 +77,6 @@ export function NewPatientModal({ onClose, defaultCurso = 'odontologia' }: NewPa
       <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
           <div>
-            <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
-              Triagem de Recepção • UC-03
-            </span>
             <h2 className="text-lg font-bold text-slate-900 mt-1">Novo Cadastro de Paciente</h2>
           </div>
           <button

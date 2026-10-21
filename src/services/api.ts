@@ -6,6 +6,22 @@
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
+// Origem da API, sem o caminho. O `/health` mora na RAIZ do servidor
+// (`http://localhost:8000/health`) e não sob `/api/v1`, então precisa de
+// endereço próprio. `new URL` com a origem da página como base cobre o caso
+// de `VITE_API_URL` ser relativo — aí a origem é a própria do front.
+const API_ORIGIN = new URL(API_BASE_URL, window.location.origin).origin;
+
+/** Resposta do `/health`: o backend diz se a API responde e se o banco está de pé. */
+export interface ApiHealth {
+  status: string;
+  conectado?: boolean;
+  dialect?: string;
+  driver?: string;
+  server_version?: string;
+  erro?: string;
+}
+
 export interface AuthLoginResponse {
   access_token: string;
   token_type: string;
@@ -176,6 +192,57 @@ export interface SolicitacaoEnviada {
   criado_em: string;
 }
 
+/**
+ * Tira da mensagem os identificadores de regra (RF-xxx, RN-xxx, UC-xxx).
+ *
+ * O servidor identifica a regra no `detail` do erro — é o contrato que os
+ * testes de conformidade affirmam, e o `AGENTS.md` manda manter. Mas número
+ * interno de requisito não orienta ninguém: "RN-002" na tela só polui a
+ * leitura, sem dizer o que a pessoa deve fazer. A limpeza é aqui, na
+ * fronteira, para que nenhuma tela precise lembrar de filtrar.
+ *
+ * O texto cru continua em `ApiError.detalhe`, para o código que precisa
+ * decidir: é dele que se sabe se o 403 é o bloqueio esperado da RN-001.
+ */
+export function semIdentificadores(texto: string): string {
+  return texto
+    // Parêntese que contenha o código: "(RN-001)", "(RF02 / UC-05)".
+    .replace(/\s*\([^()]*\b(?:RNF|RF|RN|UC)[-\s]?\d{2,3}\b[^()]*\)/gi, '')
+    // Código separado por barra ou bullet: "Salvaguarda RN-001 / Resolução".
+    .replace(/\s*[•|/]\s*\b(?:RNF|RF|RN|UC)[-\s]?\d{2,3}\b/gi, '')
+    // Código solto: "Inconformidade Técnica • RN-002".
+    .replace(/\b(?:RNF|RF|RN|UC)[-\s]?\d{2,3}\b/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+/**
+ * Erro de resposta da API, com o status HTTP junto.
+ *
+ * Antes o `request()` jogava só a mensagem do servidor no `Error` e
+ * descartava o status. Aí a distinção que o `ClinicContext` precisa — "403 de
+ * perfil sem acesso (RN-001, esperado)" contra "500, isso quebrou" — virava
+ * impossible: o `detail` do 403 é "Acesso negado: Perfil 'recepcao' não tem
+ * permissão para este recurso (RN-001)", que não contém "403" em lugar
+ * nenhum. O 403 esperado era tratado como falha de sistema e despejado cru
+ * na tela da recepção, todo login.
+ */
+export class ApiError extends Error {
+  readonly status: number;
+
+  /** `detail` cru do servidor, com o identificador da regra. */
+  readonly detalhe: string;
+
+  constructor(mensagem: string, status: number) {
+    // O que a tela mostra não leva identificador de regra; o que o código
+    // decide continua no `detalhe`.
+    super(semIdentificadores(mensagem));
+    this.name = 'ApiError';
+    this.status = status;
+    this.detalhe = mensagem;
+  }
+}
+
 class ApiService {
 
   private getToken(): string | null {
@@ -214,10 +281,37 @@ class ApiService {
       } catch {
         errorDetail = `Erro HTTP ${response.status}: ${response.statusText}`;
       }
-      throw new Error(errorDetail);
+      // O status vai junto: sem ele, o chamador não distingue 403 de 500.
+      throw new ApiError(errorDetail, response.status);
     }
 
     return response.json();
+  }
+
+  // --- Infraestrutura ---
+
+  /**
+   * Consulta o `/health` do backend.
+   *
+   * Não usa o `request()` porque ele sempre prefixa `API_BASE_URL`, e o
+   * `/health` está na raiz. O timeout é curto de propósito: a consulta é
+   * síncrona na tela de login, e um servidor travado não pode segurar a
+   * interface esperando.
+   */
+  async health(): Promise<ApiHealth> {
+    const controller = new AbortController();
+    const temporizador = setTimeout(() => controller.abort(), 5000);
+    try {
+      const resposta = await fetch(`${API_ORIGIN}/health`, {
+        signal: controller.signal,
+      });
+      if (!resposta.ok) {
+        throw new Error(`HTTP ${resposta.status}`);
+      }
+      return (await resposta.json()) as ApiHealth;
+    } finally {
+      clearTimeout(temporizador);
+    }
   }
 
   // --- Autenticação ---

@@ -61,7 +61,7 @@ export function AppointmentTable() {
         <div className="flex items-center gap-2">
           <LockClosedIcon className="w-4 h-4 text-amber-400 shrink-0" />
           <span>
-            <strong className="text-white">Salvaguarda RN-001 / Resolução CFP 06/2019:</strong> Perfil de recepção restrito a agendamento e acolhimento presencial.
+            <strong className="text-white">Salvaguarda:</strong> Perfil de recepção restrito a agendamento e acolhimento presencial.
           </span>
         </div>
         <span className="text-[10px] bg-slate-800 text-slate-400 font-mono px-2 py-0.5 rounded-md">

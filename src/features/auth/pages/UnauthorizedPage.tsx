@@ -22,7 +22,7 @@ export function UnauthorizedPage() {
           </div>
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-red-700 bg-red-50 px-2 py-0.5 rounded-md border border-red-200">
-              Controle de Acesso RBAC • Norma RN-001 & LGPD
+              Controle de Acesso RBAC • LGPD
             </span>
             <h1 className="text-xl font-bold text-slate-900 mt-0.5">Acesso Restrito ao Módulo Clínico</h1>
           </div>

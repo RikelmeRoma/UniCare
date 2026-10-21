@@ -345,7 +345,7 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
               }`}
             >
               <ClipboardDocumentCheckIcon className="w-3.5 h-3.5" />
-              <span>Custódia (RF-006)</span>
+              <span>Custódia</span>
             </button>
             <button
               onClick={() => setActiveTab('auditoria')}
@@ -390,7 +390,7 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                 </div>
               </div>
               <p className="text-[11px] text-blue-700 mt-3 font-semibold">
-                Cadastro Único Compartilhado (RF-007)
+                Cadastro Único Compartilhado
               </p>
             </div>
 
@@ -441,7 +441,7 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                 </div>
               </div>
               <p className="text-[11px] text-indigo-700 mt-3 font-semibold">
-                Homologação de Visto Pendente (RF-004)
+                Homologação de Visto Pendente
               </p>
             </div>
           </div>
@@ -569,7 +569,7 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-slate-100">
             <div>
               <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-widest">
-                Requisito Funcional RF-006 • Salvaguarda Institucional RN-003
+                Salvaguarda Institucional
               </span>
               <h2 className="text-lg font-bold text-slate-900 mt-0.5">
                 Custódia Legal e Arquivamento Permanente de Prontuários
@@ -603,7 +603,7 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                     : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                 }`}
               >
-                {p.nome} ({p.cpf})
+                {p.nome}
               </button>
             ))}
           </div>
@@ -621,7 +621,6 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                     Dossiê Clínico Unificado: {pacienteSelecionadoCustodia.nome}
                   </h3>
                   <div className="flex gap-4 text-xs text-slate-600 mt-1 font-mono">
-                    <span>CPF: {pacienteSelecionadoCustodia.cpf}</span>
                     <span>Nascimento: {pacienteSelecionadoCustodia.dataNascimento}</span>
                     <span>Curso: {pacienteSelecionadoCustodia.curso.toUpperCase()}</span>
                     <span>Status: ATIVO EM TRATAMENTO</span>
@@ -637,7 +636,7 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                     Registro Vinculado à Trilha de Auditoria
                   </span>
                   <p className="text-[10px] text-slate-400 font-mono">
-                    paciente_id {pacienteSelecionadoCustodia.id} · LGPD Art. 11
+                    LGPD Art. 11
                   </p>
                   <p className="text-[10px] text-slate-400 font-mono">
                     hash de integridade: não implementado

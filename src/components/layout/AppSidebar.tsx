@@ -8,7 +8,6 @@ import {
   ChartBarIcon,
   ArrowRightOnRectangleIcon,
   BuildingOfficeIcon,
-  LockClosedIcon,
   KeyIcon,
 } from '../icons/CorporateIcons';
 
@@ -115,13 +114,12 @@ export function AppSidebar() {
             </div>
           </div>
 
-          {/* Sub-badge normativo específico do curso com cor oficial */}
+          {/* Sub-badge normativo específico do curso com cor oficial.
+              O selo de psicologia saiu: era decoração de conformidade repetida
+              em cada tela da clínica. A regra que ele citava (RN-002, vedação
+              de aspas) continua valendo no servidor e continua aparecendo na
+              tela no momento em que o estagiário digita a aspa. */}
           <div className="mt-2.5">
-            {isPsicoUser && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/70">
-                Resolução CFP nº 06/2019
-              </span>
-            )}
             {isOdontoUser && (
               <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-[#881337] border border-rose-200/70">
                 Supervisão Clínica CFO
@@ -298,15 +296,6 @@ export function AppSidebar() {
                   </li>
                 )}
               </ul>
-              <div className="mt-4 p-3 bg-amber-50/80 border border-amber-200/80 rounded-xl text-xs text-amber-900 space-y-1">
-                <div className="flex items-center gap-1.5 font-bold">
-                  <LockClosedIcon className="w-3.5 h-3.5 text-amber-700" />
-                  <span>Salvaguarda RN-001 Ativa</span>
-                </div>
-                <p className="text-[10px] text-amber-800 leading-relaxed">
-                  Acesso aos prontuários clínicos estritamente vedado para a equipe de recepção.
-                </p>
-              </div>
             </div>
           )}
 

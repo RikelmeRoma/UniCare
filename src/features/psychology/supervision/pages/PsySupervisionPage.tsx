@@ -284,11 +284,11 @@ export function PsySupervisionPage() {
             <div>
               <h4 className="font-bold text-slate-900 text-xs flex items-center gap-2 uppercase tracking-wider">
                 <UserGroupIcon className="w-4 h-4 text-blue-700" />
-                <span>Estagiários sob Orientação Docente (Clínica de Psicologia • RF-004)</span>
+                <span>Estagiários sob Orientação Docente (Clínica de Psicologia)</span>
               </h4>
               <p className="text-xs text-slate-500 mt-0.5">
                 {isRT
-                  ? 'A Referência Técnica vê todos os estagiários da clínica e pode atribuir supervisor. O supervisor vê apenas os vinculados a ele (RF-005).'
+                  ? 'A Referência Técnica vê todos os estagiários da clínica e pode atribuir supervisor. O supervisor vê apenas os vinculados a ele.'
                   : 'Você vê apenas os estagiários vinculados a você.'}
               </p>
             </div>

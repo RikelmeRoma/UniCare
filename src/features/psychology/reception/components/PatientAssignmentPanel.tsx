@@ -140,9 +140,6 @@ export function PatientAssignmentPanel({ cursoFiltro = 'psicologia' }: { cursoFi
           <UserGroupIcon className="w-4 h-4 text-blue-700" />
           <span>Estagiário Responsável</span>
         </h4>
-        <span className="text-[9px] font-bold text-slate-400 font-mono uppercase tracking-wider">
-          RF-001
-        </span>
       </div>
 
       {semDado ? (

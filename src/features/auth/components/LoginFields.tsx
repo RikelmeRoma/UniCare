@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getDestinationRoute } from '../routes';
+import { BackendStatus } from './BackendStatus';
 import {
   KeyIcon,
   ExclamationTriangleIcon,
@@ -175,17 +176,11 @@ export function LoginFields({ onDomainChange }: LoginFieldsProps) {
           </button>
         </form>
 
-        {/* Informações de Conexão com o Backend FastAPI */}
+        {/* Estado real do serviço: o `/health` do backend, consultado de verdade.
+            Antes era um ponto verde fixo com "API Backend" e "FastAPI • Porta
+            8000" — dois dados que não eram medidos. */}
         <div className="mt-6 pt-5 border-t border-slate-100 flex flex-col gap-2.5">
-          <div className="flex items-center justify-between text-[11px] text-slate-500">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="font-semibold text-slate-700">API Backend</span>
-            </span>
-            <span className="font-mono text-[10px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-              FastAPI • Porta 8000
-            </span>
-          </div>
+          <BackendStatus />
 
           <div className="flex items-center justify-between text-[11px] text-slate-500">
             <span className="flex items-center gap-1.5">
