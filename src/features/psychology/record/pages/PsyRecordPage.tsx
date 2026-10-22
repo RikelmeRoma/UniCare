@@ -1,190 +1,591 @@
-import { PsySidebar } from '../../components/PsySidebar';
+import { useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { AppLayout } from '../../../../components/layout/AppLayout';
+import { useAuth } from '../../../auth/context/AuthContext';
+import { useClinic } from '../../../clinic/context/ClinicContext';
+import {
+  DocumentTextIcon,
+  ShieldCheckIcon,
+  ExclamationTriangleIcon,
+  CheckCircleIcon,
+  ClockIcon,
+} from '../../../../components/icons/CorporateIcons';
+
+/** Converte `dd/mm/aaaa` para `YYYY-MM-DD` para que a comparação de strings
+ *  ordene por dia real. Devolve `null` quando a string não é uma data válida
+ *  (sessões anteriores à validação, ou campo vazio) — aí a sessão vai para o
+ *  fim da lista, não vira a mais antiga. */
+function parseDataPt(s?: string | null): string | null {
+  if (!s) return null;
+  const m = s.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return null;
+  const [, dia, mes, ano] = m;
+  return `${ano}-${mes}-${dia}`;
+}
 
 export function PsyRecordPage() {
-  return (
-    <div className="min-h-screen bg-[#1e293b] flex font-sans">
-      <PsySidebar />
-      
-      <main className="flex-1 ml-64 flex flex-col h-screen overflow-hidden bg-gray-50">
-        
-        {/* Barra Superior */}
-        <header className="bg-gray-100 border-b border-gray-200 px-8 py-3 flex justify-between items-center shrink-0">
-          <div className="flex items-center gap-2 text-sm text-gray-700 font-medium">
-            <span>🏢</span> Unidade Aracaju - Serviço de Psicologia Aplicada (SPA)
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="bg-green-100 text-green-800 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
-              <span>✔️</span> Resolução CFP nº 06/2019
-            </span>
-            <button className="text-gray-500 hover:text-gray-700">❔</button>
-            <button className="text-gray-500 hover:text-gray-700">🔔</button>
-          </div>
-        </header>
+  const { user } = useAuth();
+  const { pacientes, evolucoesPsico, adicionarEvolucaoPsico, atribuicoes, sync } =
+    useClinic();
 
-        {/* Área de Conteúdo Rolável */}
-        <div className="flex-1 overflow-y-auto p-8">
-          <div className="max-w-5xl mx-auto">
-            
-            {/* Título do Documento */}
-            <div className="text-center mb-8">
-              <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-2">
-                Manual Orientativo de Registro e Elaboração de Documentos Psicológicos (CFP)
-              </p>
-              <h1 className="text-2xl font-bold text-[#0a1526] mb-1">
-                Prontuário Psicológico / Registro Documental
-              </h1>
-              <p className="text-sm text-gray-500">
-                Serviço de Psicologia Aplicada • Clínica-Escola UNINASSAU
+  const isEstagiario = user?.perfil === 'estagiario';
+
+  // O vínculo decide quem o estagiário atende (RF-001). Supervisor e RT
+  // abrem esta tela para consultar e não têm paciente vinculado — o vínculo é
+  // de responsabilidade do aluno — então para eles a clínica continua inteira.
+  // O servidor aplica a mesma regra: `_validar_vinculo_estagiario` só roda para
+  // o perfil ESTAGIÁRIO.
+  const pacientesPsico = useMemo(() => {
+    const daClinica = pacientes.filter(
+      (p) => p.curso === 'psicologia' || p.curso === 'ambos'
+    );
+    if (!isEstagiario) return daClinica;
+    const meus = new Set(atribuicoes.map((a) => a.pacienteId));
+    return daClinica.filter((p) => meus.has(p.id));
+  }, [pacientes, atribuicoes, isEstagiario]);
+
+  // A API do vínculo não éfiltrada por clínica no cliente, e `atribuicoes` só
+  // recebe a lista de quem está chamando. Estagiário sem nenhum vínculo
+  // recebe 403 com a orientação de procurar a recepção — a tela repete a
+  // instrução em vez de mostrar um <select> vazio sem explicação.
+  const vinculoIndisponivel =
+    isEstagiario &&
+    (sync.estado === 'erro' || sync.estado === 'aguardando-login');
+  const semVinculo = isEstagiario && !vinculoIndisponivel && pacientesPsico.length === 0;
+
+  // `?? 1` era id fixo: no primeiro render a lista real ainda não tinha chegado,
+  // então o <select> ficava sem opção correspondente quando os ids do banco eram
+  // outros. O valor exibido é derivado do paciente resolvido, não do estado cru.
+  //
+  // "Meus Agendamentos" manda o paciente escolhido pelo `state` da navegação.
+  // Lido uma vez, na montagem: depois disso quem muda o paciente é o <select>,
+  // pelo caminho de sempre.
+  const location = useLocation();
+  const pacienteDaNavegacao = (location.state as { pacienteId?: number } | null)
+    ?.pacienteId;
+
+  const [selectedPatientId, setSelectedPatientId] = useState<number | undefined>(
+    pacienteDaNavegacao ?? undefined
+  );
+
+
+  const pacienteSelecionado =
+    pacientesPsico.find((p) => p.id === selectedPatientId) || pacientesPsico[0];
+
+  const [activeTab, setActiveTab] = useState<'registro' | 'historico'>('registro');
+
+  // Histórico de sessões do paciente atual. A ordenação é feita a partir de
+  // `dataSessao`, que chega como `dd/mm/aaaa` (texto livre no schema): tentar
+  // ordenar a string não funciona entre meses, então converte para ISO antes
+  // de comparar. Sessões sem data ficam no fim, não viram a mais antiga.
+  const historicoSessoes = evolucoesPsico
+    .filter((e) => e.pacienteId === pacienteSelecionado?.id)
+    .sort((a, b) => {
+      const da = parseDataPt(a.dataSessao);
+      const db = parseDataPt(b.dataSessao);
+      if (da === null && db === null) return 0;
+      if (da === null) return 1;
+      if (db === null) return -1;
+      return da < db ? -1 : da > db ? 1 : 0;
+    });
+
+  // Parâmetros da sessão
+  const proximaSessaoNumero = `Sessão ${(historicoSessoes.length + 1).toString().padStart(2, '0')}`;
+  const [numeroSessao, setNumeroSessao] = useState(proximaSessaoNumero);
+  // `new Date().toISOString()` vira UTC e, em Aracaju (UTC-3), entre 21h e 24h
+  // sai como o dia seguinte. O mesmo cuidado que o modal de agendamento e o
+  // `rotuloData` de `PsyAppointmentsPage` já tomam.
+  const hojeLocal = new Date();
+  const mes = String(hojeLocal.getMonth() + 1).padStart(2, '0');
+  const dia = String(hojeLocal.getDate()).padStart(2, '0');
+  const [dataSessao, setDataSessao] = useState(
+    `${hojeLocal.getFullYear()}-${mes}-${dia}`
+  );
+
+  // Parametros da sessao e o texto redigido abaixo.
+  // Nascem VAZIOS de propósito. Antes cada textarea vinha com uma evolução
+  // clínica redigida ("paciente relata manutenção do quadro de sobrecarga…",
+  // "sem indicadores de risco autolesivo") e handleSalvarEnviar gravava
+  // exatamente esse texto: dado clínico falso, escrevido por quem não
+  // acompanhou a sessão, seguindo para a fila de homologação. Quem redige a
+  // síntese é o estagiário, a partir do que aconteceu.
+  // A redacao e uma caixa unica. Antes eram tres (inicio, meio e fim): a tela
+  // exigia que o estagiario separasse por fase, mas o que ele conhece e a ordem
+  // em que as coisas aconteceram, e escreve isso em paragrafos.
+  //
+  // Nasce VAZIO de proposito. Antes o campo vinha com uma evolucao clinica
+  // redigida ('paciente relata manutencao do quadro de sobrecarga.', 'sem
+  // indicadores de risco autolesivo') e handleSalvarEnviar gravava exatamente
+  // esse texto: dado clinico falso, escrito por quem nao acompanhou a sessao,
+  // seguindo para a fila de homologacao. Quem redige a sintese e o estagiario,
+  // a partir do que aconteceu.
+  const [redacao, setRedacao] = useState('');
+
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [registroGerado, setRegistroGerado] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [erroMsg, setErroMsg] = useState('');
+
+  // Detecção estrita de aspas (RN-002 / CFP nº 06/2019)
+  const quoteRegex = /["“”«»]/;
+  const temAspas = quoteRegex.test(redacao);
+
+  // A redacao e obrigatoria. O servidor tambem recusa texto em branco
+  // (validar_texto_clinico) - a tela avisa antes para o estagiario nao tomar
+  // 422 depois de escrever tudo.
+  const faltaSintese = redacao.trim().length === 0;
+
+  const removerAspasAutomaticamente = () => {
+    setRedacao((prev) => prev.replace(/[“”«»"]/g, ''));
+  };
+
+  const handleSalvarEnviar = async () => {
+    if (temAspas || faltaSintese || !pacienteSelecionado || isSaving) return;
+
+    setIsSaving(true);
+    setErroMsg('');
+
+    // O retorno { success, message } é justamente o que impede perda de dado:
+    // abrir o modal de sucesso antes da resposta do servidor fazia a clínica
+    // acreditar que a síntese foi gravada quando o servidor pode ter recusado.
+    const resultado = await adicionarEvolucaoPsico({
+      pacienteId: pacienteSelecionado.id,
+      pacienteNome: pacienteSelecionado.nome,
+      estagiarioNome: user?.nome || '',
+      estagiarioMatricula: user?.matricula || '',
+      // Não existe vínculo estagiário↔supervisor no schema. Antes era gravado um
+      // nome literal, que virava dado falso dentro do prontuário.
+      supervisorNome: '',
+      dataSessao: new Date(dataSessao).toLocaleDateString('pt-BR'),
+      numeroSessao: numeroSessao,
+      redacaoTexto: redacao,
+    });
+
+    setIsSaving(false);
+
+    if (!resultado.success || !resultado.evolucao) {
+      setErroMsg(resultado.message);
+      return;
+    }
+
+    // Id real devolvido pelo banco — não um "protocolo" montado no cliente com
+    // Date.now(), que não existe em lugar nenhum.
+    setRegistroGerado(resultado.evolucao.id);
+    setShowSuccessModal(true);
+  };
+
+  const iniciaisPaciente = (pacienteSelecionado?.nome || 'Paciente')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase();
+
+  return (
+    <AppLayout
+      title="Prontuário Psicológico Individual"
+      subtitle="Registro estruturado de psicoterapia e histórico longitudinal sob conformidade com a Resolução CFP nº 06/2019 e LGPD Artigo 11"
+      actions={
+        <div className="w-64 sm:w-72">
+          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+            {isEstagiario ? 'Meus Pacientes (SPA)' : 'Paciente Ativo (SPA)'}
+          </label>
+          {semVinculo || vinculoIndisponivel ? (
+            // <select> vazio sem explicação deixava o aluno achando que o
+            // sistema quebrou. O que ele precisa fazer é falar com a recepção.
+            <p className="text-[11px] leading-relaxed text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+              {vinculoIndisponivel
+                ? 'Não foi possível carregar seus pacientes.'
+                : 'Nenhum paciente vinculado a você. Procure a recepção da clínica para ser atribuído.'}
+            </p>
+          ) : (
+            <select
+              value={pacienteSelecionado?.id ?? ''}
+              onChange={(e) => setSelectedPatientId(Number(e.target.value))}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-600 focus:outline-none"
+            >
+              {pacientesPsico.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nome}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      }
+    >
+      <div className="max-w-6xl mx-auto space-y-6">
+        {/* Banner do Paciente Selecionado */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 bg-blue-700 text-white rounded-xl flex items-center justify-center text-sm font-bold shadow-xs">
+              {iniciaisPaciente}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold text-slate-900 tracking-tight">
+                  {pacienteSelecionado?.nome}
+                </h2>
+                <span className="bg-blue-50 text-blue-700 text-[10px] px-2 py-0.5 rounded-md font-bold border border-blue-200 uppercase tracking-wider">
+                  Prontuário SPA Ativo
+                </span>
+                {/* `eh_menor` e `nome_responsavel` já vêm do backend (RF-007, RN-004) e estavam
+                   sem sinalização na tela: nada indicava ao estagiário que a
+                    sessão era com menor e que a responsável acompanha. */}
+                {pacienteSelecionado?.ehMenor && (
+                  <span
+                    className="bg-amber-50 text-amber-800 text-[10px] px-2 py-0.5 rounded-md font-bold border border-amber-200 uppercase tracking-wider"
+                    title={
+                      pacienteSelecionado.nomeResponsavel
+                        ? `Responsável legal: ${pacienteSelecionado.nomeResponsavel}`
+                        : 'Responsável legal não informado no cadastro'
+                    }
+                  >
+                    Menor de idade
+                    {pacienteSelecionado.nomeResponsavel
+                      ? ` · resp. ${pacienteSelecionado.nomeResponsavel}`
+                      : ''}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-4">
+            <div className="text-right">
+              {/* "#SPA-2026-0104" era literal no JSX: mesmo número para todo
+                  paciente, sempre. Protocolo que não existe na base é dado
+                  fabricado. Trocado pela contagem real de evoluções. */}
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Evoluções registradas</p>
+              <p className="text-xs font-semibold text-slate-800 font-mono">
+                {historicoSessoes.length}
               </p>
             </div>
-
-            {/* Corpo do Prontuário */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-24">
-              
-              {/* 1. Identificação */}
-              <section className="mb-10">
-                <h2 className="text-sm font-bold text-gray-800 mb-4 uppercase">1. Identificação do Paciente</h2>
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                  <div className="md:col-span-6">
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Nome Completo do Paciente</label>
-                    <input type="text" readOnly value="Marcos Aurélio Silveira (M.A.S.)" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 text-sm text-gray-700 outline-none" />
-                  </div>
-                  <div className="md:col-span-3">
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Data de Nascimento</label>
-                    <input type="text" readOnly value="14/08/1998 (28 anos)" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 text-sm text-gray-700 outline-none" />
-                  </div>
-                  <div className="md:col-span-3">
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">CPF</label>
-                    <input type="text" readOnly value="***.482.915-**" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 text-sm text-gray-700 outline-none" />
-                  </div>
-                </div>
-              </section>
-
-              {/* 2. Avaliação de Demanda */}
-              <section className="mb-10">
-                <div className="flex justify-between items-end mb-4">
-                  <h2 className="text-sm font-bold text-gray-800 uppercase">2. Avaliação de Demanda e Plano de Trabalho</h2>
-                  <span className="text-[10px] text-gray-400 uppercase tracking-wider">Registro técnico objetivo</span>
-                </div>
-                <textarea 
-                  placeholder="Descreva a avaliação de demanda, queixas principais e o plano de trabalho estabelecido para o paciente..."
-                  className="w-full h-24 bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-700 outline-none resize-none focus:bg-white focus:ring-1 focus:ring-blue-500 transition-colors"
-                />
-              </section>
-
-              {/* 3. Evolução */}
-              <section className="mb-10">
-                <div className="flex justify-between items-end mb-4">
-                  <div>
-                    <h2 className="text-sm font-bold text-gray-800 uppercase">3. Evolução do Trabalho e Procedimentos</h2>
-                    <p className="text-[10px] text-gray-500 mt-1">Histórico cronológico de atendimentos e registro da sessão em andamento</p>
-                  </div>
-                  <button className="text-xs font-bold text-blue-700 bg-white border border-gray-200 hover:bg-gray-50 px-4 py-2 rounded-lg flex items-center gap-2">
-                    <span>+</span> Adicionar Sessão
-                  </button>
-                </div>
-                
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-[#f8fafc] border-b border-gray-200">
-                      <tr>
-                        <th className="py-3 px-4 text-[10px] font-bold text-gray-500 uppercase w-32">Data / Período & Horário</th>
-                        <th className="py-3 px-4 text-[10px] font-bold text-gray-500 uppercase">Evolução de Trabalho e Procedimentos Clínicos</th>
-                        <th className="py-3 px-4 text-[10px] font-bold text-gray-500 uppercase w-48">Profissional Responsável & Registro</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      
-                      <tr className="bg-white">
-                        <td className="py-4 px-4 align-top">
-                          <p className="font-bold text-gray-900">01/09/2026</p>
-                          <p className="text-xs text-gray-500 mb-2">14:00 às 14:50</p>
-                          <span className="bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-1 rounded">Sessão 02</span>
-                        </td>
-                        <td className="py-4 px-4 align-top text-gray-700 text-xs leading-relaxed">
-                          Acolhimento e continuidade da caracterização da demanda. Realizada psicoeducação sobre o ciclo cognitivo da ansiedade e identificação dos primeiros gatilhos diários de sobrecarga. Paciente demonstrou compreensão ativa e comprometeu-se com o registro de automonitoramento.
-                        </td>
-                        <td className="py-4 px-4 align-top text-xs">
-                          <p className="font-bold text-gray-900">Estagiário Clínico</p>
-                          <p className="text-gray-500 mb-2">Matrícula: 014982201 • 9º P.</p>
-                          <p className="text-green-600 flex items-center gap-1"><span className="w-3 h-3 rounded-full border border-green-600 flex items-center justify-center text-[8px]">✓</span> Validado por Supervisor (CRP)</p>
-                        </td>
-                      </tr>
-
-                      <tr className="bg-white">
-                        <td className="py-4 px-4 align-top">
-                          <p className="font-bold text-gray-900">08/09/2026</p>
-                          <p className="text-xs text-gray-500 mb-2">14:00 às 14:50</p>
-                          <span className="bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-1 rounded">Sessão 03</span>
-                        </td>
-                        <td className="py-4 px-4 align-top text-gray-700 text-xs leading-relaxed">
-                          Revisão das tarefas de automonitoramento. Intervenção focalizada em pensamentos automáticos de autocobrança em ambiente acadêmico. Aplicação de questionamento socrático com identificação de distorção de catastrofização. Ausência de indicadores de risco.
-                        </td>
-                        <td className="py-4 px-4 align-top text-xs">
-                          <p className="font-bold text-gray-900">Estagiário Clínico</p>
-                          <p className="text-gray-500 mb-2">Matrícula: 014982201 • 9º P.</p>
-                          <p className="text-green-600 flex items-center gap-1"><span className="w-3 h-3 rounded-full border border-green-600 flex items-center justify-center text-[8px]">✓</span> Validado por Supervisor (CRP)</p>
-                        </td>
-                      </tr>
-
-                      <tr className="bg-blue-50/30">
-                        <td className="py-4 px-4 align-top">
-                          <p className="font-bold text-blue-700 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-600"></span> 15/09/2026 (Hoje)</p>
-                          <p className="text-xs text-gray-500 mb-2">14:00 às 14:50</p>
-                          <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded">Sessão 04 - Atual</span>
-                        </td>
-                        <td className="py-4 px-4 align-top">
-                          <textarea 
-                            className="w-full h-32 bg-white border border-gray-300 rounded-lg p-3 text-xs text-gray-700 outline-none focus:ring-1 focus:ring-blue-500 resize-none"
-                            defaultValue="Início com acolhimento pontual e receptivo. No desenvolvimento, realizou-se a técnica de reestruturação cognitiva voltada ao manejo da autoexigência e regulação emocional pré avaliações. Paciente externalizou estratégias prévias adaptativas com boa adesão às reflexões conjuntas."
-                          />
-                        </td>
-                        <td className="py-4 px-4 align-top text-xs">
-                          <p className="font-bold text-gray-900">Estagiário Clínico</p>
-                          <p className="text-gray-500">Matrícula: 014982201</p>
-                          <p className="text-gray-500 mb-3">Supervisor: Prof. Dr. Orientador</p>
-                          <span className="bg-orange-50 text-orange-600 border border-orange-100 text-[10px] font-bold px-2 py-1 rounded">Rascunho pendente de supervisão</span>
-                        </td>
-                      </tr>
-
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-
-              {/* 4. Encerramento */}
-              <section>
-                <div className="flex justify-between items-end mb-4">
-                  <h2 className="text-sm font-bold text-gray-800 uppercase">4. Registro de Encaminhamento ou Encerramento</h2>
-                  <span className="text-[10px] text-gray-400 uppercase tracking-wider">Preencher em caso de alta, transferência ou desligamento</span>
-                </div>
-                <textarea 
-                  placeholder="Caso aplicável, registre as providências de encaminhamento intersetorial/médico, alta clínica fundamentada ou encerramento do processo psicoterápico..."
-                  className="w-full h-20 bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-500 outline-none resize-none focus:bg-white focus:ring-1 focus:ring-blue-500"
-                />
-              </section>
-
+            <div className="w-px bg-slate-200"></div>
+            <div className="text-right">
+              {/* "Prof. Dr. Robert Santos" também era literal. Não existe
+                  vínculo estagiário↔supervisor no schema, então o docente
+                  correto aqui é quem está autenticado — e isso vem do token. */}
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Responsável pelo registro</p>
+              <p className="text-xs font-semibold text-slate-800 truncate max-w-[14rem]">
+                {user?.nome || '—'}
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Rodapé Fixo (Ações) */}
-        <footer className="bg-white border-t border-gray-200 px-8 py-4 flex justify-between items-center shrink-0">
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            <span className="text-blue-600">🛡️</span>
-            Documento em sigilo institucional e conformidade ética com o Conselho Federal de Psicologia.
-          </div>
-          <div className="flex items-center gap-4">
-            <button className="text-sm font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 px-6 py-2.5 rounded-lg flex items-center gap-2">
-              <span>💾</span> Salvar Rascunho
-            </button>
-            <button className="text-sm font-bold text-white bg-[#0a1526] hover:bg-black px-6 py-2.5 rounded-lg flex items-center gap-2">
-              <span>➤</span> Salvar e Enviar para Supervisão
-            </button>
-          </div>
-        </footer>
+        {/* Menu de Abas Segmentadas */}
+        <div className="bg-white p-1 rounded-2xl border border-slate-200/80 shadow-xs flex">
+          <button
+            onClick={() => setActiveTab('registro')}
+            className={`flex-1 py-2.5 px-4 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
+              activeTab === 'registro'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <DocumentTextIcon className="w-4 h-4" />
+            <span>Registrar Nova Sessão Clínica</span>
+          </button>
 
-      </main>
-    </div>
+          <button
+            onClick={() => setActiveTab('historico')}
+            className={`flex-1 py-2.5 px-4 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
+              activeTab === 'historico'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <ClockIcon className="w-4 h-4" />
+              <span>Linha do Tempo Cronológica</span>
+
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${
+                activeTab === 'historico' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
+              }`}
+            >
+              {historicoSessoes.length}
+            </span>
+          </button>
+        </div>
+
+        {/* ALERTA NORMATIVO ANTI-ASPAS (RN-002 / CFP nº 06/2019) */}
+        {temAspas && activeTab === 'registro' && (
+          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 shadow-xs flex items-start gap-3.5">
+            <ExclamationTriangleIcon className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900 bg-amber-200 px-2 py-0.5 rounded">
+                  Inconformidade Técnica
+                </span>
+                <span className="text-xs font-bold text-amber-900">
+                  Uso de Citações / Aspas Identificado
+                </span>
+              </div>
+              <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                A Resolução CFP nº 06/2019 veda expressamente transcrições literais do paciente com uso de aspas.
+                O prontuário eletrônico requer exclusivamente uma síntese técnica conceitual redigida pelo estagiário.
+              </p>
+            </div>
+            <button
+              onClick={removerAspasAutomaticamente}
+              className="bg-amber-700 hover:bg-amber-800 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shrink-0 shadow-xs"
+            >
+              Sanitizar Citações Automaticamente
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'registro' ? (
+          /* ABA 1: FORMULÁRIO DE REGISTRO ESTRUTURADO */
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-8 space-y-8 shadow-xs">
+            {/* Parâmetros da Sessão */}
+            <section>
+              <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-700"></span>
+                  <span>1. Parâmetros da Sessão Psicoterápica</span>
+                </h3>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Ordem Cronológica
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                    Número do Atendimento
+                  </label>
+                  <input
+                    type="text"
+                    value={numeroSessao}
+                    onChange={(e) => setNumeroSessao(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-800 outline-none focus:border-blue-600 focus:bg-white transition-all font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                    Data da Sessão
+                  </label>
+                  <input
+                    type="date"
+                    value={dataSessao}
+                    onChange={(e) => setDataSessao(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-800 outline-none focus:border-blue-600 focus:bg-white transition-all font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                    Supervisor Docente Responsável
+                  </label>
+                  <input
+                    type="text"
+                    readOnly
+                    value="Preenchido na homologação pelo supervisor docente"
+                    className="w-full bg-slate-100 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-500 outline-none font-medium cursor-not-allowed italic"
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* Redacao da sessao */}
+            <section className="space-y-6">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-700"></span>
+                  <span>2. Registro da Sintese Clinica</span>
+                </h3>
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                    Relato da sessao em paragrafos, do acolhimento ao fechamento
+                  </label>
+                  {temAspas && (
+                    <span className="text-[10px] text-amber-700 font-bold">Aspas identificadas</span>
+                  )}
+                </div>
+                <textarea
+                  rows={14}
+                  value={redacao}
+                  onChange={(e) => setRedacao(e.target.value)}
+                  placeholder="Descreva a sessao em ordem cronologica, do acolhimento ao fechamento: o que trouxe o paciente, o que foi trabalhado e como a sessao terminou..."
+                  className={`w-full p-3 text-xs leading-relaxed rounded-xl border outline-none transition-colors ${
+                    temAspas
+                      ? 'border-amber-400 bg-amber-50/40'
+                      : 'border-slate-200 bg-slate-50/50 focus:bg-white focus:border-blue-600'
+                  }`}
+                />
+              </div>
+            </section>
+
+            {/* Ações de Submissão */}
+            <div className="pt-4 border-t border-slate-200 flex justify-end items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setRedacao('');
+                  setErroMsg('');
+                }}
+                className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Limpar Rascunho
+              </button>
+              <button
+                type="button"
+                disabled={temAspas || faltaSintese || !pacienteSelecionado || isSaving}
+                onClick={handleSalvarEnviar}
+                className={`px-6 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-xs ${
+                  temAspas || faltaSintese || !pacienteSelecionado || isSaving
+                    ? 'bg-slate-400 cursor-not-allowed opacity-60'
+                    : 'bg-blue-700 hover:bg-blue-800'
+                }`}
+              >
+                {isSaving ? 'Enviando…' : 'Submeter para Homologação Docente'}
+              </button>
+            </div>
+
+            {/* Dizer o que falta e melhor que so travar o botao. */}
+            {faltaSintese && (
+              <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-900 text-xs rounded-xl">
+                A sintese clinica e obrigatoria: o campo acima precisa descrever a sessao de
+                quem a conductuiu.
+              </div>
+            )}
+
+            {/* Falha de escrita não pode ser engolida: o rascunho continua na tela
+                para o estagiário corrigir e tentar de novo. */}
+            {erroMsg && (
+              <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl">
+                Não foi possível submeter a síntese: {erroMsg}
+              </div>
+            )}
+          </div>
+        ) : (
+           /* ABA 2: LINHA DO TEMPO CRONOLÓGICA */
+
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-6">
+            <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Histórico de Atendimentos do Prontuário
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Paciente: <strong className="text-slate-800">{pacienteSelecionado?.nome}</strong> •{' '}
+                  Custódia Legal Ativa
+                </p>
+              </div>
+              <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-full">
+                {historicoSessoes.length} sessões registradas
+              </span>
+            </div>
+
+            {historicoSessoes.length === 0 ? (
+              <div className="py-16 text-center text-slate-400 space-y-2">
+                <DocumentTextIcon className="w-8 h-8 mx-auto text-slate-300" />
+                <p className="text-xs">Nenhum atendimento anterior registrado para este paciente.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {historicoSessoes.map((sessao, index) => (
+                  <div
+                    key={sessao.id || index}
+                    className="p-5 rounded-2xl border border-slate-200/80 bg-slate-50/50 space-y-3"
+                  >
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 pb-2.5 border-b border-slate-200/60">
+                      <div className="flex items-center gap-2.5">
+                        <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-700 text-white font-mono">
+                          {sessao.numeroSessao}
+                        </span>
+                        <span className="text-xs font-semibold text-slate-900">
+                          Data: {sessao.dataSessao}
+                        </span>
+                        <span className="text-slate-300">•</span>
+                        <span className="text-xs text-slate-600">
+                          Autor: <strong>{sessao.estagiarioNome}</strong> ({sessao.estagiarioMatricula})
+                        </span>
+                      </div>
+
+                      <div>
+                        {sessao.status === 'VALIDADO' ? (
+                          <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1.5">
+                            <CheckCircleIcon className="w-3.5 h-3.5 text-emerald-600" />
+                            Homologado com Visto Digital
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-purple-100 text-purple-800 border border-purple-200 flex items-center gap-1.5">
+                            <ClockIcon className="w-3.5 h-3.5 text-purple-600" />
+                            Aguardando Visto Docente
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Sintese registrada, em paragrafos como foi escrita */}
+                    <div className="bg-white p-3 rounded-xl border border-slate-200/70">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                        Sintese da sessao
+                      </p>
+                      <p className="text-slate-700 leading-relaxed whitespace-pre-line">
+                        {sessao.redacaoTexto}
+                      </p>
+                    </div>
+
+                    {/* Parecer do Supervisor se houver */}
+                    {sessao.parecerSupervisor && (
+                      <div className="p-3 bg-purple-50 border border-purple-200/80 rounded-xl text-xs">
+                        <p className="font-bold text-purple-900 mb-0.5 flex items-center gap-1.5">
+                          <ShieldCheckIcon className="w-3.5 h-3.5 text-purple-700" />
+                          <span>Parecer Pedagógico do Supervisor ({sessao.supervisorNome}):</span>
+                        </p>
+                        <p className="text-purple-800 italic">{sessao.parecerSupervisor}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Modal Corporativo de Protocolo */}
+        {showSuccessModal && (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+              <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
+                <CheckCircleIcon className="w-6 h-6" />
+              </div>
+              <div className="text-center space-y-1">
+                <h3 className="text-base font-bold text-slate-900">
+                  Evolução Clínica Submetida com Sucesso
+                </h3>
+                <p className="text-xs text-slate-500">
+                  O registro foi encaminhado para a fila de homologação e visto digital do orientador docente.
+                </p>
+              </div>
+
+              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1 font-mono text-center">
+                <p className="text-slate-400 text-[10px] uppercase tracking-wider">Registro no banco de dados</p>
+                <p className="text-slate-900 font-bold text-sm">#{registroGerado}</p>
+                <p className="text-slate-500 text-[10px]">Autoria: {user?.nome} ({user?.matricula})</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  setActiveTab('historico');
+                }}
+                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors"
+              >
+                Visualizar na Linha do Tempo
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </AppLayout>
   );
 }

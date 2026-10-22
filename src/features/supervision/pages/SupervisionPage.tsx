@@ -1,33 +1,24 @@
-import { Sidebar } from '../../dental-record/components/Sidebar';
+import { AppLayout } from '../../../components/layout/AppLayout';
 import { TeacherHeader } from '../components/TeacherHeader';
 import { SupervisionStats } from '../components/SupervisionStats';
 import { ApprovalQueue } from '../components/ApprovalQueue';
 import { FeedbackPanel } from '../components/FeedbackPanel';
-import { PedagogicalHistory } from '../components/PedagogicalHistory'; // Nova importação
-import { ClinicalPairs } from '../components/ClinicalPairs'; // Nova importação
+import { PedagogicalHistory } from '../components/PedagogicalHistory';
+import { ClinicalPairs } from '../components/ClinicalPairs';
 
 export function SupervisionPage() {
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex font-sans">
-      <Sidebar />
-      
-      <main className="flex-1 ml-64 p-8">
-        <div className="flex justify-between items-center mb-6">
-          <div className="text-sm text-gray-500 flex items-center gap-2">
-            <span>Módulos Clínicos</span>
-            <span>/</span>
-            <span className="text-blue-600 font-medium">Supervisão Docente</span>
-          </div>
-          <div className="text-right">
-            <p className="text-sm font-semibold text-gray-900">Responsável Técnica (RT) da Clínica-Escola</p>
-            <p className="text-xs text-gray-500">RT Geral Institucional - CRP/CRO</p>
-          </div>
-        </div>
-
+    <AppLayout
+      title="Supervisão Docente de Odontologia"
+      subtitle="Homologação de procedimentos clínicos em cadeira, acompanhamento pedagógico de duplas e validação ética sob diretrizes do CFO"
+      badge="Supervisão Clínica CFO"
+      badgeType="emerald"
+    >
+      <div className="max-w-6xl mx-auto space-y-6">
         <TeacherHeader />
         <SupervisionStats />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             <ApprovalQueue />
           </div>
@@ -36,11 +27,9 @@ export function SupervisionPage() {
           </div>
         </div>
 
-        {/* Integração dos novos componentes substituindo os placeholders */}
         <PedagogicalHistory />
         <ClinicalPairs />
-
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 }

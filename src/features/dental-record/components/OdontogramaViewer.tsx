@@ -417,11 +417,8 @@ export default function OdontogramApp() {
 
   const sel = selectedTooth ? teeth[selectedTooth] : null;
 
-  const headingFont = "'Fraunces', ui-serif, Georgia, serif";
-  const bodyFont = "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif";
-
   return (
-    <div style={{ background: "#F2F5F4", color: "#14262A", fontFamily: bodyFont, minHeight: "100%" }}>
+    <div className="bg-white rounded-2xl text-slate-800 font-sans min-h-full">
       <style>{`
         @media print {
           .no-print { display: none !important; }
@@ -430,10 +427,24 @@ export default function OdontogramApp() {
         .tool-btn:active { transform: translateY(1px); }
       `}</style>
 
-      <div className="max-w-5xl mx-auto p-4 sm:p-6">
-        <div className="mb-5 pb-4" style={{ borderBottom: "1px solid #D7DEDD" }}>
-          <h1 style={{ fontFamily: headingFont, fontWeight: 600, fontSize: "30px", letterSpacing: "-0.01em" }}>Odontograma</h1>
-          <p className="text-sm mt-1" style={{ color: "#5C6B6D" }}>Registro clínico interativo · numeração FDI (dois dígitos)</p>
+      <div className="max-w-5xl mx-auto p-2">
+        <div className="mb-4 pb-3 border-b border-slate-100 flex justify-between items-center">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="px-2.5 py-0.5 rounded-md bg-[#881337] text-white text-[10px] font-bold uppercase tracking-wider shadow-2xs">
+                Odontograma
+              </span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">
+                Exame Anatômico FDI
+              </span>
+            </div>
+            <h2 className="text-base font-bold text-slate-900 tracking-tight">
+              Odontograma • Mapeamento Anatômico 2D (Numeração FDI)
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Selecione a ferramenta clínica e clique na face ou dente para registrar a condição patológica ou restauradora.
+            </p>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5 no-print">
@@ -552,7 +563,7 @@ export default function OdontogramApp() {
           <div className="rounded-lg p-4 mb-5 no-print" style={{ background: "#FFFFFF", border: "1px solid #D7DEDD" }}>
             <div className="flex items-start justify-between mb-3">
               <div>
-                <h2 style={{ fontFamily: headingFont, fontWeight: 600, fontSize: "20px" }}>Dente {selectedTooth}</h2>
+                <h2 className="text-lg font-bold text-slate-900">Dente {selectedTooth}</h2>
                 <p className="text-xs" style={{ color: "#5C6B6D" }}>{toothTypeName(selectedTooth)} · {quadrantName(selectedTooth)}</p>
               </div>
               <div className="flex gap-2">
