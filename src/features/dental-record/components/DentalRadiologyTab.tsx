@@ -96,7 +96,7 @@ export function DentalRadiologyTab() {
       <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-            <PhotoIcon className="w-4 h-4 text-emerald-800" />
+            <PhotoIcon className="w-4 h-4 text-slate-900" />
             <span>Exames de Imagem & Radiografias</span>
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -116,7 +116,7 @@ export function DentalRadiologyTab() {
       {showNovo && (
         <form
           onSubmit={handleSalvar}
-          className="bg-white p-6 rounded-2xl border border-emerald-500/50 shadow-sm space-y-4 text-xs ring-1 ring-emerald-500/20"
+          className="bg-white p-6 rounded-2xl border border-slate-500/50 shadow-sm space-y-4 text-xs ring-1 ring-slate-500/20"
         >
           <div className="flex justify-between items-center pb-3 border-b border-slate-100">
             <span className="font-bold text-slate-900 text-sm">
@@ -135,7 +135,7 @@ export function DentalRadiologyTab() {
               <select
                 value={tipo}
                 onChange={(e) => setTipo(e.target.value as RadiografiaItem['tipo'])}
-                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-emerald-600 font-medium"
+                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-slate-800 font-medium"
               >
                 <option value="Periapical">Radiografia Periapical</option>
                 <option value="Panorâmica">Radiografia Panorâmica</option>
@@ -155,7 +155,7 @@ export function DentalRadiologyTab() {
                 value={regiao}
                 onChange={(e) => setRegiao(e.target.value)}
                 placeholder="Ex: Dente 36 ou Arcada Superior"
-                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-emerald-600 font-medium"
+                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-slate-800 font-medium"
               />
             </div>
 
@@ -168,7 +168,7 @@ export function DentalRadiologyTab() {
                 required
                 value={responsavel}
                 onChange={(e) => setResponsavel(e.target.value)}
-                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-emerald-600 font-medium"
+                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-slate-800 font-medium"
               />
             </div>
           </div>
@@ -216,7 +216,7 @@ export function DentalRadiologyTab() {
               value={laudo}
               onChange={(e) => setLaudo(e.target.value)}
               placeholder="Descreva as estruturas anatômicas observadas, limites radiolúcidos/radiopacos, espessura do ligamento e diagnósticos presuntivos..."
-              className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-emerald-600 font-medium"
+              className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-slate-800 font-medium"
             />
           </div>
 
@@ -230,7 +230,7 @@ export function DentalRadiologyTab() {
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold shadow-xs transition-colors"
+              className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-xs transition-colors"
             >
               Gravar Laudo e Submeter ao Supervisor
             </button>

@@ -838,7 +838,7 @@ const Periograma: React.FC = () => {
 
       <div className="mb-4 pb-3 border-b border-slate-200">
         <div className="flex items-center gap-2 mb-1">
-          <span className="px-2.5 py-0.5 rounded-md bg-[#881337] text-white text-[10px] font-bold uppercase tracking-wider shadow-2xs">
+          <span className="px-2.5 py-0.5 rounded-md bg-slate-900 text-white text-[10px] font-bold uppercase tracking-wider shadow-2xs">
             Periograma
           </span>
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">
