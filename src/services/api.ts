@@ -142,11 +142,16 @@ export interface ApiFichaOdonto {
   id: number;
   paciente_id: number;
   dupla_estagiarios: string;
+  /** Matrículas da dupla (PDR-05). Nulas nas fichas anteriores à coluna. */
+  operador_matricula?: string | null;
+  auxiliar_matricula?: string | null;
   dente_regiao: string;
   procedimento_realizado: string;
   materiais_utilizados: string;
   anestesico?: string;
   alerta_alergia?: string;
+  /** Carimbo de quem homologou, gravado pelo servidor no ato. */
+  supervisor_nome?: string | null;
   parecer_supervisor?: string;
   status: 'EM_ELABORACAO' | 'AGUARDANDO_VALIDACAO' | 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE';
   criado_em: string;
@@ -642,7 +647,8 @@ async getUsuarios(): Promise<ApiUsuario[]> {
 
   async createFichaOdonto(dados: {
     paciente_id: number;
-    dupla_estagiarios: string;
+    operador_matricula: string;
+    auxiliar_matricula: string;
     dente_regiao: string;
     procedimento_realizado: string;
     materiais_utilizados: string;

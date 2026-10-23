@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useClinic } from '../../clinic/context/ClinicContext';
+import { useAuth } from '../../auth/context/AuthContext';
+import { api, type ApiEstagiario } from '../../../services/api';
 import {
   DocumentTextIcon,
   ShieldCheckIcon,
@@ -19,9 +21,16 @@ export function DentalEvolutionTab({ pacienteId }: DentalEvolutionTabProps) {
   // e a tela anunciava "submetida para homologação docente" sem chamar a API.
   // Agora a ficha é gravada no Postgres e a linha do tempo vem dela.
   const { fichasOdonto, adicionarFichaOdonto, sync } = useClinic();
+  const { user } = useAuth();
 
   const [showNovo, setShowNovo] = useState(false);
-  const [dupla, setDupla] = useState('');
+  // A dupla é escolhida do cadastro, não digitada: nome à mão gravava uma
+  // pessoa com a matrícula de outra. O operador já vem com o próprio aluno.
+  const [operadorMatricula, setOperadorMatricula] = useState('');
+  const [auxiliarMatricula, setAuxiliarMatricula] = useState('');
+  const [estagiarios, setEstagiarios] = useState<ApiEstagiario[]>([]);
+  const [carregandoEstagiarios, setCarregandoEstagiarios] = useState(true);
+  const [erroEstagiarios, setErroEstagiarios] = useState('');
   const [denteRegiao, setDenteRegiao] = useState('');
   const [procedimento, setProcedimento] = useState('');
   const [materiais, setMateriais] = useState('');
@@ -32,9 +41,50 @@ export function DentalEvolutionTab({ pacienteId }: DentalEvolutionTabProps) {
 
   const registros = fichasOdonto.filter((f) => f.pacienteId === pacienteId);
 
+  // Lista de referência da clínica do próprio usuário. `GET /usuarios` é gestão
+  // de usuário; a rota de estagiários é a que serve à tela clínica.
+  useEffect(() => {
+    let cancelado = false;
+    api
+      .getEstagiarios()
+      .then((lista) => {
+        if (!cancelado) setEstagiarios(lista);
+      })
+      .catch((err: unknown) => {
+        if (cancelado) return;
+        setErroEstagiarios(
+          err instanceof Error
+            ? err.message
+            : 'Não foi possível carregar a lista de estagiários.'
+        );
+      })
+      .finally(() => {
+        if (!cancelado) setCarregandoEstagiarios(false);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  // O operador já vem com a matrícula do próprio aluno, mas isso é valor
+  // derivado e não estado: sincronizar por efeito disparava render em cascata
+  // (e o operador "voltava" a cada montagem).
+  const operadorEfetivo =
+    operadorMatricula ||
+    (user?.perfil === 'estagiario' ? user.matricula ?? '' : '');
+
   const handleSalvar = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pacienteId || isSaving) return;
+
+    if (!operadorEfetivo || !auxiliarMatricula) {
+      setErroMsg('Selecione o operador e o auxiliar da dupla.');
+      return;
+    }
+    if (operadorEfetivo === auxiliarMatricula) {
+      setErroMsg('Operador e auxiliar precisam ser estagiários diferentes.');
+      return;
+    }
 
     setIsSaving(true);
     setErroMsg('');
@@ -43,7 +93,8 @@ export function DentalEvolutionTab({ pacienteId }: DentalEvolutionTabProps) {
     const resultado = await adicionarFichaOdonto({
       pacienteId,
       pacienteNome: '',
-      duplaEstagiarios: dupla,
+      operadorMatricula: operadorEfetivo,
+      auxiliarMatricula,
       denteRegiao,
       procedimentoRealizado: procedimento,
       materiaisUtilizados: materiais,
@@ -59,7 +110,7 @@ export function DentalEvolutionTab({ pacienteId }: DentalEvolutionTabProps) {
       return;
     }
 
-    setDupla('');
+    setAuxiliarMatricula('');
     setDenteRegiao('');
     setProcedimento('');
     setMateriais('');
@@ -138,19 +189,57 @@ export function DentalEvolutionTab({ pacienteId }: DentalEvolutionTabProps) {
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {erroEstagiarios && (
+            <p className="text-[11px] leading-relaxed text-rose-800 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+              Não foi possível carregar os estagiários: {erroEstagiarios} Feche e
+              abra o formulário para tentar de novo.
+            </p>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                Dupla de Estagiários (Operador & Auxiliar - PDR-05) *
+                Operador da Dupla (PDR-05) *
               </label>
-              <input
-                type="text"
+              <select
                 required
-                value={dupla}
-                onChange={(e) => setDupla(e.target.value)}
-                placeholder="Ex: Operador & Auxiliar"
-                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-emerald-600 font-medium"
-              />
+                value={operadorEfetivo}
+                onChange={(e) => setOperadorMatricula(e.target.value)}
+                disabled={carregandoEstagiarios}
+                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-emerald-600 font-medium disabled:opacity-60"
+              >
+                <option value="">
+                  {carregandoEstagiarios ? 'Carregando…' : 'Selecione o operador.'}
+                </option>
+                {estagiarios.map((e) => (
+                  <option key={e.matricula} value={e.matricula}>
+                    {e.nome} - {e.matricula}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Auxiliar da Dupla (PDR-05) *
+              </label>
+              <select
+                required
+                value={auxiliarMatricula}
+                onChange={(e) => setAuxiliarMatricula(e.target.value)}
+                disabled={carregandoEstagiarios}
+                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-emerald-600 font-medium disabled:opacity-60"
+              >
+                <option value="">
+                  {carregandoEstagiarios ? 'Carregando…' : 'Selecione o auxiliar.'}
+                </option>
+                {estagiarios
+                  .filter((e) => e.matricula !== operadorEfetivo)
+                  .map((e) => (
+                    <option key={e.matricula} value={e.matricula}>
+                      {e.nome} - {e.matricula}
+                    </option>
+                  ))}
+              </select>
             </div>
             <div>
               <label className="block text-[11px] font-bold text-slate-700 mb-1">
@@ -283,8 +372,9 @@ export function DentalEvolutionTab({ pacienteId }: DentalEvolutionTabProps) {
                   <CheckIcon className="w-3.5 h-3.5 text-rose-700 shrink-0" />
                 )}
                 <span>
-                  Parecer docente: {reg.parecerSupervisor}
-                  {reg.status === 'VALIDADO' && ' • Assinado digitalmente.'}
+                  Parecer docente
+                  {reg.supervisorNome ? ` — ${reg.supervisorNome}` : ''}:{' '}
+                  {reg.parecerSupervisor}
                 </span>
               </p>
             )}

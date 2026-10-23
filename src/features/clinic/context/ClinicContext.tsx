@@ -70,14 +70,33 @@ export interface FichaOdonto {
   pacienteId: number;
   pacienteNome: string;
   duplaEstagiarios: string;
+  /** Matrículas da dupla (PDR-05). Nulas nas fichas anteriores à coluna. */
+  operadorMatricula?: string | null;
+  auxiliarMatricula?: string | null;
   denteRegiao: string;
   procedimentoRealizado: string;
   materiaisUtilizados: string;
   anestesico?: string;
   alertaAlergia?: string;
+  /** Carimbo de quem homologou, vindo do servidor. */
+  supervisorNome?: string | null;
   parecerSupervisor?: string;
   status: StatusProntuario;
   submetidoEm: string;
+}
+
+/** Dados aceitos na criação da ficha: a dupla vai por matrícula, não por nome
+ *  digitado — o servidor resolve os cadastros e monta o texto da dupla. */
+export interface NovaFichaOdonto {
+  pacienteId: number;
+  pacienteNome: string;
+  operadorMatricula: string;
+  auxiliarMatricula: string;
+  denteRegiao: string;
+  procedimentoRealizado: string;
+  materiaisUtilizados: string;
+  anestesico?: string;
+  alertaAlergia?: string;
 }
 
 export interface Anamnese {
@@ -149,7 +168,7 @@ interface ClinicContextType {
   atualizarStatusAgendamento: (id: number, status: StatusAgendamento) => void;
   homologarEvolucaoPsico: (id: number, decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE', parecer: string) => Promise<{ success: boolean; message: string }>;
   adicionarEvolucaoPsico: (e: Omit<EvolucaoPsico, 'id' | 'status' | 'submetidoEm'>) => Promise<{ success: boolean; message: string; evolucao?: EvolucaoPsico }>;
-  adicionarFichaOdonto: (f: Omit<FichaOdonto, 'id' | 'status' | 'submetidoEm'>) => Promise<{ success: boolean; message: string; ficha?: FichaOdonto }>;
+  adicionarFichaOdonto: (f: NovaFichaOdonto) => Promise<{ success: boolean; message: string; ficha?: FichaOdonto }>;
   homologarFichaOdonto: (id: number, decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE', parecer: string) => Promise<{ success: boolean; message: string }>;
 }
 
@@ -401,11 +420,14 @@ const mapearFichaOdonto = (f: ApiFichaOdonto, nomePorPaciente: Map<number, strin
   pacienteId: f.paciente_id,
   pacienteNome: nomePorPaciente.get(f.paciente_id) || `Paciente #${f.paciente_id}`,
   duplaEstagiarios: f.dupla_estagiarios,
+  operadorMatricula: f.operador_matricula,
+  auxiliarMatricula: f.auxiliar_matricula,
   denteRegiao: f.dente_regiao,
   procedimentoRealizado: f.procedimento_realizado,
   materiaisUtilizados: f.materiais_utilizados,
   anestesico: f.anestesico,
   alertaAlergia: f.alerta_alergia,
+  supervisorNome: f.supervisor_nome,
   parecerSupervisor: f.parecer_supervisor,
   status: f.status,
   submetidoEm: f.criado_em ? new Date(f.criado_em).toLocaleDateString('pt-BR') : 'Hoje',
@@ -870,12 +892,13 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
   };
 
   const adicionarFichaOdonto = async (
-    f: Omit<FichaOdonto, 'id' | 'status' | 'submetidoEm'>
+    f: NovaFichaOdonto
   ): Promise<{ success: boolean; message: string; ficha?: FichaOdonto }> => {
     try {
       const created = await api.createFichaOdonto({
         paciente_id: f.pacienteId,
-        dupla_estagiarios: f.duplaEstagiarios,
+        operador_matricula: f.operadorMatricula,
+        auxiliar_matricula: f.auxiliarMatricula,
         dente_regiao: f.denteRegiao,
         procedimento_realizado: f.procedimentoRealizado,
         materiais_utilizados: f.materiaisUtilizados,

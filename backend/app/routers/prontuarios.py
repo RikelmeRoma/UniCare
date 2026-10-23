@@ -1,12 +1,12 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlmodel import Session, select
+from sqlmodel import Session, select, or_
 
 from app.database import get_session
 from app.models.prontuario import ProntuarioPsico, FichaOdonto, StatusProntuario
 from app.models.paciente import Paciente
 from app.models.atribuicao import AtribuicaoClinica, SituacaoAtribuicao
-from app.models.usuario import Usuario, PerfilUsuario
+from app.models.usuario import Usuario, PerfilUsuario, CursoUsuario
 from app.schemas.prontuario import (
     ProntuarioPsicoCreate,
     ProntuarioPsicoRead,
@@ -210,12 +210,58 @@ def homologar_prontuario_psico(
 
 # --- Clínicas de Odontologia ---
 
+def _resolver_estagiario_odonto(
+    session: Session,
+    matricula: str,
+    papel: str,
+) -> Usuario:
+    """Resolve a matrícula de um membro da dupla para o cadastro real.
+
+    A ficha odontológica é de atendimento em dupla (PDR-05), e a matrícula é o
+    que permite segregar a listagem depois. Aceitar nome digitado deixaria o
+    aluno gravar o próprio nome com a matrícula do colega — o mesmo defeito que
+    o modal de agendamento tinha. A validação é de existência, perfil, clínica
+    e conta ativa.
+    """
+    usuario = session.exec(
+        select(Usuario).where(Usuario.matricula == matricula)
+    ).first()
+
+    if (
+        usuario is None
+        or not usuario.ativo
+        or usuario.perfil != PerfilUsuario.ESTAGIARIO
+        or usuario.curso != CursoUsuario.ODONTOLOGIA
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"{papel} inválido: a matrícula '{matricula}' não é de "
+                "estagiário ativo da clínica de odontologia."
+            ),
+        )
+
+    return usuario
+
 @router.get("/odonto", response_model=List[FichaOdontoRead])
 def listar_fichas_odonto(
     session: Session = Depends(get_session),
-    _usuario: Usuario = Depends(require_curso("odontologia", base=autorizado_clinico))
+    current_user: Usuario = Depends(require_curso("odontologia", base=autorizado_clinico))
 ):
-    return session.exec(select(FichaOdonto)).all()
+    query = select(FichaOdonto)
+
+    # Paridade com o prontuário psicológico: o estagiário vê as próprias
+    # fichas. Aqui são duas pessoas, então operador e auxiliar da dupla veem o
+    # registro que assinaram juntos.
+    if current_user.perfil == PerfilUsuario.ESTAGIARIO:
+        query = query.where(
+            or_(
+                FichaOdonto.operador_matricula == current_user.matricula,
+                FichaOdonto.auxiliar_matricula == current_user.matricula,
+            )
+        )
+
+    return session.exec(query).all()
 
 @router.post("/odonto", response_model=FichaOdontoRead, status_code=status.HTTP_201_CREATED)
 def criar_ficha_odonto(
@@ -226,9 +272,21 @@ def criar_ficha_odonto(
 ):
     _validar_paciente_do_curso(session, dados.paciente_id, "odontologia")
 
+    operador = _resolver_estagiario_odonto(
+        session, dados.operador_matricula, "Operador"
+    )
+    auxiliar = _resolver_estagiario_odonto(
+        session, dados.auxiliar_matricula, "Auxiliar"
+    )
+
     ficha = FichaOdonto(
         paciente_id=dados.paciente_id,
-        dupla_estagiarios=dados.dupla_estagiarios,
+        # O texto da dupla é montado com os nomes do cadastro. Usar o que o
+        # cliente mandasse deixaria o registro clínico com nome de uma pessoa e
+        # matrícula de outra.
+        dupla_estagiarios=f"{operador.nome} & {auxiliar.nome}",
+        operador_matricula=operador.matricula,
+        auxiliar_matricula=auxiliar.matricula,
         dente_regiao=dados.dente_regiao,
         procedimento_realizado=dados.procedimento_realizado,
         materiais_utilizados=dados.materiais_utilizados,
@@ -270,6 +328,9 @@ def homologar_ficha_odonto(
 
     ficha.status = body.decisao
     ficha.parecer_supervisor = body.parecer
+    # Carimbo de autoria docente, do token e não do corpo. Antes a ficha não
+    # dizia quem deu o visto: o nome só existia na trilha de auditoria.
+    ficha.supervisor_nome = current_user.nome
     session.add(ficha)
     session.commit()
     session.refresh(ficha)

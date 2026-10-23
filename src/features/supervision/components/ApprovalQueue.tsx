@@ -237,7 +237,10 @@ export function ApprovalQueue() {
                   Paciente: {ficha.pacienteNome} · Ficha #{ficha.id}
                 </span>
                 {ficha.parecerSupervisor && (
-                  <p className="text-rose-700">Parecer: {ficha.parecerSupervisor}</p>
+                  <p className="text-rose-700">
+                    Parecer{ficha.supervisorNome ? ` — ${ficha.supervisorNome}` : ''}:{' '}
+                    {ficha.parecerSupervisor}
+                  </p>
                 )}
               </div>
             ))}

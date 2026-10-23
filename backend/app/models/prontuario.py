@@ -42,12 +42,23 @@ class FichaOdonto(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     paciente_id: int = Field(foreign_key="pacientes.id", index=True)
+    # Texto de exibição da dupla. O servidor o monta a partir das matrículas
+    # resolvidas, e não do corpo do cliente: nome digitado à mão gravava uma
+    # pessoa com a matrícula de outra.
     dupla_estagiarios: str = Field(max_length=200)
+    # Autoria da dupla (PDR-05). Referência fraca por matrícula, como em
+    # `usuarios.supervisor_matricula`. Nullable porque as fichas anteriores a
+    # esta coluna não têm como inferir o autor a partir do texto livre.
+    operador_matricula: Optional[str] = Field(default=None, max_length=32)
+    auxiliar_matricula: Optional[str] = Field(default=None, max_length=32)
     dente_regiao: str = Field(max_length=100)
     procedimento_realizado: str = Field(sa_column=Column(Text, nullable=False))
     materiais_utilizados: str = Field(sa_column=Column(Text, nullable=False))
     anestesico: Optional[str] = Field(default=None, max_length=255)
     alerta_alergia: Optional[str] = Field(default=None, max_length=500)
+    # Carimbo de autoria docente, gravado pelo servidor no ato da homologação.
+    # Antes a ficha não dizia quem deu o visto; o nome só existia na trilha.
+    supervisor_nome: Optional[str] = Field(default=None, max_length=200)
     parecer_supervisor: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
     status: StatusProntuario = Field(default=StatusProntuario.AGUARDANDO_VALIDACAO)
     criado_em: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

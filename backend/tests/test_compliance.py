@@ -16,6 +16,54 @@ def get_auth_token(email_ou_matricula: str, senha: str = "unicare123") -> str:
     assert response.status_code == 200, f"Falha no login com {email_ou_matricula}: {response.text}"
     return response.json()["access_token"]
 
+def _criar_estagiario_odonto(matricula: str, nome: str) -> dict:
+    """Cria um estagiário de odontologia pela RT e devolve o header autenticado.
+
+    A ficha odontológica exige uma dupla de matrículas reais. O seed tem um só
+    aluno de odontologia, então os testes que precisam de dois criam o próprio
+    cadastro — nunca dependem de quem outro teste deixou no banco.
+    """
+    rt = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
+    senha = "senha-teste-123"
+    res = client.post("/api/v1/usuarios", json={
+        "nome": nome,
+        "email": f"{matricula.lower()}@uninassau.edu.br",
+        "senha": senha,
+        "perfil": "estagiario",
+        "matricula": matricula,
+    }, headers=rt)
+    assert res.status_code == 201, res.text
+    return {"Authorization": f"Bearer {get_auth_token(matricula, senha)}"}
+
+
+def _criar_paciente_odonto(cpf: str) -> int:
+    recepcao = {"Authorization": f"Bearer {get_auth_token('REC-001')}"}
+    res = client.post("/api/v1/pacientes", json={
+        "nome": f"Paciente Odonto {cpf}",
+        "cpf_rg": cpf,
+        "data_nascimento": "1996-03-14",
+        "telefone": "(79) 98888-0000",
+        "eh_menor": False,
+        "curso": "odontologia",
+    }, headers=recepcao)
+    assert res.status_code == 201, res.text
+    return res.json()["id"]
+
+
+def _ficha_odonto_payload(paciente_id: int, operador: str, auxiliar: str, **overrides) -> dict:
+    payload = {
+        "paciente_id": paciente_id,
+        "operador_matricula": operador,
+        "auxiliar_matricula": auxiliar,
+        "dente_regiao": "Dente 26 - primeiro molar superior esquerdo",
+        "procedimento_realizado": "Restauração direta em resina composta classe I.",
+        "materiais_utilizados": "Resina composta A2 e adesivo universal.",
+        "anestesico": "Lidocaína 2% (infiltrativa)",
+    }
+    payload.update(overrides)
+    return payload
+
+
 def test_login_perfis_institucionais():
     """Valida a autenticação e RBAC de todos os perfis institucionais UNINASSAU"""
     perfis = [
@@ -297,7 +345,8 @@ def test_vslice_supervisor_psico_bloqueado_na_odontologia():
         "/api/v1/prontuarios/odonto",
         json={
             "paciente_id": 2,
-            "dupla_estagiarios": "X",
+            "operador_matricula": "16024402",
+            "auxiliar_matricula": "16032935",
             "dente_regiao": "Dente 36",
             "procedimento_realizado": "Restauração",
             "materiais_utilizados": "Resina"
@@ -836,9 +885,11 @@ def test_rf004_homologacao_exige_parecer_na_psicologia():
 def test_rf004_homologacao_exige_parecer_na_odontologia():
     """RF-004: a mesma exigência vale para a ficha odontológica"""
     headers_estagiario = {"Authorization": f"Bearer {get_auth_token('16024402')}"}
+    _criar_estagiario_odonto("ODO-A1", "Auxiliar Parecer")
     criada = client.post("/api/v1/prontuarios/odonto", json={
         "paciente_id": 2,
-        "dupla_estagiarios": "Dupla Teste",
+        "operador_matricula": "16024402",
+        "auxiliar_matricula": "ODO-A1",
         "dente_regiao": "Dente 16",
         "procedimento_realizado": "Restauracao classe I.",
         "materiais_utilizados": "Resina A2.",
@@ -1228,8 +1279,9 @@ def test_rt_nao_aprova_solicitacao_da_outra_clinica():
     assert res.status_code == 403
 
 
-def test_aprovacao_cria_conta_na_clinica_da_rt():
+def test_aprovacao_cria_conta_na_clinica_da_rt(monkeypatch):
     """Aprovar cria o usuário no mesmo ato, com o curso vindo do token da RT"""
+    _instalar_envio_falso(monkeypatch)
     criada = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
         "aprovada.psi@prof.uninassau.edu.br", matricula="17070001"))
     solicitacao_id = criada.json()["id"]
@@ -1261,11 +1313,12 @@ def test_aprovacao_cria_conta_na_clinica_da_rt():
     assert not any(s["id"] == solicitacao_id for s in pendentes)
 
 
-def test_aprovacao_com_conflito_nao_encerra_o_pedido():
+def test_aprovacao_com_conflito_nao_encerra_o_pedido(monkeypatch):
     """Matrícula já cadastrada: 400 e o pedido continua PENDENTE
 
     Se marcasse como aprovada sem criar conta, existiria "aprovado sem usuário".
     """
+    _instalar_envio_falso(monkeypatch)
     criada = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
         "conflito.psi@prof.uninassau.edu.br", matricula="16032935"))
     solicitacao_id = criada.json()["id"]
@@ -1340,8 +1393,9 @@ def test_fila_de_solicitacoes_so_abre_para_a_rt():
     assert client.get("/api/v1/solicitacoes-cadastro/").status_code == 401
 
 
-def test_decisao_da_rt_entra_na_trilha_de_auditoria():
+def test_decisao_da_rt_entra_na_trilha_de_auditoria(monkeypatch):
     """Aprovar e recusar deixam rastro"""
+    _instalar_envio_falso(monkeypatch)
     rt_psi = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
 
     aprovada = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
@@ -1409,7 +1463,12 @@ class _EnvioFalso:
 def _instalar_envio_falso(monkeypatch, comportamento: str = "enviado") -> _EnvioFalso:
     dublê = _EnvioFalso()
     dublê.comportamento = comportamento
+    # Dois routers usam o envio: a recuperação de senha (auth) e a aprovação de
+    # cadastro (solicitacoes). Patchar só o primeiro deixava a suíte de aprovação
+    # dependente do SMTP real — e com o Gmail recusando a credencial, três testes
+    # que nada têm a ver com e-mail viravam 503.
     monkeypatch.setattr("app.routers.auth.email_service", dublê)
+    monkeypatch.setattr("app.routers.solicitacoes.email_service", dublê)
     return dublê
 
 
@@ -2577,3 +2636,125 @@ def _estagiario_id(token: str) -> int:
     estagiarios = [u for u in cadastro if u["perfil"] == "estagiario"]
     assert estagiarios, "não há estagiário no banco para o teste"
     return estagiarios[0]["id"]
+
+
+# --- Paridade da odontologia: autoria da dupla, carimbo e segregação ---
+
+
+def test_rf004_homologacao_carimba_o_supervisor_odontologia():
+    """RF-004: quem homologou a ficha odontológica fica gravado nela
+
+    Paridade com `test_rf004_homologacao_carimba_o_supervisor` da psicologia. A
+    ficha nasce sem docente e o nome não vem do cliente: é escrito na
+    homologação, a partir do token.
+    """
+    operador = _criar_estagiario_odonto("ODO-C1", "Operador Carimbo")
+    _criar_estagiario_odonto("ODO-C2", "Auxiliar Carimbo")
+    paciente_id = _criar_paciente_odonto("711.111.111-11")
+
+    criada = client.post(
+        "/api/v1/prontuarios/odonto",
+        json=_ficha_odonto_payload(paciente_id, "ODO-C1", "ODO-C2"),
+        headers=operador,
+    )
+    assert criada.status_code == 201, criada.text
+    ficha = criada.json()
+    assert ficha["supervisor_nome"] is None
+    assert ficha["dupla_estagiarios"] == "Operador Carimbo & Auxiliar Carimbo"
+
+    supervisor = {"Authorization": f"Bearer {get_auth_token('DOC-9122')}"}
+    res = client.patch(
+        f"/api/v1/prontuarios/odonto/{ficha['id']}/homologar",
+        json={"decisao": "VALIDADO", "parecer": "Técnica adequada. Homologado."},
+        headers=supervisor,
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["supervisor_nome"] == "Profa. Dra. Bianca Nubia"
+
+    # E persiste: a releitura não volta sem autoria docente.
+    relidas = client.get("/api/v1/prontuarios/odonto", headers=supervisor).json()
+    carimbada = next(f for f in relidas if f["id"] == ficha["id"])
+    assert carimbada["supervisor_nome"] == "Profa. Dra. Bianca Nubia"
+
+
+def test_ficha_odonto_recusa_conteudo_em_branco():
+    """Registro odontológico incompleto não chega à fila de homologação
+
+    A tela já marca os campos como obrigatórios, mas a regra vale no servidor:
+    qualquer cliente chama a rota direto sem passar pela tela.
+    """
+    operador = _criar_estagiario_odonto("ODO-V1", "Operador Branco")
+    _criar_estagiario_odonto("ODO-V2", "Auxiliar Branco")
+    paciente_id = _criar_paciente_odonto("722.222.222-22")
+
+    for campo in ("dente_regiao", "procedimento_realizado", "materiais_utilizados"):
+        res = client.post(
+            "/api/v1/prontuarios/odonto",
+            json=_ficha_odonto_payload(
+                paciente_id, "ODO-V1", "ODO-V2", **{campo: "   "}
+            ),
+            headers=operador,
+        )
+        assert res.status_code == 422, f"{campo} em branco deveria ser recusado: {res.text}"
+
+    # Recusa não pode ter gravado ficha nenhuma para o paciente.
+    supervisor = {"Authorization": f"Bearer {get_auth_token('DOC-9122')}"}
+    fichas = client.get("/api/v1/prontuarios/odonto", headers=supervisor).json()
+    assert all(f["paciente_id"] != paciente_id for f in fichas)
+
+
+def test_ficha_odonto_rejeita_matricula_invalida():
+    """A dupla é resolvida contra o cadastro, não aceita como texto livre
+
+    Matrícula de outra clínica, inexistente, de perfil que não é estagiário ou
+    igual à do operador não pode virar autoria de ficha odontológica.
+    """
+    operador = _criar_estagiario_odonto("ODO-M1", "Operador Matricula")
+    paciente_id = _criar_paciente_odonto("733.333.333-33")
+
+    casos = {
+        "estagiário de psicologia": "16032935",
+        "matrícula inexistente": "NAO-EXISTE-ODO",
+        "perfil de supervisor": "DOC-9122",
+        "mesma pessoa do operador": "ODO-M1",
+    }
+    for motivo, auxiliar in casos.items():
+        res = client.post(
+            "/api/v1/prontuarios/odonto",
+            json=_ficha_odonto_payload(paciente_id, "ODO-M1", auxiliar),
+            headers=operador,
+        )
+        assert res.status_code == 422, f"{motivo} deveria ser recusado: {res.text}"
+
+
+def test_estagiario_ve_apenas_as_fichas_da_propria_dupla():
+    """Segregação da listagem: operador e auxiliar veem a ficha que assinaram
+
+    Filtrar só por quem submeteu esconderia do parceiro o registro da dupla
+    (PDR-05). Um terceiro aluno de odontologia não vê a ficha; o supervisor vê
+    a clínica inteira.
+    """
+    primeiro = _criar_estagiario_odonto("ODO-S1", "Operador Dupla")
+    segundo = _criar_estagiario_odonto("ODO-S2", "Auxiliar Dupla")
+    terceiro = _criar_estagiario_odonto("ODO-S3", "Terceiro Aluno")
+    paciente_id = _criar_paciente_odonto("744.444.444-44")
+
+    criada = client.post(
+        "/api/v1/prontuarios/odonto",
+        json=_ficha_odonto_payload(paciente_id, "ODO-S1", "ODO-S2"),
+        headers=primeiro,
+    )
+    assert criada.status_code == 201, criada.text
+    ficha_id = criada.json()["id"]
+
+    def ids_visiveis(headers: dict) -> set:
+        res = client.get("/api/v1/prontuarios/odonto", headers=headers)
+        assert res.status_code == 200, res.text
+        return {f["id"] for f in res.json()}
+
+    assert ficha_id in ids_visiveis(primeiro)
+    assert ficha_id in ids_visiveis(segundo)
+    assert ficha_id not in ids_visiveis(terceiro)
+
+    supervisor = {"Authorization": f"Bearer {get_auth_token('DOC-9122')}"}
+    assert ficha_id in ids_visiveis(supervisor)

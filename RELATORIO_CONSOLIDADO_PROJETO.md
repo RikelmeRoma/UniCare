@@ -215,13 +215,16 @@ erDiagram
     FICHAS_ODONTO {
         int    id PK
         int    paciente_id FK "idx"
-        string dupla_estagiarios
+        string dupla_estagiarios "texto montado pelo servidor"
+        string operador_matricula "opcional, autoria da dupla"
+        string auxiliar_matricula "opcional, autoria da dupla"
         string dente_regiao
         text   procedimento_realizado
         text   materiais_utilizados
         string anestesico "opcional"
         string alerta_alergia "opcional"
         text   parecer_supervisor "do supervisor"
+        string supervisor_nome "carimbo docente, opcional"
         string status "ENUM 4 estados"
         datetime criado_em
     }
@@ -320,18 +323,18 @@ erDiagram
 │  PK id                │        │  PK id                │        │  PK id                │
 │  FK paciente_id       │        │  FK paciente_id       │        │  FK paciente_id       │
 │     paciente_nome     │        │     paciente_nome     │        │     dupla_estagiarios │
-│     estagiario_nome   │        │     estagiario_nome   │        │     dente_regiao      │
-│     estag._matricula  │        │     estag._matricula  │        │     procedimento TEXT │
-│     curso             │        │     supervisor_nome   │        │     materiais TEXT    │
-│     horario / turno   │        │     data_sessao       │        │     anestesico        │
-│     sala_ou_cadeira   │        │     numero_sessao     │        │     alerta_alergia    │
-│     tipo_consulta     │        │     redacao  TEXT  │        │     parecer_sup. TEXT │
-│     status ▸ enum     │        │                   │        │     status    ▸ enum  │
-│     observacao_log.   │        │                   │        │     criado_em         │
-└───────────────────────┘        │     parecer_sup.  TXT │        └───────────────────────┘
-                                 │     status    ▸ enum  │
-                                 │     criado_em         │
-                                 └───────────────────────┘
+│     estagiario_nome   │        │     estagiario_nome   │        │     operador_matricula│
+│     estag._matricula  │        │     estag._matricula  │        │     auxiliar_matricula│
+│     curso             │        │     supervisor_nome   │        │     dente_regiao      │
+│     horario / turno   │        │     data_sessao       │        │     procedimento TEXT │
+│     sala_ou_cadeira   │        │     numero_sessao     │        │     materiais TEXT    │
+│     tipo_consulta     │        │     redacao  TEXT  │        │     anestesico        │
+│     status ▸ enum     │        │                   │        │     alerta_alergia    │
+│     observacao_log.   │        │                   │        │     parecer_sup. TEXT │
+└───────────────────────┘        │     parecer_sup.  TXT │        │     supervisor_nome   │
+                                 │     status    ▸ enum  │        │     status    ▸ enum  │
+                                 │     criado_em         │        │     criado_em         │
+                                 └───────────────────────┘        └───────────────────────┘
 
 ┌───────────────────────────┐
   *Emendado em 16/10/2026: a tabela DEMANDAS_ESTAGIO foi removida.*
@@ -358,8 +361,9 @@ PRONTUARIOS_PSICO (id PK, paciente_id FK->PACIENTES, paciente_nome,
                    status, criado_em)
 
 FICHAS_ODONTO (id PK, paciente_id FK->PACIENTES, dupla_estagiarios,
-               dente_regiao, procedimento_realizado, materiais_utilizados,
-               anestesico, alerta_alergia, parecer_supervisor, status,
+               operador_matricula, auxiliar_matricula, dente_regiao,
+               procedimento_realizado, materiais_utilizados, anestesico,
+               alerta_alergia, parecer_supervisor, supervisor_nome, status,
                criado_em)
 
 ANAMNESES (id PK, paciente_id FK->PACIENTES, afetido_em, pressao_arterial,

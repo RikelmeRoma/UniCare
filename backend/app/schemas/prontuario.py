@@ -1,5 +1,5 @@
 import re
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from typing import Optional
 from datetime import datetime
 from app.models.prontuario import StatusProntuario
@@ -73,22 +73,61 @@ class ProntuarioPsicoRead(BaseModel):
 
 class FichaOdontoCreate(BaseModel):
     paciente_id: int
-    dupla_estagiarios: str
+    # A dupla vem por matrícula, não por nome digitado: o servidor resolve os
+    # dois estagiários e monta `dupla_estagiarios` com os nomes do cadastro.
+    operador_matricula: str
+    auxiliar_matricula: str
     dente_regiao: str
     procedimento_realizado: str
     materiais_utilizados: str
     anestesico: Optional[str] = None
     alerta_alergia: Optional[str] = None
 
+    @field_validator("operador_matricula", "auxiliar_matricula")
+    @classmethod
+    def validar_matricula_obrigatoria(cls, v: str) -> str:
+        texto = v.strip()
+        if not texto:
+            raise ValueError(
+                "A dupla de estagiários é obrigatória (PDR-05): informe a "
+                "matrícula do operador e a do auxiliar."
+            )
+        return texto
+
+    @field_validator("dente_regiao", "procedimento_realizado", "materiais_utilizados")
+    @classmethod
+    def validar_conteudo_clinico(cls, v: str) -> str:
+        # O formulário já marca os campos como obrigatórios, mas a regra vale
+        # no servidor: qualquer cliente pode chamar a rota direto e mandar
+        # ficha em branco para a fila de homologação.
+        if not v.strip():
+            raise ValueError(
+                "Registro clínico incompleto: dente/região, procedimento e "
+                "materiais utilizados não podem ficar em branco."
+            )
+        return v
+
+    @model_validator(mode="after")
+    def validar_dupla_distinta(self):
+        if self.operador_matricula == self.auxiliar_matricula:
+            raise ValueError(
+                "Operador e auxiliar precisam ser estagiários diferentes: a "
+                "ficha odontológica é de atendimento em dupla (PDR-05)."
+            )
+        return self
+
 class FichaOdontoRead(BaseModel):
     id: int
     paciente_id: int
     dupla_estagiarios: str
+    operador_matricula: Optional[str] = None
+    auxiliar_matricula: Optional[str] = None
     dente_regiao: str
     procedimento_realizado: str
     materiais_utilizados: str
     anestesico: Optional[str] = None
     alerta_alergia: Optional[str] = None
+    supervisor_nome: Optional[str] = None
     parecer_supervisor: Optional[str] = None
     status: StatusProntuario
     criado_em: datetime

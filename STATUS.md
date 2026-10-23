@@ -1,7 +1,20 @@
 # STATUS — UniCare
 ```
-npm run lint     → 10 erros preexistentes (o "11" desta linha estava desatualizado:
-                    o commit d7716d5 removeu um deles; nenhum erro novo)
+npm run lint     → 11 erros preexistentes; a paridade da odontologia não
+                    acrescentou nenhum (`DentalEvolutionTab` passou a derivar o
+                    operador em vez de sincronizar por efeito)
+
+### ⚠️ Correção em 2026-10-23: o envio de e-mail parou
+
+A credencial do Gmail que este bloco descreve **não autentica mais**. Teste ao
+vivo contra `smtp.gmail.com` nas portas **587 e 465** termina em
+`SMTPServerDisconnected — Connection unexpectedly closed` logo depois do
+STARTTLS/SSL; o `docker inspect` confirma que as `MAIL_*` chegam ao container,
+então não é variável faltando nem porta errada. É o Google recusando o segredo.
+Para voltar: gerar uma senha de app nova (com verificação em duas etapas ativa
+na conta) e atualizar `MAIL_PASSWORD`. Enquanto isso, aprovar solicitação de
+cadastro responde **503** e não cria a conta — que é o comportamento correto,
+não um bug da rota.
 
 ### ✉️ E-mail do Bloco 14 — o envio real passou
 
@@ -97,6 +110,41 @@ trilha com `RECUPERACAO_SOLICITADA` e IP real.
   rota libera `estagiario`, `supervisor` e `rt`, e a RN-001 é normativa, com teste
   affirmando o 403. O módulo da recepção é a agenda e a triagem, não o prontuário.
 ```
+## Atualização — 2026-10-23 (paridade da odontologia)
+
+**A ficha odontológica passou a ter o que o prontuário psicológico já tinha.**
+O item 9 das pendências de paridade estava aberto desde o Bloco 8.
+
+- **Autoria da dupla por matrícula.** `POST /prontuarios/odonto` não aceita mais
+  `dupla_estagiarios` como texto: recebe `operador_matricula` e
+  `auxiliar_matricula`, resolve os dois cadastros (`estagiario`, `ativo`,
+  `odontologia`) e monta o texto da dupla com os nomes reais. Antes o nome era
+  digitado e podia gravar uma pessoa com a matrícula de outra — o mesmo defeito
+  que o modal de agendamento tinha. Matrícula inexistente, de outra clínica,
+  inativa ou de perfil diferente dá 422; operador e auxiliar iguais também.
+- **Segregação na listagem.** `GET /prontuarios/odonto` filtra para o estagiário
+  as fichas em que ele é operador **ou** auxiliar. As duas matrículas ficam na
+  ficha justamente porque o atendimento é em dupla (PDR-05): filtrar só por quem
+  submeteu esconderia do parceiro o registro que ele assinou junto. Supervisor e
+  RT continuam vendo a clínica.
+- **Validação de conteúdo no servidor.** `dente_regiao`,
+  `procedimento_realizado` e `materiais_utilizados` em branco dão 422. A regra
+  não é copiada da psicologia: quotes literais são RN-002/CFP e não se aplicam
+  ao registro odontológico.
+- **Carimbo de autoria docente.** `fichas_odonto.supervisor_nome` é gravado na
+  homologação a partir do token, como em `prontuarios_psico`. Antes o nome de
+  quem deu o visto só existia na trilha de auditoria.
+- **Migração `a1d5e8f3c207`** (revises `c69c627004f8`): três colunas nullable.
+  Fichas anteriores não têm como inferir autoria a partir do texto livre, então
+  ficam sem matrícula e sem carimbo — não há backfill inventado.
+- **Seed:** o único estagiário de odontologia do seed (`16024402`) vira operador
+  das fichas de demonstração e `supervisor_nome` é preenchido na ficha validada.
+  `auxiliar_matricula` fica nula: não existe segundo aluno de odontologia no
+  seed e criar um só para a demonstração deslocaria contagens que a suíte
+  assume. A tela mostra a dupla pelo texto, sem inventar matrícula.
+- **Relatório emendado** nos três lugares que descrevem `FICHAS_ODONTO` (bloco
+  de schema, diagrama e lista compacta).
+
 ## Atualização — 2026-10-18 (commit 5faea90)
 
 **Agenda de psicologia ganhou data, estagiário no modal e tela do aluno.**
@@ -216,9 +264,11 @@ conta o que mudou.
    de 4 itens que entra no parecer e bloqueia a decisão; psicologia homologa com
    texto livre. **Não implementado de propósito:** redigir os itens exigiria
    inventar conteúdo normativo do CFP, que não está em nenhuma fonte do projeto.
-9. **Levar de volta para odontologia** o que psicologia já tem: carimbo de autoria
-   docente na homologação, validação de conteúdo clínico no servidor e
-   segregação da listagem por estagiário.
+9. ~~**Levar de volta para odontologia** o que psicologia já tem: carimbo de
+   autoria docente na homologação, validação de conteúdo clínico no servidor e
+   segregação da listagem por estagiário.~~ **Resolvido em 2026-10-23:**
+   carimbo `supervisor_nome`, validação de conteúdo e filtro da dupla por
+   matrícula. Ver o bloco de paridade da odontologia no topo.
 
 ### 🟡 Menor
 

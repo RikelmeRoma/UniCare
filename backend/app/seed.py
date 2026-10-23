@@ -420,12 +420,20 @@ def seed_fichas_odonto(session: Session, pacientes: List[Paciente]) -> None:
         return
 
     _p1, p2, p3, _p4 = pacientes[:4]
-    dupla = "Lucas Vasconcelos & Gabriela Prado"
+    # Unico estagiario de odontologia do seed (16024402). Nao existe segundo
+    # aluno da clinica para compor a dupla na demonstracao, entao o auxiliar
+    # fica nulo em vez de inventar um nome. Criar um usuario extra so para isso
+    # deslocaria contagens que a suite assume. O texto da dupla usa o nome real
+    # do cadastro, e nao nomes digitados.
+    dupla = "Augusto Cesar Farias Carvalho"
+    operador = "16024402"
+    supervisora = "Profa. Dra. Bianca Nubia"
 
     session.add_all([
         FichaOdonto(
             paciente_id=p2.id,
             dupla_estagiarios=dupla,
+            operador_matricula=operador,
             dente_regiao="Dente 36 - primeiro molar inferior esquerdo",
             procedimento_realizado="Restauracao direta em resina composta classe I, com preparo conservador e isolamento absoluto por dique de borracha.",
             materiais_utilizados="Resina composta A2, adesivo universal, matriz deinkgo e dique de borracha.",
@@ -436,20 +444,25 @@ def seed_fichas_odonto(session: Session, pacientes: List[Paciente]) -> None:
         FichaOdonto(
             paciente_id=p2.id,
             dupla_estagiarios=dupla,
+            operador_matricula=operador,
             dente_regiao="Dente 16 - primeiro molar superior direito",
             procedimento_realizado="Restauracao direta classe II, com matriz metalica e polimento final.",
             materiais_utilizados="Resina composta A3, matriz metalica, oxidador de estiramento.",
             anestesico="Lidocaina 2% 1:80.000 (infiltrativa)",
             alerta_alergia=None,
             parecer_supervisor="Preparo dentro dos limites do tecido saudo. Homologado com visto digital.",
+            supervisor_nome=supervisora,
             status=StatusProntuario.VALIDADO
         ),
         FichaOdonto(
             paciente_id=p2.id,
             dupla_estagiarios=dupla,
+            operador_matricula=operador,
             dente_regiao="Dente 46 - primeiro molar inferior direito",
             procedimento_realizado="Preparo cavitario classe I. Devolvido para ajuste da documentacao clinica.",
             materiais_utilizados="Resina composta A3.",
+            parecer_supervisor="Documentacao clinica incompleta: refazer o registro do procedimento.",
+            supervisor_nome=supervisora,
             status=StatusProntuario.DEVOLVIDO_PARA_AJUSTE
         ),
         # Paciente de curso "ambos": a ficha aparece nas DUAS clinicas, e por
@@ -457,6 +470,7 @@ def seed_fichas_odonto(session: Session, pacientes: List[Paciente]) -> None:
         FichaOdonto(
             paciente_id=p3.id,
             dupla_estagiarios=dupla,
+            operador_matricula=operador,
             dente_regiao="Dente 26 - primeiro molar superior esquerdo",
             procedimento_realizado="Selante de fossas oclusais e mamelares, sem necessidade de restauracao.",
             materiais_utilizados="Selante hidrofílico, ácido grabador, microbrush.",
