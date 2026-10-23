@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type SolicitacaoEnviada } from '../../../services/api';
 import {
@@ -44,8 +44,23 @@ export function RegisterForm() {
 
   const emailInstitucional =
     email.trim().toLowerCase().endsWith('@uninassau.edu.br') ||
-    email.trim().toLowerCase().endsWith('@prof.uninassau.edu.br');
+    email.trim().toLowerCase().endsWith('@prof.uninassau.edu.br') ||
+    email.trim().toLowerCase().endsWith('@sempreuninassau.com.br');
   const emailPreenchido = email.trim().length > 0;
+
+  // Domínio institucional esperado para o perfil solicitado:
+  // estagiário usa @sempreuninassau.com.br, os demais usam @prof.uninassau.edu.br.
+  const dominioEsperado = perfil === 'estagiario' ? '@sempreuninassau.com.br' : '@prof.uninassau.edu.br';
+  const emailEsperado = `${matricula.trim()}${dominioEsperado}`;
+
+  // Auto-preenche o e-mail institucional a partir da matrícula + perfil.
+  useEffect(() => {
+    const m = matricula.trim();
+    if (m.length >= 2 && !emailPreenchido) {
+      setEmail(emailEsperado);
+    }
+  }, [matricula, perfil, emailPreenchido]);
+
   const podeEnviar =
     nome.trim().length >= 3 &&
     matricula.trim().length >= 2 &&
@@ -208,7 +223,7 @@ export function RegisterForm() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="usuario@prof.uninassau.edu.br"
+                placeholder="matricula@prof.uninassau.edu.br ou matricula@sempreuninassau.com.br"
                 className={`${campo} ${
                   emailPreenchido && !emailInstitucional
                     ? 'border-amber-400 bg-amber-50/40'
@@ -217,9 +232,10 @@ export function RegisterForm() {
                 required
               />
               {emailPreenchido && !emailInstitucional && (
-                <p className="text-[10px] text-amber-700 font-semibold mt-1 flex items-center gap-1">
+                  <p className="text-[10px] text-amber-700 font-semibold mt-1 flex items-center gap-1">
                   <ExclamationTriangleIcon className="w-3 h-3" />
-                  O servidor só aceita @uninassau.edu.br ou @prof.uninassau.edu.br.
+                  O servidor só aceita e-mail institucional para este perfil:
+                  <strong>{dominioEsperado}</strong>.
                 </p>
               )}
             </div>

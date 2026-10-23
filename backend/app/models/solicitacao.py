@@ -51,4 +51,5 @@ class SolicitacaoCadastro(SQLModel, table=True):
     motivo_recusa: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
 
     usuario_criado_id: Optional[int] = Field(default=None, foreign_key="usuarios.id")
+    senha_enviada_por_email: Optional[bool] = Field(default=None)
     criado_em: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

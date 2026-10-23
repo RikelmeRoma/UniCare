@@ -28,6 +28,8 @@ from app.schemas.solicitacao import (
 )
 from app.services.auth_service import get_current_user
 from app.services.auditoria_service import registrar_log, ip_do_cliente
+from app.services import email_service
+from app.services.email_service import StatusEnvio
 from app.routers.usuarios import criar_usuario_para_gestor
 
 router = APIRouter(prefix="/solicitacoes-cadastro", tags=["Solicitação de Credencial"])
@@ -145,17 +147,54 @@ def aprovar_solicitacao(
     session: Session = Depends(get_session),
     current_user: Usuario = Depends(_exigir_rt),
 ):
-    """Aprova e **cria a conta no mesmo ato**.
+    """Aprova e **cria a conta no mesmo ato**, só se o e-mail com a senha inicial for enviado.
 
-    Se o e-mail ou a matrícula já existirem, a criação recusa com 400 e o pedido
-    continua PENDENTE: a RT corrige os dados ou recusa, mas nunca fica um pedido
-    marcado como aprovado sem usuário correspondente.
+    O fluxo é: primeiro tenta enviar o e-mail com a senha inicial para o
+    solicitante. Se o e-mail não for entregue (SMTP não configurado ou falha de
+    rede), a conta **não é criada** e a solicitação permanece PENDENTE — a RT
+    tenta novamente depois ou comunica a senha por outro canal.
+
+    Se o e-mail for enviado com sucesso, a conta é criada e a solicitação
+    marcada como APROVADA.
     """
     solicitacao = _buscar_da_clinica(session, solicitacao_id, current_user)
     _recusar_se_ja_decidida(solicitacao)
 
-    # O perfil aprovado é o que a RT confirmar, não o que o solicitante pediu.
-    # O curso nunca vem daqui: sai do token da RT, dentro da função compartilhada.
+    # 1. PRIMEIRO: tenta enviar o e-mail com a senha inicial.
+    # Só cria a conta se o envio tiver sucesso.
+    corpo = (
+        f"Olá, {solicitacao.nome}.\n\n"
+        f"Sua solicitação de credencial foi aprovada pela Referência Técnica.\n\n"
+        f"Sua senha inicial de acesso ao UniCare é: {dados.senha}\n\n"
+        f"Ao entrar pela primeira vez, troque essa senha.\n\n"
+        f"Matrícula: {solicitacao.matricula}\n"
+        f"Clínica: {solicitacao.curso_declarado}\n"
+        f"Perfil: {dados.perfil.value}\n\n"
+        "UniCare - Serviço de Psicologia Aplicada e Clínica Odontológica Integrada\n"
+    )
+    resultado = email_service.enviar(
+        solicitacao.email,
+        "UniCare - sua senha inicial de acesso",
+        corpo,
+    )
+
+    if not resultado.enviou:
+        # SMTP não configurado ou quebrou: não cria conta, a solicitação fica
+        # PENDENTE para a RT tentar novamente depois.
+        detalhe = (
+            "O envio de e-mail não está configurado neste ambiente."
+            if resultado.status is StatusEnvio.NAO_CONFIGURADO
+            else "Não foi possível enviar o e-mail de senha inicial."
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                f"{detalhe} A conta não foi criada. "
+                f"Comunique a senha à pessoa por outro canal ou tente novamente depois."
+            ),
+        )
+
+    # 2. E-MAIL ENVIADO: agora sim cria a conta.
     usuario = criar_usuario_para_gestor(
         session=session,
         gestor=current_user,
@@ -173,6 +212,7 @@ def aprovar_solicitacao(
     solicitacao.decidido_por_matricula = current_user.matricula
     solicitacao.decidido_em = datetime.now(timezone.utc)
     solicitacao.usuario_criado_id = usuario.id
+    solicitacao.senha_enviada_por_email = True
     session.add(solicitacao)
     session.commit()
     session.refresh(solicitacao)

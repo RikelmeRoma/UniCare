@@ -158,7 +158,7 @@ export function ForgotPasswordPage() {
                     id="rec-id"
                     value={identificador}
                     onChange={(e) => setIdentificador(e.target.value)}
-                    placeholder="usuario@prof.uninassau.edu.br ou 16032935"
+                    placeholder="matricula@prof.uninassau.edu.br ou matricula@sempreuninassau.com.br ou 16032935"
                     className={`${campo} pr-3.5`}
                     autoComplete="username"
                     required

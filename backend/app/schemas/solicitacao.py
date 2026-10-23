@@ -8,7 +8,11 @@ from app.models.usuario import PerfilUsuario
 
 # Só o domínio institucional entra. A rota é pública e sem autenticação: sem
 # esse filtro, qualquer pessoa da internet criaria linhas na fila da RT.
-DOMINIOS_INSTITUCIONAIS = ("@uninassau.edu.br", "@prof.uninassau.edu.br")
+DOMINIOS_INSTITUCIONAIS = (
+    "@uninassau.edu.br",
+    "@prof.uninassau.edu.br",
+    "@sempreuninassau.com.br",
+)
 
 
 def _e_institucional(email: str) -> bool:
@@ -38,7 +42,7 @@ class SolicitacaoCreate(BaseModel):
         if not _e_institucional(v):
             raise ValueError(
                 "O pedido de credencial exige e-mail institucional "
-                "(@uninassau.edu.br ou @prof.uninassau.edu.br)."
+                "(@uninassau.edu.br, @prof.uninassau.edu.br ou @sempreuninassau.com.br)."
             )
         return v.strip().lower()
 
@@ -65,6 +69,7 @@ class SolicitacaoRead(BaseModel):
     decidido_em: Optional[datetime] = None
     motivo_recusa: Optional[str] = None
     usuario_criado_id: Optional[int] = None
+    senha_enviada_por_email: Optional[bool] = None
     criado_em: datetime
 
 

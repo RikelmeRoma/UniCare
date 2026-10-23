@@ -180,6 +180,8 @@ export interface SolicitacaoCadastro {
   decidido_em: string | null;
   motivo_recusa: string | null;
   usuario_criado_id: number | null;
+  /** Se a senha inicial foi enviada por e-mail na aprovação. */
+  senha_enviada_por_email: boolean | null;
   criado_em: string;
 }
 
