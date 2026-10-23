@@ -1,386 +1,133 @@
-import { useEffect, useState } from 'react';
-import { useClinic } from '../../clinic/context/ClinicContext';
-import { useAuth } from '../../auth/context/AuthContext';
-import { api, type ApiEstagiario } from '../../../services/api';
+import { useState } from 'react';
+import type { Paciente } from '../../clinic/context/ClinicContext';
+import { listarEvolucoesRascunho } from '../anamnese/estado';
+import type { EvolucaoLinha } from '../anamnese/tipos';
+import { EvolucaoFolhaModal } from './EvolucaoFolhaModal';
 import {
-  DocumentTextIcon,
-  ShieldCheckIcon,
   CheckCircleIcon,
-  ClockIcon,
+  DocumentTextIcon,
   PlusIcon,
-  XMarkIcon,
-  CheckIcon,
 } from '../../../components/icons/CorporateIcons';
 
 interface DentalEvolutionTabProps {
-  pacienteId?: number;
+  paciente?: Paciente;
 }
 
-export function DentalEvolutionTab({ pacienteId }: DentalEvolutionTabProps) {
-  // Antes os registros viviam em `useState` com `id: Date.now()` e `data` fixa,
-  // e a tela anunciava "submetida para homologação docente" sem chamar a API.
-  // Agora a ficha é gravada no Postgres e a linha do tempo vem dela.
-  const { fichasOdonto, adicionarFichaOdonto, sync } = useClinic();
-  const { user } = useAuth();
+const formatarDataEvolucao = (data: string) => {
+  if (!data) return 'Data não informada';
+  const parsed = new Date(`${data}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? data : parsed.toLocaleDateString('pt-BR');
+};
 
+export function DentalEvolutionTab({ paciente }: DentalEvolutionTabProps) {
   const [showNovo, setShowNovo] = useState(false);
-  // A dupla é escolhida do cadastro, não digitada: nome à mão gravava uma
-  // pessoa com a matrícula de outra. O operador já vem com o próprio aluno.
-  const [operadorMatricula, setOperadorMatricula] = useState('');
-  const [auxiliarMatricula, setAuxiliarMatricula] = useState('');
-  const [estagiarios, setEstagiarios] = useState<ApiEstagiario[]>([]);
-  const [carregandoEstagiarios, setCarregandoEstagiarios] = useState(true);
-  const [erroEstagiarios, setErroEstagiarios] = useState('');
-  const [denteRegiao, setDenteRegiao] = useState('');
-  const [procedimento, setProcedimento] = useState('');
-  const [materiais, setMateriais] = useState('');
-  const [anestesico, setAnestesico] = useState('');
   const [sucessoMsg, setSucessoMsg] = useState('');
-  const [erroMsg, setErroMsg] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
+  const [evolucoes, setEvolucoes] = useState<EvolucaoLinha[]>(() =>
+    paciente ? listarEvolucoesRascunho(paciente.id) : []
+  );
 
-  const registros = fichasOdonto.filter((f) => f.pacienteId === pacienteId);
-
-  // Lista de referência da clínica do próprio usuário. `GET /usuarios` é gestão
-  // de usuário; a rota de estagiários é a que serve à tela clínica.
-  useEffect(() => {
-    let cancelado = false;
-    api
-      .getEstagiarios()
-      .then((lista) => {
-        if (!cancelado) setEstagiarios(lista);
-      })
-      .catch((err: unknown) => {
-        if (cancelado) return;
-        setErroEstagiarios(
-          err instanceof Error
-            ? err.message
-            : 'Não foi possível carregar a lista de estagiários.'
-        );
-      })
-      .finally(() => {
-        if (!cancelado) setCarregandoEstagiarios(false);
-      });
-    return () => {
-      cancelado = true;
-    };
-  }, []);
-
-  // O operador já vem com a matrícula do próprio aluno, mas isso é valor
-  // derivado e não estado: sincronizar por efeito disparava render em cascata
-  // (e o operador "voltava" a cada montagem).
-  const operadorEfetivo =
-    operadorMatricula ||
-    (user?.perfil === 'estagiario' ? user.matricula ?? '' : '');
-
-  const handleSalvar = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pacienteId || isSaving) return;
-
-    if (!operadorEfetivo || !auxiliarMatricula) {
-      setErroMsg('Selecione o operador e o auxiliar da dupla.');
-      return;
-    }
-    if (operadorEfetivo === auxiliarMatricula) {
-      setErroMsg('Operador e auxiliar precisam ser estagiários diferentes.');
-      return;
-    }
-
-    setIsSaving(true);
-    setErroMsg('');
-    setSucessoMsg('');
-
-    const resultado = await adicionarFichaOdonto({
-      pacienteId,
-      pacienteNome: '',
-      operadorMatricula: operadorEfetivo,
-      auxiliarMatricula,
-      denteRegiao,
-      procedimentoRealizado: procedimento,
-      materiaisUtilizados: materiais,
-      anestesico,
-    });
-
-    setIsSaving(false);
-
-    if (!resultado.success) {
-      // Falha de escrita não pode ser engolida: o formulário continua aberto
-      // com o que o estagiário digitou.
-      setErroMsg(resultado.message);
-      return;
-    }
-
-    setAuxiliarMatricula('');
-    setDenteRegiao('');
-    setProcedimento('');
-    setMateriais('');
-    setAnestesico('');
-    setShowNovo(false);
-    setSucessoMsg(
-      `Ficha #${resultado.ficha?.id} registrada e encaminhada à homologação docente.`
+  if (!paciente) {
+    return (
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-xs font-semibold text-amber-900">
+        Nenhum paciente odontológico selecionado.
+      </div>
     );
-    setTimeout(() => setSucessoMsg(''), 5000);
+  }
+
+  const abrirModal = () => {
+    setSucessoMsg('');
+    setShowNovo(true);
   };
 
-  const rotuloStatus = (status: string) =>
-    status === 'VALIDADO'
-      ? 'Visto Concedido'
-      : status === 'DEVOLVIDO_PARA_AJUSTE'
-        ? 'Devolvida para Ajuste'
-        : 'Aguardando Visto Docente';
-
-  const corStatus = (status: string) =>
-    status === 'VALIDADO'
-      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-      : status === 'DEVOLVIDO_PARA_AJUSTE'
-        ? 'bg-rose-50 text-rose-800 border-rose-200'
-        : 'bg-amber-50 text-amber-800 border-amber-200';
-
-  const corIcone = (status: string) =>
-    status === 'VALIDADO' ? 'text-emerald-600' : status === 'DEVOLVIDO_PARA_AJUSTE' ? 'text-rose-600' : 'text-amber-600';
+  const handleSalvo = () => {
+    setEvolucoes(listarEvolucoesRascunho(paciente.id));
+    setSucessoMsg('Evolução adicionada ao histórico local.');
+  };
 
   return (
     <div className="space-y-6 font-sans">
       {sucessoMsg && (
-        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold shadow-2xs flex items-center gap-2">
-          <CheckCircleIcon className="w-4 h-4 text-emerald-600" />
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-bold text-emerald-800 shadow-2xs">
+          <CheckCircleIcon className="h-4 w-4 text-emerald-600" />
           <span>{sucessoMsg}</span>
         </div>
       )}
 
-      {erroMsg && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold shadow-2xs">
-          Não foi possível registrar a ficha: {erroMsg}
-        </div>
-      )}
-
-      {/* Cabeçalho da Aba */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-            <DocumentTextIcon className="w-4 h-4 text-emerald-800" />
-            <span>Evolução Clínica Diária • Atendimento em Dupla (PDR-05)</span>
-          </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Registro formal de procedimentos, dentes/região e insumos utilizados conforme exigência do CFO
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            setShowNovo(!showNovo);
-            setErroMsg('');
-          }}
-          disabled={!pacienteId}
-          className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-2 disabled:opacity-50"
-        >
-          {showNovo ? <XMarkIcon className="w-3.5 h-3.5" /> : <PlusIcon className="w-3.5 h-3.5" />}
-          <span>{showNovo ? 'Fechar Formulário' : 'Nova Evolução'}</span>
-        </button>
-      </div>
-
-      {/* Formulário de Registro Clínico */}
-      {showNovo && pacienteId && (
-        <form onSubmit={handleSalvar} className="bg-white p-6 rounded-2xl border border-emerald-500/50 shadow-sm space-y-4 text-xs ring-1 ring-emerald-500/20">
-          <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-            <span className="font-bold text-slate-900 text-sm">Registrar Procedimento do Dia</span>
-            <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-md border border-emerald-200">
-              Dupla Obrigatória (CFO)
-            </span>
-          </div>
-
-          {erroEstagiarios && (
-            <p className="text-[11px] leading-relaxed text-rose-800 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
-              Não foi possível carregar os estagiários: {erroEstagiarios} Feche e
-              abra o formulário para tentar de novo.
-            </p>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                Operador da Dupla (PDR-05) *
-              </label>
-              <select
-                required
-                value={operadorEfetivo}
-                onChange={(e) => setOperadorMatricula(e.target.value)}
-                disabled={carregandoEstagiarios}
-                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-emerald-600 font-medium disabled:opacity-60"
-              >
-                <option value="">
-                  {carregandoEstagiarios ? 'Carregando…' : 'Selecione o operador.'}
-                </option>
-                {estagiarios.map((e) => (
-                  <option key={e.matricula} value={e.matricula}>
-                    {e.nome} - {e.matricula}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                Auxiliar da Dupla (PDR-05) *
-              </label>
-              <select
-                required
-                value={auxiliarMatricula}
-                onChange={(e) => setAuxiliarMatricula(e.target.value)}
-                disabled={carregandoEstagiarios}
-                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-emerald-600 font-medium disabled:opacity-60"
-              >
-                <option value="">
-                  {carregandoEstagiarios ? 'Carregando…' : 'Selecione o auxiliar.'}
-                </option>
-                {estagiarios
-                  .filter((e) => e.matricula !== operadorEfetivo)
-                  .map((e) => (
-                    <option key={e.matricula} value={e.matricula}>
-                      {e.nome} - {e.matricula}
-                    </option>
-                  ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                Dente / Região Anatômica *
-              </label>
-              <input
-                type="text"
-                required
-                value={denteRegiao}
-                onChange={(e) => setDenteRegiao(e.target.value)}
-                placeholder="Ex: Dente 16 ou Sextante Anterior"
-                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-emerald-600 font-medium"
-              />
-            </div>
-          </div>
-
+      <div className="space-y-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1">
-              Conduta Clínica e Procedimento Executado *
-            </label>
-            <textarea
-              required
-              rows={3}
-              value={procedimento}
-              onChange={(e) => setProcedimento(e.target.value)}
-              placeholder="Descreva o procedimento executado."
-              className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-emerald-600 font-medium"
-            />
+            <h4 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-900">
+              <DocumentTextIcon className="h-4 w-4 text-slate-900" />
+              <span>Histórico da Folha de Evolução (CLI-FOR-45)</span>
+            </h4>
+            <p className="mt-1 max-w-2xl text-[11px] leading-relaxed text-slate-500">
+              Registros salvos neste navegador (sessionStorage); ainda não são enviados
+              ao servidor.
+            </p>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                Materiais e Resinas Utilizadas *
-              </label>
-              <textarea
-                required
-                rows={2}
-                value={materiais}
-                onChange={(e) => setMateriais(e.target.value)}
-                placeholder="Ex: Resina composta A2, adesivo universal."
-                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-emerald-600 font-medium"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                Anestésico e Volume Injetado
-              </label>
-              <input
-                type="text"
-                value={anestesico}
-                onChange={(e) => setAnestesico(e.target.value)}
-                placeholder="Ex: Lidocaína 2% (infiltrativa) — ou 'sem anestesia'"
-                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-emerald-600 font-medium"
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <span className="rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-slate-900">
+              Rascunho local
+            </span>
             <button
               type="button"
-              onClick={() => setShowNovo(false)}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition-colors"
+              onClick={abrirModal}
+              className="flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-slate-800"
             >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold shadow-xs transition-colors disabled:opacity-60"
-            >
-              {isSaving ? 'Enviando…' : 'Gravar Procedimento e Enviar à Supervisora'}
+              <PlusIcon className="h-3.5 w-3.5" />
+              <span>Nova Evolução</span>
             </button>
           </div>
-        </form>
-      )}
+        </div>
 
-      {/* Linha do Tempo de Atendimentos Anteriores (RF-008) */}
-      <div className="space-y-4">
-        {sync.estado === 'sincronizando' && (
-          <p className="text-xs text-slate-500">Carregando fichas do servidor…</p>
-        )}
-
-        {sync.estado !== 'sincronizando' && registros.length === 0 && (
-          <p className="text-xs text-slate-500">
-            Nenhuma ficha registrada para este paciente no servidor.
-          </p>
-        )}
-
-        {registros.map((reg) => (
-          <div
-            key={reg.id}
-            className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-3"
-          >
-            <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-2">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-slate-900">{reg.procedimentoRealizado}</span>
-                  <span className="text-xs bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-md border border-emerald-200 font-mono">
-                    {reg.denteRegiao}
+        {evolucoes.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-6 py-10 text-center">
+            <DocumentTextIcon className="mx-auto h-8 w-8 text-slate-300" />
+            <p className="mt-2 text-sm font-bold text-slate-700">
+              Nenhuma evolução registrada
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              As linhas da Folha de Evolução aparecem aqui.
+            </p>
+          </div>
+        ) : (
+          <ol className="space-y-3">
+            {evolucoes.map((linha, indice) => (
+              <li
+                key={`${linha.data}-${indice}`}
+                className="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50/40 p-4 pl-5"
+              >
+                <span
+                  className="absolute inset-y-0 left-0 w-1 bg-slate-900"
+                  aria-hidden="true"
+                />
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <p className="text-sm font-bold text-slate-900">
+                    {linha.intervencao}
+                  </p>
+                  <span className="shrink-0 rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-xs font-bold text-slate-900">
+                    {formatarDataEvolucao(linha.data)}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 mt-1 font-mono">
-                  Atendimento em: <strong className="text-slate-700">{reg.submetidoEm}</strong> • Dupla: {reg.duplaEstagiarios}
+                <p className="mt-1 text-xs text-slate-600">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">
+                    Assinatura do docente:
+                  </span>{' '}
+                  {linha.assinaturaDocente || 'Não informada'}
                 </p>
-              </div>
-
-              <span className={`border text-xs font-bold px-2.5 py-1 rounded-xl flex items-center gap-1.5 shrink-0 ${corStatus(reg.status)}`}>
-                <ClockIcon className={`w-3.5 h-3.5 ${corIcone(reg.status)}`} />
-                <span>{rotuloStatus(reg.status)}</span>
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs bg-slate-50 p-3.5 rounded-xl border border-slate-200/60">
-              <div>
-                <span className="text-slate-400 font-bold uppercase text-[10px]">Materiais:</span>
-                <p className="text-slate-700 mt-0.5">{reg.materiaisUtilizados}</p>
-              </div>
-              <div>
-                <span className="text-slate-400 font-bold uppercase text-[10px]">Anestesia:</span>
-                <p className="text-slate-700 mt-0.5">{reg.anestesico || 'Não informado'}</p>
-              </div>
-            </div>
-
-            {reg.parecerSupervisor && (
-              <p className="text-[11px] text-slate-700 font-semibold flex items-start gap-1.5 pt-1">
-                {reg.status === 'VALIDADO' ? (
-                  <ShieldCheckIcon className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-                ) : (
-                  <CheckIcon className="w-3.5 h-3.5 text-rose-700 shrink-0" />
-                )}
-                <span>
-                  Parecer docente
-                  {reg.supervisorNome ? ` — ${reg.supervisorNome}` : ''}:{' '}
-                  {reg.parecerSupervisor}
-                </span>
-              </p>
-            )}
-          </div>
-        ))}
+              </li>
+            ))}
+          </ol>
+        )}
       </div>
+
+      {showNovo && (
+        <EvolucaoFolhaModal
+          paciente={paciente}
+          onClose={() => setShowNovo(false)}
+          onSalvo={handleSalvo}
+        />
+      )}
     </div>
   );
 }

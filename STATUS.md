@@ -110,6 +110,108 @@ trilha com `RECUPERACAO_SOLICITADA` e IP real.
   rota libera `estagiario`, `supervisor` e `rt`, e a RN-001 é normativa, com teste
   affirmando o 403. O módulo da recepção é a agenda e a triagem, não o prontuário.
 ```
+## Atualização — 2026-10-23 (CLI-FOR-45 na ficha odontológica, só frontend)
+
+**A aba "Anamnese" (formulário CLI-FOR-45) passou a ser a primeira da `/ficha-odonto`.**
+O formulário reproduz o instrumento físico em 13 seções: **Página 1** (identificação,
+história médica, história odontológica, hábitos, declaração), **Página 2** (exame
+físico, extrabucal, estomatograma, periodonto) e **Páginas 3–4**
+(exames complementares, tratamento programado, termo de autorização, folha de
+evolução). Nesta fase **não grava no servidor**: o rascunho fica em `sessionStorage`
+por paciente (`versao: 2`) e pode ser exportado em JSON. A aba antiga de
+odontograma/periograma só mudou de chave interna (`'anamnese'` → `'odontograma'`);
+o conteúdo dela está intacto.
+
+- **Exame clínico dos dentes ficou só no odontograma.** A tabela dente × descrição
+  e a legenda de siglas foram removidas da CLI-FOR-45 para não duplicar a aba
+  **Odontograma 2D & Periograma**, que já cobre o mapeamento e tem legenda própria.
+  A barra fixa de atalhos ("Página 1/2/3–4") também foi retirada.
+- **ISG e Índice de Placa foram para a aba do odontograma.** Ficam num cartão
+  próprio abaixo do periograma, junto do que é interativo. O rascunho usa a chave
+  `unicare:indices-gengivais:<pacienteId>` e, na primeira carga, migra as marcações
+  que estavam em `exameFisico.indices` do rascunho antigo da anamnese. O autosave
+  da anamnese deixou de regravar o rascunho no mount, para não apagar esses dados
+  antes da migração.
+
+- **Exame Físico com linhas dinâmicas.** A tabela de aferições (PA, FC, FR, T, Dia)
+  começa com uma linha e permite adicionar/remover, como a Folha de Evolução; sem
+  linhas, exibe um estado vazio com o botão de adicionar. Rascunhos antigos abrem
+  com as linhas extras em branco do fim aparadas.
+- **Tratamento Programado com linhas dinâmicas.** Os campos de planejamento
+  começam com uma linha e permitem adicionar/remover; sem linhas, exibem um estado
+  vazio com o botão de adicionar. O mesmo ajuste de linhas vazias do fim vale para
+  rascunhos antigos.
+- **Plano de Tratamento é espelho somente leitura do Tratamento Programado.** A aba
+  não cria nem edita procedimentos: lê `exameDental.planejamento` do rascunho da
+  CLI-FOR-45 e mostra os mesmos campos `Planejamento N`, omitindo linhas vazias e
+  preservando a numeração original. Adicionar/editar só na Anamnese; sem rascunho
+  ou sem linhas preenchidas, exibe o caminho para a seção. A tabela hierárquica e o
+  botão `Adicionar Procedimento` foram removidos; os itens derivados das fichas do
+  servidor continuam disponíveis para o painel da RT, mas não aparecem mais aqui.
+- **Referência anatômica no estomatograma.** A seção Intrabucal exibe a imagem
+  `/estomatograma.png` ao lado dos campos, com link para abrir em tamanho real. A
+  numeração dos chips é a referência de preenchimento; a imagem é ilustrativa.
+  Enquanto o arquivo não existir em `public/estomatograma.png`, um aviso no lugar
+  da imagem informa onde salvá-lo.
+- **Por que `sessionStorage` e não `localStorage`:** a ficha contém HIV, sífilis,
+  gestação e medicações. O rascunho morre com a aba do navegador, e o botão
+  **Limpar** apaga sem deixar cópia. Rascunhos da versão anterior são descartados
+  ao carregar.
+- **ISG e Índice de Placa na mesma grade.** 16 colunas × 4 linhas
+  (`18…11 | 21…28` e `48…41 | 31…38`). Cada dente é um `<svg>` com quatro faces;
+  marcar pinta de `#dc2626`, clicar no número marca o dente como ausente e limpa
+  as faces. Os dentes ausentes são **compartilhados** pelos dois índices, mas as
+  faces marcadas são independentes. A conta e o percentual são automáticos e
+  somente leitura: `faces marcadas / faces presentes × 100`, com
+  `faces presentes = 128 − 4 × dentes ausentes`; denominador zero mostra `—`.
+- **Nada de valor fixo em tela.** Nome, CPF, nascimento, idade e telefone vêm do
+  `Paciente` do `ClinicContext`; RG, endereço, CEP, UF, naturalidade e trabalho
+  ficam em branco porque não existem no cadastro — não foram inventados.
+- **Assinaturas são campos de texto** (paciente, discente e professor, com carimbo),
+  para que o conteúdo entre no JSON exportado. A folha de evolução começa com
+  uma linha e permite adicionar/remover.
+- **A aba Evolução Clínica Diária agora é a Folha de Evolução.** As fichas PDR-05
+  deixaram de ser listadas e criadas nessa aba; o histórico vem de
+  `exameDental.evolucao` do rascunho da CLI-FOR-45, com selo "Rascunho local".
+  **Nova Evolução** abre um modal (data, intervenção e assinatura do docente) que
+  acrescenta a linha ao rascunho; a linha também aparece na Folha da anamnese.
+  Nada vai ao servidor, o histórico some ao fechar a aba e excluir a linha remove
+  o registro da visualização.
+- **Convívio com o que já existe.** As aferições de sinais vitais agora ficam no
+  rascunho local da CLI-FOR-45 e aparecem na Página 2 e na aba Alertas Clínicos &
+  Alergias. O botão `Atualizar anamnese`, na aba de Alertas, continua gravando
+  alergias, condições crônicas e medicações no Postgres. As fichas PDR-05 existentes
+  continuam no backend e nas telas de supervisão/homologação, mas a criação saiu da
+  aba de evolução; novas evoluções da Folha não chegam à supervisão até a integração
+  de backend.
+- **Sinais Vitais da Sessão espelha a Página 2.** O card lê a última linha de
+  `exameFisico.afericoes` do rascunho local. A aba Alertas tem um modal próprio
+  (PA, FC, FR, T e Dia) que grava na mesma lista; a Página 2 continua editando e
+  adicionando linhas. Como as abas são exclusivas, cada uma recarrega o rascunho ao
+  montar. O modal antigo do Postgres virou `Atualizar anamnese` e cuida só de
+  alergias, condições crônicas e medicações.
+- **Arquivos novos:** `src/features/dental-record/anamnese/` (`tipos.ts`,
+  `estado.ts`, `estilos.ts`, `FormularioBase.tsx`,
+  `Pagina1IdentificacaoHistoria.tsx`, `Pagina2ExameFisico.tsx`,
+  `Pagina3DentesPlano.tsx`, `AnamneseCliFor45Tab.tsx`),
+  `src/features/dental-record/components/EvolucaoFolhaModal.tsx`,
+  `AfericaoSessaoModal.tsx`, `DentalAlertsTab.tsx` e
+  `src/features/dental-record/indices/` (`tipos.ts`, `estado.ts`,
+  `IndiceGengival.tsx`, `IndicesGengivaisCard.tsx`).
+- **Acento visual do módulo odontológico é `slate-900`.** Abas ativas, ícones,
+  badges, foco de campos, botões primários e barras estruturais usam `slate-900`.
+  Vermelho/rose fica reservado a erro, alerta e ação destrutiva (lixeiras, limpar
+  marcações e confirmação de limpeza); verde, a sucesso e status. Sidebar, login,
+  cabeçalho global e badge "Supervisão Clínica CFO" continuam fora do escopo.
+- **O bloco de Alertas Clínicos & Alergias virou aba própria.** O conteúdo que
+  ficava na coluna esquerda do Odontograma (alertas, sinais vitais e diretriz CFO)
+  saiu de lá e ganhou a aba **Alertas Clínicos & Alergias**, logo após a Anamnese.
+  O Odontograma passou a usar a largura total para odontograma, periograma e
+  índices. O botão "Registrar aferição" abre o modal local que grava na Página 2.
+- **Pendente:** model/tabela e rotas para persistir a ficha e as evoluções da
+  Folha; enquanto isso o botão de exportação é o único caminho para tirar os dados
+  do navegador, e a supervisão não recebe as linhas locais.
+
 ## Atualização — 2026-10-23 (paridade da odontologia)
 
 **A ficha odontológica passou a ter o que o prontuário psicológico já tinha.**
