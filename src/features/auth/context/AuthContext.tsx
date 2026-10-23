@@ -210,6 +210,7 @@ const updateUser = async (
       matricula: updatedData.matricula,
       registro_profissional: updatedData.registro_profissional,
       senha: updatedData.senha,
+      ativo: updatedData.ativo,
     });
     setAllUsers((prev) => ({ ...prev, [key]: mapearUsuario(atualizado) }));
     return { success: true, message: `Usuário ${atualizado.nome} atualizado.` };

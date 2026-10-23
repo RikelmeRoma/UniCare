@@ -3,16 +3,17 @@ import { AppLayout } from '../../../../components/layout/AppLayout';
 import { PsyTeacherHeader } from '../components/PsyTeacherHeader';
 import { PsySupervisionStats } from '../components/PsySupervisionStats';
 import { PsyApprovalQueue } from '../components/PsyApprovalQueue';
-import {
-  UserGroupIcon,
-  PlusIcon,
-  XMarkIcon,
-  CheckCircleIcon,
-  ShieldCheckIcon,
-  PencilSquareIcon,
-  TrashIcon,
-  MagnifyingGlassIcon,
-} from '../../../../components/icons/CorporateIcons';
+  import {
+    UserGroupIcon,
+    PlusIcon,
+    XMarkIcon,
+    CheckCircleIcon,
+    ShieldCheckIcon,
+    ArrowPathIcon,
+    PencilSquareIcon,
+    TrashIcon,
+    MagnifyingGlassIcon,
+  } from '../../../../components/icons/CorporateIcons';
 import { useAuth, type User } from '../../../auth/context/AuthContext';
 import { api, type ApiEstagiarioDisponivel } from '../../../../services/api';
 
@@ -248,6 +249,21 @@ export function PsySupervisionPage() {
     setTimeout(() => setFeedbackSuccess(''), 5000);
   };
 
+  const handleAtivarEstagiario = async (key: string) => {
+    setValidationError('');
+
+    // Reativa um estagiário desativado: PATCH /usuarios/{id} com ativo = true.
+    const resultado = await updateUser(key, { ativo: true });
+
+    if (!resultado.success) {
+      setValidationError(resultado.message);
+      return;
+    }
+
+    setFeedbackSuccess(resultado.message);
+    setTimeout(() => setFeedbackSuccess(''), 5000);
+  };
+
   return (
     <AppLayout
       title="Supervisão Docente de Psicologia (SPA)"
@@ -363,7 +379,7 @@ export function PsySupervisionPage() {
                   >
                     {intern.ativo ? 'Habilitado' : 'Desativado'}
                   </div>
-                  <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1">
                     <button
                       type="button"
                       onClick={() => handleOpenEdit(key, intern)}
@@ -372,14 +388,25 @@ export function PsySupervisionPage() {
                     >
                       <PencilSquareIcon className="w-3.5 h-3.5" />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setInternToDelete({ key, nome: intern.nome })}
-                      className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                      title="Excluir estagiário"
-                    >
-                      <TrashIcon className="w-3.5 h-3.5" />
-                    </button>
+                    {intern.ativo ? (
+                      <button
+                        type="button"
+                        onClick={() => setInternToDelete({ key, nome: intern.nome })}
+                        className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                        title="Desativar estagiário"
+                      >
+                        <TrashIcon className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleAtivarEstagiario(key)}
+                        className="p-1 text-slate-400 hover:bg-blue-100 hover:text-blue-700 rounded-md transition-colors"
+                        title="Ativar estagiário"
+                      >
+                        <ArrowPathIcon className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
