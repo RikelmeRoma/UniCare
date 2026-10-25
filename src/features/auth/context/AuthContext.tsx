@@ -120,6 +120,20 @@ const carregarUsuarios = useCallback(async () => {
   }
 }, []);
 
+// A lista de usuários era carregada só dentro do login. Depois de um F5 — ou
+// de um token renovado — o painel de gestão abria com a tabela RBAC vazia e o
+// relatório impresso saía sem a seção de usuários. A carga agora acompanha a
+// sessão restaurada do `localStorage`.
+useEffect(() => {
+  if (
+    user?.perfil === 'rt' ||
+    user?.perfil === 'coordenacao' ||
+    user?.perfil === 'supervisor'
+  ) {
+    void carregarUsuarios();
+  }
+}, [user?.perfil, carregarUsuarios]);
+
 const carregarSolicitacoes = useCallback(
     async (situacao?: 'PENDENTE' | 'APROVADA' | 'RECUSADA') => {
       try {
@@ -290,15 +304,8 @@ try {
       };
       setUser(newUser);
 
-      // RT, coordenação e supervisor administram usuários; a lista é carregada
-      // no login para as telas de gestão já nascerem com dado real.
-      if (
-        eu.perfil === 'rt' ||
-        eu.perfil === 'coordenacao' ||
-        eu.perfil === 'supervisor'
-      ) {
-        void carregarUsuarios();
-      }
+      // A lista de usuários não é carregada aqui: o `useEffect` que observa
+      // `user.perfil` faz isso também na sessão restaurada por F5.
 
       return { success: true, user: newUser };
     } catch (err: unknown) {

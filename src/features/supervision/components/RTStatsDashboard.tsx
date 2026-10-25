@@ -3,6 +3,9 @@ import { api, type RelatorioEstatisticas, type ApiLogAuditoria } from '../../../
 import { useClinic } from '../../clinic/context/ClinicContext';
 import { useAuth, type RoleType, type CourseType } from '../../auth/context/AuthContext';
 import { SolicitacoesCadastro } from './SolicitacoesCadastro';
+import { RelatorioImpressao } from '../report/RelatorioImpressao';
+import { RelatorioExecutivo } from '../report/RelatorioExecutivo';
+import { DossieCustodia } from '../report/DossieCustodia';
 import { InfoTooltip } from '../../../components/ui/InfoTooltip';
 import {
   ChartBarIcon,
@@ -35,6 +38,11 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
   const [loading, setLoading] = useState<boolean>(true);
   const [filtroLog, setFiltroLog] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'indicadores' | 'custodia' | 'auditoria' | 'usuarios'>('indicadores');
+
+  // Documento impresso aberto. `null` = fechado. O relatório não é impresso
+  // direto: primeiro abre em prévia A4, para a pessoa conferir antes de salvar
+  // o PDF — e para o navegador imprimir o documento, não a tela do painel.
+  const [relatorioAberto, setRelatorioAberto] = useState<'executivo' | 'dossie' | null>(null);
 
   // Estados de Criação e Gestão de Usuários RBAC pela RT Master
   const [showCreateUserModal, setShowCreateUserModal] = useState(false);
@@ -122,6 +130,13 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
   const gestaoLabel = isCoordenacao
     ? 'Coordenação de Psicologia'
     : 'Responsável Técnica (RT)';
+
+  // Nome sugerido do PDF. O Chrome usa `document.title` no diálogo de
+  // impressão; `RelatorioImpressao` troca o título só durante o diálogo.
+  const agoraDoRelatorio = new Date();
+  const dataDoArquivo = `${agoraDoRelatorio.getFullYear()}-${String(
+    agoraDoRelatorio.getMonth() + 1
+  ).padStart(2, '0')}-${String(agoraDoRelatorio.getDate()).padStart(2, '0')}`;
   const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
     | Record<string, number>
     | undefined;
@@ -333,7 +348,7 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => window.print()}
+            onClick={() => setRelatorioAberto('executivo')}
             className="flex items-center gap-2 px-3.5 py-2 border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 rounded-lg text-xs font-semibold transition-colors shadow-xs"
           >
             <PrinterIcon className="w-4 h-4 text-slate-500" />
@@ -709,7 +724,6 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
 
               {/* Plano de Tratamento e Odontologia */}
               {cursoPainel === 'odontologia' && (
-                <>
               <div>
                 <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                   <ClipboardDocumentCheckIcon className="w-4 h-4 text-slate-600" />
@@ -744,8 +758,12 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
                   </table>
                 </div>
               </div>
+              )}
 
-              {/* Carimbo de Custódia e Termo de Guarda */}
+              {/* Carimbo de Custódia e Termo de Guarda.
+                  Fora do bloco de odontologia: a psicologia também responde
+                  pela guarda de 20 anos, e sem isso a aba Custódia dela ficava
+                  sem nenhum botão para exportar o dossiê. */}
               <div className="p-4 bg-white rounded-lg border border-indigo-200 flex flex-col md:flex-row justify-between items-center gap-4 text-xs">
                 <div>
                   <p className="font-bold text-slate-900 flex items-center gap-1.5">
@@ -754,14 +772,12 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
                   </p>
                 </div>
                 <button
-                  onClick={() => window.print()}
+                  onClick={() => setRelatorioAberto('dossie')}
                   className="px-4 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg font-bold text-xs shadow-xs transition-colors shrink-0"
                 >
                   Exportar Dossiê Oficial em PDF
                 </button>
               </div>
-                </>
-              )}
             </div>
           )}
         </div>
@@ -1394,6 +1410,55 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Documentos impressos.
+          O portal vive em `document.body`, fora do `#root` — é isso que faz o
+          navegador imprimir o papel A4 e não a tela do painel (ver
+          `report/relatorio.css`). */}
+      {relatorioAberto === 'executivo' && (
+        <RelatorioImpressao
+          titulo="Relatório Executivo de Gestão"
+          nomeArquivo={`UniCare-Relatorio-Executivo-${dataDoArquivo}`}
+          onClose={() => setRelatorioAberto(null)}
+        >
+          <RelatorioExecutivo
+            modo={modo}
+            usuario={user}
+            stats={stats}
+            logs={logs}
+            usuarios={Object.values(allUsers || {})}
+            pacientes={pacientes}
+            agendamentos={agendamentos}
+            evolucoes={evolucoesPsico}
+            cursoPainel={cursoPainel}
+            gestaoLabel={gestaoLabel}
+            isPainelPsicologia={isPainelPsicologia}
+            resumo={{
+              totalPacientes,
+              totalAgendamentos,
+              taxaComparecimento,
+              taxaAbsenteismo,
+            }}
+          />
+        </RelatorioImpressao>
+      )}
+
+      {relatorioAberto === 'dossie' && pacienteSelecionadoCustodia && (
+        <RelatorioImpressao
+          titulo={`Dossiê de Custódia — ${pacienteSelecionadoCustodia.nome}`}
+          nomeArquivo={`UniCare-Dossie-Custodia-${pacienteSelecionadoCustodia.id}-${dataDoArquivo}`}
+          onClose={() => setRelatorioAberto(null)}
+        >
+          <DossieCustodia
+            paciente={pacienteSelecionadoCustodia}
+            evolucoes={evolucoesDoPaciente}
+            planos={planosTratamento}
+            cursoPainel={cursoPainel}
+            gestaoLabel={gestaoLabel}
+            usuario={user}
+          />
+        </RelatorioImpressao>
       )}
     </div>
   );
