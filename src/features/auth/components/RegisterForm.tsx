@@ -1,11 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type SolicitacaoEnviada } from '../../../services/api';
 import {
   BuildingOfficeIcon,
   UserGroupIcon,
   ShieldCheckIcon,
-  ExclamationTriangleIcon,
   CheckCircleIcon,
 } from '../../../components/icons/CorporateIcons';
 
@@ -17,8 +16,9 @@ import {
  * - **Envia de verdade.** A versão anterior tinha `alert('Solicitação
  *   credenciamento enviada')` e nenhuma chamada de API. Agora vai para
  *   `POST /solicitacoes-cadastro/`.
- * - **Sem campo de senha.** A senha é definida pela gestão no ato de aprovar.
- *   Guardar credencial de quem nem tem conta, em tabela alcançável por
+ * - **Sem campo de senha.** Na psicologia o servidor gera a senha inicial no
+ *   ato da aprovação e a envia ao e-mail informado; na odontologia a RT a
+ *   define. Guardar credencial de quem nem tem conta, em tabela alcançável por
  *   qualquer chamada anônima, não é uma superfície que vale abrir.
  * - **Sai o "Mínimo 8 caracteres" e o badge "Forte" fixo.** A regra real é 6, no
  *   servidor, e nada aqui valida força de senha — o badge aparecia em cima de um
@@ -30,7 +30,11 @@ import {
  */
 export function RegisterForm() {
   const [nome, setNome] = useState('');
-  const [email, setEmail] = useState('');
+  // `null` = o campo ainda não foi editado; aí vale a sugestão derivada da
+  // matrícula. Guardar `string | null` em vez de sincronizar com `useEffect`
+  // evita reescrever o que a pessoa digitou e permite limpar o campo sem que
+  // ele se preencha sozinho de novo.
+  const [emailManual, setEmailManual] = useState<string | null>(null);
   const [matricula, setMatricula] = useState('');
   const [telefone, setTelefone] = useState('');
   const [curso, setCurso] = useState<'psicologia' | 'odontologia'>('psicologia');
@@ -42,30 +46,19 @@ export function RegisterForm() {
   const [erroMsg, setErroMsg] = useState('');
   const [protocolo, setProtocolo] = useState<SolicitacaoEnviada | null>(null);
 
-  const emailInstitucional =
-    email.trim().toLowerCase().endsWith('@uninassau.edu.br') ||
-    email.trim().toLowerCase().endsWith('@prof.uninassau.edu.br') ||
-    email.trim().toLowerCase().endsWith('@sempreuninassau.com.br');
-  const emailPreenchido = email.trim().length > 0;
-
   // Domínio institucional esperado para o perfil solicitado:
   // estagiário usa @sempreuninassau.com.br, os demais usam @prof.uninassau.edu.br.
+  // É só uma sugestão: com `PERMITIR_EMAILS_EXTERNOS` ligado, o servidor aceita
+  // qualquer endereço, e a pessoa pode sobrescrever este valor.
   const dominioEsperado = perfil === 'estagiario' ? '@sempreuninassau.com.br' : '@prof.uninassau.edu.br';
-  const emailEsperado = `${matricula.trim()}${dominioEsperado}`;
-
-  // Auto-preenche o e-mail institucional a partir da matrícula + perfil.
-  useEffect(() => {
-    const m = matricula.trim();
-    if (m.length >= 2 && !emailPreenchido) {
-      setEmail(emailEsperado);
-    }
-  }, [matricula, perfil, emailPreenchido]);
+  const emailSugerido = matricula.trim().length >= 2 ? `${matricula.trim()}${dominioEsperado}` : '';
+  const email = emailManual ?? emailSugerido;
+  const emailPreenchido = email.trim().length > 0;
 
   const podeEnviar =
     nome.trim().length >= 3 &&
     matricula.trim().length >= 2 &&
     emailPreenchido &&
-    emailInstitucional &&
     sigilo &&
     auditoria &&
     !isSaving;
@@ -92,7 +85,7 @@ export function RegisterForm() {
       });
       setProtocolo(res);
       setNome('');
-      setEmail('');
+      setEmailManual(null);
       setMatricula('');
       setTelefone('');
       setSigilo(false);
@@ -118,8 +111,8 @@ export function RegisterForm() {
         <h1 className="text-xl font-bold text-slate-900 tracking-tight">Pedido registrado</h1>
         <p className="text-xs text-slate-600 mt-2 leading-relaxed">
           Seu pedido entrou na fila da gestão da clínica e será analisado.
-          A conta só é criada <strong>quando a gestão autorizar</strong> — e é a
-          gestão que define a senha inicial.
+          A conta só é criada <strong>quando a gestão autorizar</strong> — e a
+          senha inicial é enviada ao e-mail informado.
         </p>
 
         {/* Sem canal de e-mail, o número do protocolo é a única forma de a
@@ -161,8 +154,9 @@ export function RegisterForm() {
           Pedir acesso ao UniCare
         </h1>
         <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-          Preencha o pedido e aguarde a autorização da Referência Técnica da clínica.
-          Nenhuma conta é criada sem essa aprovação.
+          Preencha o pedido e aguarde a autorização da gestão da clínica
+          (Referência Técnica ou coordenação). Nenhuma conta é criada sem essa
+          aprovação.
         </p>
       </div>
 
@@ -216,28 +210,21 @@ export function RegisterForm() {
 
             <div>
               <label className={rotulo} htmlFor="solic-email">
-                E-mail institucional {obrigatorio}
+                E-mail para receber a senha {obrigatorio}
               </label>
               <input
                 id="solic-email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="matricula@prof.uninassau.edu.br ou matricula@sempreuninassau.com.br"
-                className={`${campo} ${
-                  emailPreenchido && !emailInstitucional
-                    ? 'border-amber-400 bg-amber-50/40'
-                    : ''
-                }`}
+                onChange={(e) => setEmailManual(e.target.value)}
+                placeholder="voce@exemplo.com"
+                className={campo}
                 required
               />
-              {emailPreenchido && !emailInstitucional && (
-                  <p className="text-[10px] text-amber-700 font-semibold mt-1 flex items-center gap-1">
-                  <ExclamationTriangleIcon className="w-3 h-3" />
-                  O servidor só aceita e-mail institucional para este perfil:
-                  <strong>{dominioEsperado}</strong>.
-                </p>
-              )}
+              <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
+                É para este endereço que a senha inicial será enviada quando a
+                gestão aprovar. Use um e-mail que você acessa.
+              </p>
             </div>
           </div>
         </section>

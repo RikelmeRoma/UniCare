@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 from app.main import app
+from app.config import settings
 import pytest
 
 client = TestClient(app)
@@ -1394,8 +1395,15 @@ def _pedido(empresa: str, **extra):
     return base
 
 
-def test_solicitacao_exige_email_institucional():
-    """A rota é pública: sem filtro de domínio, qualquer um criaria linha na fila"""
+def test_solicitacao_exige_email_institucional(monkeypatch):
+    """A rota é pública: sem filtro de domínio, qualquer um criaria linha na fila
+
+    O estado é fixado aqui porque o `.env` local pode estar com
+    `PERMITIR_EMAILS_EXTERNOS=true` para o teste manual com Gmail. Teste que lê
+    a flag do ambiente passa isolado e falha na máquina de quem abriu a exceção.
+    """
+    monkeypatch.setattr(settings, "PERMITIR_EMAILS_EXTERNOS", False)
+
     ok = client.post("/api/v1/solicitacoes-cadastro/",
                      json=_pedido("beatriz.lima@prof.uninassau.edu.br"))
     assert ok.status_code == 201
@@ -1406,6 +1414,44 @@ def test_solicitacao_exige_email_institucional():
         res = client.post("/api/v1/solicitacoes-cadastro/",
                           json=_pedido(dominio, matricula="17099999"))
         assert res.status_code == 422, f"{dominio} não é institucional"
+
+
+def test_solicitacao_aceita_email_externo_quando_flag_ligada(monkeypatch):
+    """Ligada, a fila aceita o e-mail que a pessoa realmente acessa.
+
+    É o caso do Gmail: sem caixa institucional, a senha inicial não teria para
+    onde ir. O gate continua sendo a aprovação da gestão — nada é criado aqui.
+    """
+    monkeypatch.setattr(settings, "PERMITIR_EMAILS_EXTERNOS", True)
+
+    email = "beatriz.lima.unicare@gmail.com"
+    res = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
+        email, matricula="17129999"))
+    assert res.status_code == 201, res.text
+    assert res.json()["email"] == email
+    assert res.json()["situacao"] == "PENDENTE"
+
+
+def test_aprovacao_de_pedido_com_gmail_envia_para_o_email_do_pedido(monkeypatch):
+    """O destinatário é o e-mail digitado, não a gestão nem o remetente."""
+    monkeypatch.setattr(settings, "PERMITIR_EMAILS_EXTERNOS", True)
+    envio = _EnvioAprovacao()
+    monkeypatch.setattr("app.routers.solicitacoes.email_service", envio)
+
+    email = "candidata.unicare@gmail.com"
+    criada = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
+        email, matricula="17129998"))
+    assert criada.status_code == 201, criada.text
+
+    psi = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
+    res = client.post(
+        f"/api/v1/solicitacoes-cadastro/{criada.json()['id']}/aprovar",
+        json={"perfil": "estagiario"},
+        headers=psi,
+    )
+    assert res.status_code == 200, res.text
+    assert envio.enviados[-1][0] == email
+    assert envio.senha_do_ultimo() in envio.enviados[-1][2]
 
 
 def test_solicitacao_publica_nao_revela_conta_existente():

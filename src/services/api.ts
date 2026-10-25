@@ -284,7 +284,22 @@ class ApiService {
       try {
         const data = await response.json();
         if (data.detail) {
-          errorDetail = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+          if (typeof data.detail === 'string') {
+            errorDetail = data.detail;
+          } else if (Array.isArray(data.detail)) {
+            // 422 do Pydantic: lista de `{ msg, loc }`. Mostrar o JSON cru na
+            // tela esconde a frase que o validador escreveu para a pessoa ler.
+            const mensagens = data.detail
+              .map((item: { msg?: unknown }) =>
+                typeof item?.msg === 'string' ? item.msg : '')
+              .filter(Boolean)
+              .map((msg: string) => msg.replace(/^Value error,\s*/, ''));
+            errorDetail = mensagens.length > 0
+              ? mensagens.join(' ')
+              : JSON.stringify(data.detail);
+          } else {
+            errorDetail = JSON.stringify(data.detail);
+          }
         }
       } catch {
         errorDetail = `Erro HTTP ${response.status}: ${response.statusText}`;

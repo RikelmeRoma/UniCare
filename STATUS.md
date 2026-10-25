@@ -1,5 +1,46 @@
 # STATUS — UniCare
 
+## Atualização — 2026-10-24 (incidente de credenciais e e-mail externo no cadastro)
+
+**O `backend/.env` estava versionado num repositório público.** O commit `37f0a38`
+levou ao GitHub a senha de app do Gmail, a `SECRET_KEY` que assina os JWT e a
+senha do Postgres. O `.gitignore` já tinha `.env`, mas isso não protege arquivo
+rastreado — e `git check-ignore` sem `--no-index` não acusa.
+
+- A senha de app foi **revogada e trocada** no console do Google; a nova ficou só
+  no `.env` local.
+- A `SECRET_KEY` foi **rotacionada** (64 caracteres). Os tokens emitidos antes
+  deixaram de valer — é esperado que todos precisem logar de novo.
+- `git rm --cached backend/.env` + commit isolado `cd7e0db`: o arquivo continua
+  no disco, sai do índice, e o `.gitignore` passa a valer.
+- A senha de app real era usada como “exemplo” em quatro lugares —
+  `.env.example`, `backend/README.md`, o docstring de `config.py` e este
+  `STATUS.md`. Todos passaram a mostrar `abcd efgh ijkl mnop`.
+- **O histórico não foi reescrito** (decisão explícita). O valor antigo continua
+  visível no GitHub, mas está revogado; reescrever exigiria force-push e
+  coordenação com o fork.
+- O handshake real foi provado com `scripts/verificar_smtp.py`: conexão,
+  STARTTLS, autenticação e envio aceitos pelo `smtp.gmail.com:587`.
+
+**E-mail externo no pedido de credencial.** `PERMITIR_EMAILS_EXTERNOS` (padrão
+`false`) libera o `/cadastro` para qualquer endereço válido. Ligada, a senha
+inicial sai para o e-mail que a pessoa digitou — o caso do Gmail sem caixa
+institucional. A aprovação da RT/coordenação continua sendo o gate.
+
+- O validator de `SolicitacaoCreate` consulta a flag; fechada, mantém os três
+  domínios institucionais.
+- `RegisterForm` deixou de bloquear o envio por domínio. O auto-preenchimento
+  `matricula@dominio` virou sugestão derivada (`emailManual ?? sugestao`), sem
+  `useEffect`: sobrescrever e limpar o campo funcionam, e o lint perdeu um erro.
+- `api.ts` extrai o `msg` legível dos 422 do Pydantic em vez de mostrar o JSON
+  cru na tela.
+- Testes: os dois estados da flag são fixados com `monkeypatch` (o `.env` local
+  pode estar `true`); novo caso prova que o e-mail de aprovação sai para o
+  endereço do pedido.
+- **Verificado:** `pytest` **119 passed**, 1 deselected; `npm run build` verde;
+  `npm run lint` com **10 erros** preexistentes (era 12 problemas);
+  `alembic check` limpo; `git ls-files backend/.env` vazio.
+
 ## Atualização — 2026-10-24 (senha inicial automática na aprovação de psicologia)
 
 **A RT e a coordenação de psicologia não escolhem a senha inicial.** Ao aprovar
@@ -120,7 +161,7 @@ que faltava era o **handshake**: nenhuma mensagem real tinha saído, porque o
 
 - **A causa do `535 5.7.3` anterior era o formato da senha, não a credencial.**
   A senha de app do Google aparece em quatro grupos de quatro
-  (`raxa oyuh rppn soet`), mas o segredo são os **16 caracteres colados** — o
+  (`abcd efgh ijkl mnop`), mas o segredo são os **16 caracteres colados** — o
   servidor recusa com 535 quando os espaços vão junto. `settings.mail_senha`
   normaliza essa forma colada (só a compacta de 16 caracteres; uma senha
   institucional com espaço no meio continua sendo usada como é), e o `.env`

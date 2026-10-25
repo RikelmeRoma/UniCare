@@ -281,8 +281,27 @@ confira comprimento e o teste de espaços nas pontas; o hex dos bytes revela a s
 na própria sessão, e ela fica no histórico da conversa.
 
 **`password_hash` do SMTP só entra do `.env`.** Está no `.gitignore` **e** no
-`.dockerignore`, e nenhum commit toca `backend/.env`. Confirme com `git
-check-ignore -v backend/.env` antes de colar qualquer credencial real.
+`.dockerignore`, e nenhum commit toca `backend/.env`.
+
+**`.gitignore` não protege arquivo já rastreado.** O `backend/.env` esteve no
+índice e foi publicado no repositório público com a senha de app do Gmail, a
+`SECRET_KEY` e a senha do Postgres. `git check-ignore -v backend/.env` **não
+acusa** arquivo rastreado (só com `--no-index`), então a checagem que vale é
+`git ls-files backend/.env` — saída vazia é o esperado. Depois de um vazamento,
+rotacionar é obrigatório: remover do índice não invalida o valor que ficou no
+histórico.
+
+**Nunca use a senha de app real como exemplo em comentário ou documentação.**
+Ela estava no `.env.example`, no `README.md`, no docstring do `config.py` e no
+`STATUS.md` como "exemplo" de quatro grupos — e era a credencial de verdade.
+Exemplo é `abcd efgh ijkl mnop`.
+
+**`PERMITIR_EMAILS_EXTERNOS` é `false` por padrão, e teste não pode ler a flag
+do ambiente.** O `.env` local pode estar com `true` para o teste manual com
+Gmail; um teste que depende disso passa isolado e falha em outra máquina. Fixe
+os dois estados com `monkeypatch.setattr(settings, "PERMITIR_EMAILS_EXTERNOS",
+True/False)`. Ligar a flag abre a rota pública para qualquer endereço — a
+aprovação da gestão continua sendo o gate, mas a fila vira alvo de spam.
 
 **`EmailStr` exige `email-validator`.** O pydantic importa o pacote sob demanda;
 sem ele no `requirements.txt`, a aplicação inteira quebra na importação, mesmo

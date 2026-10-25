@@ -3,11 +3,14 @@ from typing import Optional
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
+from app.config import settings
 from app.models.solicitacao import SituacaoSolicitacao
 from app.models.usuario import PerfilUsuario
 
-# Só o domínio institucional entra. A rota é pública e sem autenticação: sem
-# esse filtro, qualquer pessoa da internet criaria linhas na fila da gestão.
+# Só o domínio institucional entra por padrão. A rota é pública e sem
+# autenticação: sem esse filtro, qualquer pessoa da internet criaria linhas na
+# fila da gestão. `PERMITIR_EMAILS_EXTERNOS` abre a exceção por ambiente (ver
+# `app/config.py`) — a aprovação humana continua sendo o gate de verdade.
 DOMINIOS_INSTITUCIONAIS = (
     "@uninassau.edu.br",
     "@prof.uninassau.edu.br",
@@ -23,9 +26,10 @@ def _e_institucional(email: str) -> bool:
 class SolicitacaoCreate(BaseModel):
     """Pedido de credencial. Rota pública, sem token.
 
-    Não há campo de senha: a senha é definida pela gestão no ato de aprovar.
-    Guardar credencial de quem nem tem conta, em tabela alcançável por
-    qualquer chamada anônima, não é uma superfície que vale a pena abrir.
+    Não há campo de senha: na psicologia o servidor gera a senha inicial no ato
+    da aprovação, e na odontologia a RT a define. Guardar credencial de quem nem
+    tem conta, em tabela alcançável por qualquer chamada anônima, não é uma
+    superfície que vale a pena abrir.
     """
     nome: str = Field(min_length=3, max_length=200)
     email: EmailStr
@@ -38,13 +42,14 @@ class SolicitacaoCreate(BaseModel):
 
     @field_validator("email")
     @classmethod
-    def exigir_email_institucional(cls, v: str) -> str:
-        if not _e_institucional(v):
+    def validar_email(cls, v: str) -> str:
+        normalizado = v.strip().lower()
+        if not settings.PERMITIR_EMAILS_EXTERNOS and not _e_institucional(normalizado):
             raise ValueError(
                 "O pedido de credencial exige e-mail institucional "
                 "(@uninassau.edu.br, @prof.uninassau.edu.br ou @sempreuninassau.com.br)."
             )
-        return v.strip().lower()
+        return normalizado
 
     @field_validator("curso_declarado")
     @classmethod

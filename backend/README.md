@@ -117,7 +117,7 @@ execução, garantindo estado limpo. O banco é criado automaticamente pelo scri
 
 ---
 
-## 📧 Envio de e-mail (recuperação de senha)
+## 📧 Envio de e-mail (recuperação de senha e senha inicial de credencial)
 
 A recuperação de senha só funciona se o e-mail sair. Sem SMTP configurado, a
 rota `POST /auth/senha/recuperar/solicitar` responde **503** e a tela orienta
@@ -136,13 +136,22 @@ procurar a coordenação — ela não finge que enviou.
 
 **A senha é de *app*, não da conta.** No Gmail: *Conta do Google → Segurança →
 Verificação em duas etapas → Senhas de app*. O Google mostra a senha em quatro
-grupos de quatro (`raxa oyuh rppn soet`), mas o segredo são os **16 caracteres
+grupos de quatro (`abcd efgh ijkl mnop`), mas o segredo são os **16 caracteres
 colados** — com os espaços ou com a senha da conta, o servidor responde `535`
 e o e-mail não sai. O código também normaliza essa forma colada, mas o `.env`
 é o lugar certo para os 16 caracteres.
 
 `MAIL_FROM` vazio é de propósito: Gmail e Yahoo exigem que o `From:` seja a
 conta autenticada, e um remetente diferente é reescrito ou recusado.
+
+### E-mail externo no pedido de credencial
+
+O `/cadastro` é público e, por padrão, só aceita os três domínios
+institucionais (`@uninassau.edu.br`, `@prof.uninassau.edu.br` e
+`@sempreuninassau.com.br`). Com `PERMITIR_EMAILS_EXTERNOS=true`, qualquer
+endereço válido entra na fila — é o que permite enviar a senha inicial para um
+Gmail quando a pessoa não tem caixa institucional. A aprovação da RT ou da
+coordenação continua sendo o gate: nada é criado sem ela.
 
 ### Diagnosticar antes de acreditar
 

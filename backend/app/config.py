@@ -60,6 +60,18 @@ class Settings(BaseSettings):
     # segurar a conexão do usuário por um SMTP travado.
     MAIL_TIMEOUT_SEGUNDOS: int = 10
 
+    # --- Política de e-mail do pedido de credencial ---
+    #
+    # O `/cadastro` é público e sem token. Com esta flag desligada (o padrão),
+    # só os três domínios institucionais entram na fila; ligada, qualquer
+    # endereço válido entra — o que é necessário quando a instituição não tem
+    # caixa em todos os domínios, mas transforma a fila em alvo de spam. A
+    # aprovação humana continua sendo o gate: nada é criado sem a gestão.
+    #
+    # O padrão é fechado de propósito. Para abrir, é mudança de `.env`, não de
+    # código — e a decisão fica registrada no ambiente, não escondida na tela.
+    PERMITIR_EMAILS_EXTERNOS: bool = False
+
     # Validade do token de recuperação. Curto por princípio: um código de
     # recuperação é um segredo de uso único, não uma credencial de sessão.
     TOKEN_RECUPERACAO_MINUTOS: int = 15
@@ -91,7 +103,7 @@ class Settings(BaseSettings):
         """Senha do SMTP sem os espaços que a tela do Google mostra.
 
         A senha de app do Google aparece em quatro grupos de quatro
-        ("raxa oyuh rppn soet"), mas o segredo são os 16 caracteres sem
+        ("abcd efgh ijkl mnop"), mas o segredo são os 16 caracteres sem
         espaço — e o servidor recusa com 535 quando os espaços vão junto.
         Só a forma compacta de 16 caracteres é normalizada: uma senha
         institucional que tenha espaço no meio continua sendo usada como é.
