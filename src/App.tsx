@@ -21,6 +21,7 @@ import { PsyReceptionDashboard } from './features/psychology/reception/pages/Psy
 import { PsyRecordPage } from './features/psychology/record/pages/PsyRecordPage';
 import { PsyAppointmentsPage } from './features/psychology/appointments/pages/PsyAppointmentsPage';
 import { PsySupervisionPage } from './features/psychology/supervision/pages/PsySupervisionPage';
+import { CoordinationManagementPage } from './features/coordination/pages/CoordinationManagementPage';
 
 export default function App() {
   return (
@@ -71,7 +72,7 @@ export default function App() {
             <Route
               path="/psi/recepcao"
               element={
-                <ProtectedRoute allowedRoles={['recepcao', 'rt']} allowedCourses={['psicologia']}>
+                <ProtectedRoute allowedRoles={['recepcao', 'rt', 'coordenacao']} allowedCourses={['psicologia']}>
                   <PsyReceptionDashboard />
                 </ProtectedRoute>
               }
@@ -89,11 +90,13 @@ export default function App() {
               }
             />
 
-            {/* Prontuário Psicológico (Estagiário Psico, Supervisor e RT - Recepção estritamente bloqueada RN-001) */}
+            {/* Prontuário Psicológico (consulta para estagiário, supervisor, RT e
+                coordenação; a escrita é exclusiva do estagiário - recepção
+                estritamente bloqueada pela RN-001) */}
             <Route
               path="/psi/prontuario"
               element={
-                <ProtectedRoute allowedRoles={['estagiario', 'supervisor', 'rt']} allowedCourses={['psicologia']}>
+                <ProtectedRoute allowedRoles={['estagiario', 'supervisor', 'rt', 'coordenacao']} allowedCourses={['psicologia']}>
                   <PsyRecordPage />
                 </ProtectedRoute>
               }
@@ -103,8 +106,19 @@ export default function App() {
             <Route
               path="/psi/supervisao"
               element={
-                <ProtectedRoute allowedRoles={['supervisor', 'rt']} allowedCourses={['psicologia']}>
+                <ProtectedRoute allowedRoles={['supervisor', 'rt', 'coordenacao']} allowedCourses={['psicologia']}>
                   <PsySupervisionPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Painel da Coordenação de Psicologia. Mesma governança da RT,
+                restrita à clínica de psicologia. */}
+            <Route
+              path="/psi/coordenacao"
+              element={
+                <ProtectedRoute allowedRoles={['coordenacao', 'rt']} allowedCourses={['psicologia']}>
+                  <CoordinationManagementPage />
                 </ProtectedRoute>
               }
             />

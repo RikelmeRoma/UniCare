@@ -1,7 +1,115 @@
 # STATUS — UniCare
-```
-npm run lint     → 10 erros preexistentes (o "11" desta linha estava desatualizado:
-                    o commit d7716d5 removeu um deles; nenhum erro novo)
+
+## Atualização — 2026-10-24 (senha inicial automática na aprovação de psicologia)
+
+**A RT e a coordenação de psicologia não escolhem a senha inicial.** Ao aprovar
+um pedido de credencial, o servidor gera uma senha aleatória e a envia por
+e-mail; a tela não tem mais campo de senha. A RT de odontologia continua
+definindo a senha como antes.
+
+- `gerar_senha_inicial()` em `crypto_service`: 12 caracteres com `secrets`,
+  garantindo maiúscula, minúscula, dígito e símbolo. Nada de `random`.
+- `AprovacaoSolicitacao.senha` passou a ser opcional no schema. A
+  obrigatoriedade depende de quem aprova e é resolvida na rota, que conhece o
+  token: psicologia gera, odontologia exige.
+- Em `POST /solicitacoes-cadastro/{id}/aprovar`, a senha é resolvida **depois**
+  de `_pode_gerenciar` e **antes** do e-mail. Assim o 403 de alçada continua
+  vencendo (a coordenação não decide pedido de RT) e uma senha enviada por
+  gestor de psicologia recebe **422** sem disparar mensagem nem criar conta.
+- A tela `SolicitacoesCadastro` substitui o campo por um aviso: “gerada
+  automaticamente e enviada por e-mail”. O botão “Gerar senha” e o olho só
+  existem no ramo da odontologia.
+- A mensagem de 503 quando o SMTP falha deixou de dizer “comunique a senha por
+  outro canal”: a conta não foi criada e, na psicologia, nem a gestão conhece a
+  senha. Agora orienta a tentar de novo.
+- Testes: `_EnvioAprovacao` guarda o corpo do e-mail e expõe
+  `senha_do_ultimo()`; os testes de aprovação de psicologia passaram a fazer
+  login com a senha gerada. Novos casos cobrem RT e coordenação enviando senha
+  (422), senhas diferentes por aprovação e odontologia ainda definindo a senha.
+- O teste de auditoria passou a filtrar pelo `registro_id` da aprovação criada
+  nele. Antes ele exigia “nenhuma aprovação na trilha de odontologia”, o que
+  quebrava assim que outro teste aprovava um pedido legítimo naquela clínica.
+- **Verificado:** `pytest` **117 passed**, 1 deselected; `npm run build` verde;
+  `npm run lint` com os 12 problemas preexistentes (11 erros, 1 warning);
+  `alembic check` limpo (sem migração nova).
+
+## Atualização — 2026-10-24 (motivo da falta na recepção de psicologia)
+
+**O motivo da falta é opcional e é do agendamento, não da observação logística.**
+Quando a recepção de psicologia registra `FALTOU`, o botão abre um modal com
+textarea; o texto fica em `agendamentos.motivo_falta` e aparece para o estagiário
+em “Meus Agendamentos”.
+
+- Campo `motivo_falta` (`VARCHAR(500)`, nullable) e migração `e9750b3073ed`
+  (revisão anterior `fed886164882`). O motivo só existe enquanto o status é
+  `FALTOU`: enviá-lo com outro status responde **422**, e sair de `FALTOU` limpa
+  o campo no servidor.
+- Texto em branco é normalizado para `NULL` no backend — falta sem justificativa
+  continua sendo falta e não grava string vazia.
+- `PATCH /agendamentos/{id}/status` aceita `motivo_falta` e mantém a conferência
+  de clínica: recepção, RT e coordenação de psicologia passam; odontologia
+  recebe 403 ao tentar escrever em agendamento de psicologia.
+- No frontend, `RegistrarFaltaModal` é habilitado por
+  `AppointmentTable.permitirMotivoFalta`, ligado apenas em
+  `PsyReceptionDashboard` — a mesma tela de recepção, RT e coordenação. A
+  recepção de odontologia continua marcando falta direto, sem modal.
+- `atualizarStatusAgendamento` passou a ser assíncrona e devolve
+  `{ success, message }`: falha de escrita faz rollback do status/motivo e aparece
+  em banner na tabela, em vez de sumir num `console.warn`.
+- `motivo_falta` é **separado** de `observacao_logistica`: a nota logística
+  existente na sessão não é sobrescrita pela justificativa da ausência.
+- **Verificado:** `pytest` **113 passed**, 1 deselected; `npm run build` verde;
+  `npm run lint` com os 12 problemas preexistentes (11 erros, 1 warning);
+  `alembic check` limpo; head `e9750b3073ed`.
+
+## Atualização — 2026-10-23 (coordenação de psicologia)
+
+**Perfil próprio `coordenacao`, escopado à psicologia.** A coordenação tem a
+governança operacional da clínica, mas não gerencia RT nem outra coordenação.
+
+- `PerfilUsuario.COORDENACAO` no enum `perfilusuario`; migração
+  `443963bc61cb` (upgrade `ALTER TYPE ... ADD VALUE`; downgrade recria o tipo e
+  converte linhas de coordenação para RT, para o `downgrade base` do conftest).
+- Seed `COORD-001` (`coordenacao.psi@uninassau.edu.br`, senha `unicare123`).
+  `seed_usuarios` é idempotente: em banco já populado, a conta precisa ser
+  criada pela RT-002 (`POST /api/v1/usuarios`, perfil `coordenacao`) ou por reseed.
+- Login e destino pós-login levam a `/psi/coordenacao`; a rota libera
+  `coordenacao` e `rt` na psicologia. Sidebar e breadcrumb têm identidade própria.
+- A coordenação vê a clínica inteira, aprova pedidos operacionais
+  (supervisor/estagiário/recepção) e vincula supervisor. Aprovar/recusar pedido
+  de RT ou coordenação continua sendo ato exclusivo da RT — a guarda de perfil
+  final roda **antes** do envio do e-mail de senha.
+- `PsySupervisionPage` trata RT e coordenação como `isGestor`; o painel
+  `RTStatsDashboard` recebe `modo="coordenacao"` e esconde edição/exclusão de
+  RT, coordenação e da própria conta. A coordenação homologa prontuários de
+  psicologia como a RT (`autorizado_homologacao_psico`).
+- Sem odontologia: o bypass de `exigir_perfil` não substitui `require_curso`, e
+  a RT de odontologia recebe 400 ao tentar criar coordenação (perfil exclusivo
+  da psicologia).
+- Escrita de evolução psi é exclusiva do estagiário. Supervisor, RT e coordenação
+  consultam a linha do tempo em `/psi/prontuario`; `POST /prontuarios/psico`
+  recusa esses perfis com 403, e a homologação via `PATCH` continua com eles.
+
+**Verificado:** `pytest` **106 passed**, 1 deselected (rede); `npm run build`
+verde; `npm run lint` com os 12 problemas preexistentes (11 erros, 1 warning);
+`alembic check` limpo; head `443963bc61cb`.
+
+### Cadastro de paciente da psicologia — endereço e CPF
+
+- O `NewPatientModal` mostra `Endereço`, `Número` e `Complemento` apenas quando
+  `defaultCurso='psicologia'`; endereço e número são obrigatórios, complemento é
+  opcional.
+- No CPF de psicologia, o campo aceita somente 11 dígitos e aplica a máscara
+  `000.000.000-00` durante a digitação; o backend valida o tamanho e normaliza o
+  valor antes de gravar.
+- `pacientes` ganhou `endereco`, `numero` e `complemento` (migração
+  `fed886164882`, colunas nullable para legado e odontologia).
+- Odontologia mantém o contrato anterior. Como `ambos` também nasce na recepção
+  de odontologia, o servidor exige endereço apenas para `curso='psicologia'`; o
+  formulário de psicologia exige também para `ambos`.
+- **Verificado:** `pytest` **107 passed**, 1 deselected; `npm run build` verde;
+  `npm run lint` com os 12 problemas preexistentes; `alembic check` limpo; head
+  `fed886164882`.
 
 ### ✉️ E-mail do Bloco 14 — o envio real passou
 
@@ -246,9 +354,10 @@ estagiario responsavel, e o aluno so escreve de paciente ativo em seu nome.
 - **Bloqueia nos dois sentidos.** Paciente de outro estagiario e paciente sem
   ninguem dao 403. O segundo e deliberado: abrir ali deixaria o aluno escrever
   sem estar sob ninguem.
-- **Supervisor e RT nao sao bloqueados.** A regra e de responsabilidade do aluno;
-  os dois abrem o prontuario para consultar e nenhum dos dois tem paciente
-  vinculado. Aplicar a eles trancaria a supervisao. Ha teste para isso.
+- **Só o estagiário escreve.** Supervisor, RT e coordenação abrem o prontuário
+  apenas para consultar a linha do tempo; `POST /prontuarios/psico` recusa esses
+  perfis com 403. A homologação continua com supervisor/RT/coordenação via
+  `PATCH /{id}/homologar`. Há teste para isso.
 - **O prontuario antigo nao e reescrito.** `prontuario_psico` guarda o autor no
   momento da escrita, entao apos a transferencia o registro anterior continua
   identificando quem era o responsavel na epoca. E o que foi pedido, e ha teste.

@@ -11,13 +11,25 @@ interface NewPatientModalProps {
   defaultCurso?: 'psicologia' | 'odontologia' | 'ambos';
 }
 
+const formatarCpf = (valor: string) => {
+  const digitos = valor.replace(/\D/g, '').slice(0, 11);
+  return digitos
+    .replace(/^(\d{3})(\d)/, '$1.$2')
+    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3-$4');
+};
+
 export function NewPatientModal({ onClose, defaultCurso = 'odontologia' }: NewPatientModalProps) {
   const { pacientes, cadastrarPaciente } = useClinic();
+  const isPsicologia = defaultCurso === 'psicologia';
 
   const [nome, setNome] = useState('');
   const [cpf, setCpf] = useState('');
   const [dataNascimento, setDataNascimento] = useState('1998-04-12');
   const [telefone, setTelefone] = useState('(79) 99882-1200');
+  const [endereco, setEndereco] = useState('');
+  const [numero, setNumero] = useState('');
+  const [complemento, setComplemento] = useState('');
   const [curso, setCurso] = useState<'psicologia' | 'odontologia' | 'ambos'>(defaultCurso);
   const [ehMenor, setEhMenor] = useState(false);
   const [nomeResponsavel, setNomeResponsavel] = useState('');
@@ -32,8 +44,20 @@ export function NewPatientModal({ onClose, defaultCurso = 'odontologia' }: NewPa
     e.preventDefault();
     setErrorMsg('');
 
-    // Validação Anti-Duplicidade de CPF
     const cpfLimpo = cpf.replace(/\D/g, '');
+
+    if (isPsicologia) {
+      if (cpfLimpo.length !== 11) {
+        setErrorMsg('O CPF deve conter exatamente 11 dígitos.');
+        return;
+      }
+      if (!endereco.trim() || !numero.trim()) {
+        setErrorMsg('Endereço e número são obrigatórios para o cadastro de psicologia.');
+        return;
+      }
+    }
+
+    // Validação Anti-Duplicidade de CPF
     const duplicado = pacientes.some(
       (p) => p.cpf.replace(/\D/g, '') === cpfLimpo
     );
@@ -54,6 +78,9 @@ export function NewPatientModal({ onClose, defaultCurso = 'odontologia' }: NewPa
       cpf,
       dataNascimento,
       telefone,
+      endereco: isPsicologia ? endereco.trim() : undefined,
+      numero: isPsicologia ? numero.trim() : undefined,
+      complemento: isPsicologia ? complemento.trim() || undefined : undefined,
       curso,
       ehMenor,
       nomeResponsavel: ehMenor ? nomeResponsavel : undefined,
@@ -122,7 +149,9 @@ export function NewPatientModal({ onClose, defaultCurso = 'odontologia' }: NewPa
                 type="text"
                 required
                 value={cpf}
-                onChange={(e) => setCpf(e.target.value)}
+                onChange={(e) => setCpf(isPsicologia ? formatarCpf(e.target.value) : e.target.value)}
+                inputMode={isPsicologia ? 'numeric' : undefined}
+                autoComplete="off"
                 placeholder="000.000.000-00"
                 className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none font-mono"
               />
@@ -166,6 +195,49 @@ export function NewPatientModal({ onClose, defaultCurso = 'odontologia' }: NewPa
               </select>
             </div>
           </div>
+
+          {isPsicologia && (
+            <>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Endereço *</label>
+                <input
+                  type="text"
+                  required
+                  maxLength={200}
+                  value={endereco}
+                  onChange={(e) => setEndereco(e.target.value)}
+                  placeholder="Rua, avenida, travessa..."
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Número *</label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={20}
+                    value={numero}
+                    onChange={(e) => setNumero(e.target.value)}
+                    placeholder="Ex: 123"
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Complemento</label>
+                  <input
+                    type="text"
+                    maxLength={100}
+                    value={complemento}
+                    onChange={(e) => setComplemento(e.target.value)}
+                    placeholder="Apto, bloco (opcional)"
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none"
+                  />
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
             <label className="flex items-center gap-2 cursor-pointer">

@@ -36,3 +36,6 @@ class Agendamento(SQLModel, table=True):
     tipo_consulta: str = Field(max_length=200)
     status: StatusAgendamento = Field(default=StatusAgendamento.AGENDADO)
     observacao_logistica: Optional[str] = Field(default=None, max_length=500)
+    # Motivo operacional da ausência, separado da observação logística: a
+    # recepção registra um na criação da sessão e o outro no ato da falta.
+    motivo_falta: Optional[str] = Field(default=None, max_length=500)

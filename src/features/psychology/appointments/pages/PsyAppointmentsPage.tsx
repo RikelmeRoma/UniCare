@@ -10,6 +10,7 @@ import {
   ChevronRightIcon,
   ClockIcon,
   DocumentTextIcon,
+  ExclamationTriangleIcon,
   MapPinIcon,
 } from '../../../../components/icons/CorporateIcons';
 
@@ -142,7 +143,7 @@ export function PsyAppointmentsPage() {
   return (
     <AppLayout
       title="Meus Agendamentos"
-      subtitle="Sessões que a recepção do Serviço de Psicologia Aplicada atribuiu a você. O registro clínico da sessão é feito no prontuário."
+      info="Sessões que a recepção do Serviço de Psicologia Aplicada atribuiu a você. O registro clínico da sessão é feito no prontuário."
       badge="Agenda do Estagiário"
       badgeType="blue"
       actions={
@@ -268,13 +269,20 @@ export function PsyAppointmentsPage() {
 
               <ul className="divide-y divide-slate-100">
                 {grupo.sessoes.map((s) => (
-                  <li
-                    key={s.id}
-                    className="px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                  >
-                    <div>
+                  <li key={s.id} className="px-5 py-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
                       <p className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                        <span className="font-mono">{rotuloData(s.dataSessao)}</span>
+                        <span
+                          className="font-mono"
+                          title={
+                            s.dataSessao
+                              ? undefined
+                              : 'Sessão registrada antes de o sistema passar a exigir data'
+                          }
+                        >
+                          {rotuloData(s.dataSessao)}
+                        </span>
                         <span className="text-slate-300">·</span>
                         <ClockIcon className="w-4 h-4 text-slate-400" />
                         {s.horario || '—'}
@@ -287,20 +295,23 @@ export function PsyAppointmentsPage() {
                         {s.salaOuCadeira}
                         {s.tipoConsulta ? ` · ${s.tipoConsulta}` : ''}
                       </p>
+                      </div>
+                      <StatusBadge status={s.status} />
                     </div>
-                    <StatusBadge status={s.status} />
+
+                    {s.status === 'FALTOU' && s.motivoFalta && (
+                      <div className="mt-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-800">
+                        <ExclamationTriangleIcon className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        <p className="leading-relaxed">
+                          <strong>Motivo da falta:</strong> {s.motivoFalta}
+                        </p>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
             </div>
           ))}
-
-        {mostrarLista && total > 0 && (
-          <p className="text-[11px] text-slate-400 leading-relaxed">
-            Datas que dizem “data não registrada” são sessões criadas antes de o
-            sistema passar a exigir o dia da sessão.
-          </p>
-        )}
       </div>
     </AppLayout>
   );

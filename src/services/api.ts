@@ -25,7 +25,7 @@ export interface ApiHealth {
 export interface AuthLoginResponse {
   access_token: string;
   token_type: string;
-  perfil: 'estagiario' | 'supervisor' | 'recepcao' | 'rt';
+  perfil: 'estagiario' | 'supervisor' | 'recepcao' | 'rt' | 'coordenacao';
   curso: 'psicologia' | 'odontologia' | 'geral';
   nome: string;
   matricula: string;
@@ -35,7 +35,7 @@ export interface ApiUsuario {
   id: number;
   nome: string;
   email: string;
-  perfil: 'estagiario' | 'supervisor' | 'recepcao' | 'rt';
+  perfil: 'estagiario' | 'supervisor' | 'recepcao' | 'rt' | 'coordenacao';
   curso: 'psicologia' | 'odontologia' | 'geral';
   matricula: string;
   registro_profissional?: string;
@@ -44,8 +44,9 @@ export interface ApiUsuario {
 }
 
 /** Estagiário disponível para a recepção montar a agenda. Só o que o
- *  agendamento precisa — o `GET /usuarios` é gestão de usuário e exige RT ou
- *  supervisor, então a recepção recebia 403 e acabava digitando o nome à mão. */
+ *  agendamento precisa — o `GET /usuarios` é gestão de usuário e exige RT,
+ *  coordenação ou supervisor, então a recepção recebia 403 e acabava digitando
+ *  o nome à mão. */
 export interface ApiEstagiario {
   nome: string;
   matricula: string;
@@ -81,6 +82,9 @@ export interface ApiPaciente {
   cpf_rg: string;
   data_nascimento: string;
   telefone: string;
+  endereco?: string | null;
+  numero?: string | null;
+  complemento?: string | null;
   eh_menor: boolean;
   nome_responsavel?: string;
   contato_responsavel?: string;
@@ -105,6 +109,8 @@ export interface ApiAgendamento {
   tipo_consulta: string;
   status: 'AGENDADO' | 'PRESENTE' | 'EM_ATENDIMENTO' | 'CONCLUIDO' | 'FALTOU' | 'CANCELADO';
   observacao_logistica?: string;
+  /** Motivo operacional da ausência; só existe quando o status é FALTOU. */
+  motivo_falta?: string | null;
 }
 
 export interface ApiAtribuicao {
@@ -171,9 +177,9 @@ export interface SolicitacaoCadastro {
   email: string;
   matricula: string;
   telefone: string | null;
-  /** O que o solicitante AFIRMA. Quem decide é a RT. */
+  /** O que o solicitante AFIRMA. Quem decide é a gestão da clínica. */
   curso_declarado: 'psicologia' | 'odontologia';
-  perfil_declarado: 'estagiario' | 'supervisor' | 'recepcao' | 'rt';
+  perfil_declarado: 'estagiario' | 'supervisor' | 'recepcao' | 'rt' | 'coordenacao';
   situacao: 'PENDENTE' | 'APROVADA' | 'RECUSADA';
   decidido_por_nome: string | null;
   decidido_por_matricula: string | null;
@@ -409,7 +415,7 @@ async getUsuarios(): Promise<ApiUsuario[]> {
     nome: string;
     email: string;
     senha: string;
-    perfil: 'estagiario' | 'supervisor' | 'recepcao' | 'rt';
+    perfil: 'estagiario' | 'supervisor' | 'recepcao' | 'rt' | 'coordenacao';
     matricula: string;
     registro_profissional?: string;
     supervisor_matricula?: string;
@@ -469,10 +475,13 @@ async getUsuarios(): Promise<ApiUsuario[]> {
     return this.request<SolicitacaoCadastro[]>(`/solicitacoes-cadastro/${filtro}`);
   }
 
-  /** Aprova e cria a conta no mesmo ato. A senha é a que a RT define. */
+  /** Aprova e cria a conta no mesmo ato.
+   *
+   *  Na psicologia o servidor gera a senha inicial e a envia por e-mail; na
+   *  odontologia a RT ainda define a senha e a manda neste campo. */
   async aprovarSolicitacao(
     id: number,
-    dados: { perfil: string; registro_profissional?: string; senha: string }
+    dados: { perfil: string; registro_profissional?: string; senha?: string }
   ): Promise<SolicitacaoCadastro> {
     return this.request<SolicitacaoCadastro>(`/solicitacoes-cadastro/${id}/aprovar`, {
       method: 'POST',
@@ -498,6 +507,9 @@ async getUsuarios(): Promise<ApiUsuario[]> {
     cpf_rg: string;
     data_nascimento: string;
     telefone: string;
+    endereco?: string;
+    numero?: string;
+    complemento?: string;
     eh_menor: boolean;
     nome_responsavel?: string;
     contato_responsavel?: string;
@@ -561,10 +573,18 @@ async getUsuarios(): Promise<ApiUsuario[]> {
     });
   }
 
-  async updateAgendamentoStatus(id: number, status: string): Promise<ApiAgendamento> {
+  async updateAgendamentoStatus(
+    id: number,
+    status: string,
+    motivoFalta?: string
+  ): Promise<ApiAgendamento> {
+    const corpo: { status: string; motivo_falta?: string } = { status };
+    const motivo = motivoFalta?.trim();
+    if (motivo) corpo.motivo_falta = motivo;
+
     return this.request<ApiAgendamento>(`/agendamentos/${id}/status`, {
       method: 'PATCH',
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(corpo),
     });
   }
 

@@ -33,6 +33,8 @@ export function AppSidebar() {
       activeClass = 'bg-[#B45309] text-white shadow-xs';
     } else if (isRT) {
       activeClass = 'bg-[#002B49] text-white shadow-xs';
+    } else if (isCoordenacao) {
+      activeClass = 'bg-blue-800 text-white shadow-xs';
     }
 
     return `flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-tight transition-all ${
@@ -42,10 +44,16 @@ export function AppSidebar() {
     }`;
   };
 
-  const isPsicoUser = user?.curso === 'psicologia' && user?.perfil !== 'rt' && user?.perfil !== 'recepcao';
+  const isPsicoUser =
+    user?.curso === 'psicologia' &&
+    user?.perfil !== 'rt' &&
+    user?.perfil !== 'recepcao' &&
+    user?.perfil !== 'coordenacao';
   const isOdontoUser = user?.curso === 'odontologia' && user?.perfil !== 'rt' && user?.perfil !== 'recepcao';
   const isRecepcao = user?.perfil === 'recepcao';
   const isRT = user?.perfil === 'rt';
+  const isCoordenacao = user?.perfil === 'coordenacao';
+  const isRTPsicologia = isRT && user?.curso === 'psicologia';
 
   // As rotas de recepção são segregadas por curso no ProtectedRoute
   // (allowedCourses). O menu offering os dois links para qualquer recepção
@@ -87,7 +95,9 @@ export function AppSidebar() {
           <div className="flex items-center gap-3">
             <div
               className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs text-white shadow-xs ${
-                isPsicoUser
+                isCoordenacao
+                  ? 'bg-blue-800'
+                  : isPsicoUser
                   ? 'bg-blue-700'
                   : isOdontoUser
                   ? 'bg-[#881337]'
@@ -96,11 +106,13 @@ export function AppSidebar() {
                   : 'bg-[#B45309]'
               }`}
             >
-              {isPsicoUser ? 'SPA' : isOdontoUser ? 'ODO' : isRT ? 'RT' : 'REC'}
+              {isCoordenacao ? 'COORD' : isPsicoUser ? 'SPA' : isOdontoUser ? 'ODO' : isRT ? 'RT' : 'REC'}
             </div>
             <div className="overflow-hidden">
               <h1 className="text-sm font-bold text-slate-900 tracking-tight leading-tight truncate">
-                {isPsicoUser
+                {isCoordenacao
+                  ? 'UniCare Coordenação'
+                  : isPsicoUser
                   ? 'UniCare Psicologia'
                   : isOdontoUser
                   ? 'UniCare Odonto'
@@ -135,12 +147,17 @@ export function AppSidebar() {
                 Diretoria Técnica & Compliance
               </span>
             )}
+            {isCoordenacao && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200/70">
+                Coordenação de Psicologia
+              </span>
+            )}
           </div>
         </div>
 
 
         {/* MÓDULO EXCLUSIVO DA RT MASTER: Seletor de Visão de Curso */}
-        {isRT && (
+        {isRT && !isRTPsicologia && (
           <div className="px-3 pt-3">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-1.5">
               Filtrar Módulo Clínico:
@@ -180,14 +197,15 @@ export function AppSidebar() {
         {/* NAVEGAÇÃO ESTRITAMENTE SEGREGADA CONFORME PERMISSÃO DO USUÁRIO */}
         <nav className="px-3 py-3 space-y-4">
           {/* 1. SE FOR PSICOLOGIA (OU RT NA VISÃO PSICO/GLOBAL) */}
-          {(isPsicoUser || (isRT && (rtCourseView === 'psicologia' || rtCourseView === 'global'))) && (
+          {(isPsicoUser || isCoordenacao || (isRT && (isRTPsicologia || rtCourseView === 'psicologia' || rtCourseView === 'global'))) && (
             <div>
               <h2 className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                Serviço de Psicologia (SPA)
+                {isCoordenacao ? 'Coordenação de Psicologia' : 'Serviço de Psicologia (SPA)'}
               </h2>
               <ul className="space-y-1">
-                {/* Prontuário Psicológico: Estagiário, Supervisor e RT */}
-                {(user?.perfil === 'estagiario' || user?.perfil === 'supervisor' || isRT) && (
+                {/* Prontuário Psicológico: consulta para estagiário, supervisor,
+                    RT e coordenação; a escrita é exclusiva do estagiário */}
+                {(user?.perfil === 'estagiario' || user?.perfil === 'supervisor' || isRT || isCoordenacao) && (
                   <li>
                     <NavLink to="/psi/prontuario" className={getLinkStyle}>
                       <DocumentTextIcon className="w-4 h-4 shrink-0 text-slate-500" />
@@ -210,7 +228,7 @@ export function AppSidebar() {
                 )}
 
                 {/* Supervisão Docente SPA: Apenas Supervisor e RT (Não aparece para Estagiário) */}
-                {(user?.perfil === 'supervisor' || isRT) && (
+                {(user?.perfil === 'supervisor' || isRT || isCoordenacao) && (
                   <li>
                     <NavLink to="/psi/supervisao" className={getLinkStyle}>
                       <ShieldCheckIcon className="w-4 h-4 shrink-0 text-slate-500" />
@@ -220,11 +238,20 @@ export function AppSidebar() {
                 )}
 
                 {/* Agenda & Triagem SPA: Apenas Recepção e RT (Não aparece para Estagiário/Supervisor) */}
-                {((isRecepcao && mostrarRecepcaoPsi) || isRT) && (
+                {((isRecepcao && mostrarRecepcaoPsi) || isRT || isCoordenacao) && (
                   <li>
                     <NavLink to="/psi/recepcao" className={getLinkStyle}>
                       <CalendarIcon className="w-4 h-4 shrink-0 text-slate-500" />
                       <span>Agenda & Triagem SPA</span>
+                    </NavLink>
+                  </li>
+                )}
+
+                {isCoordenacao && (
+                  <li>
+                    <NavLink to="/psi/coordenacao" className={getLinkStyle}>
+                      <ChartBarIcon className="w-4 h-4 shrink-0 text-slate-500" />
+                      <span>Painel & Gestão da Equipe</span>
                     </NavLink>
                   </li>
                 )}
@@ -233,7 +260,7 @@ export function AppSidebar() {
           )}
 
           {/* 2. SE FOR ODONTOLOGIA (OU RT NA VISÃO ODONTO/GLOBAL) */}
-          {(isOdontoUser || (isRT && (rtCourseView === 'odontologia' || rtCourseView === 'global'))) && (
+          {(isOdontoUser || (isRT && !isRTPsicologia && (rtCourseView === 'odontologia' || rtCourseView === 'global'))) && (
             <div>
               <h2 className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                 Clínica Odontológica

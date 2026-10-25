@@ -113,7 +113,9 @@ senão o `upgrade` seguinte falha com `type ... already exists`.
 
 **Novo membro de ENUM exige migração escrita à mão.** Os tipos nativos gravam os
 *nomes* Python em caixa alta (`ESTAGIARIO`). O `--autogenerate` não detecta
-`ALTER TYPE ... ADD VALUE`.
+`ALTER TYPE ... ADD VALUE`. O downgrade também não remove o valor: recrie o tipo,
+converta as colunas para `VARCHAR` e devolva-as ao enum — senão o
+`alembic downgrade base` do `conftest.py` falha.
 
 **O `--autogenerate` não detecta `max_length`.** Ele só emite `ALTER` quando o
 *tipo* muda (`VARCHAR` → `Text`). Uma coluna que continua `VARCHAR` e apenas ganha
@@ -169,6 +171,14 @@ liberar uma origem nova, acrescente no `.env` — não no `main.py`.
 `pacientes.curso`, monte um mapa `id → curso` a partir de `Paciente` e use
 `pr.paciente_id` — foi o que `app/routers/relatorios.py` precisou fazer.
 
+**O motivo da falta é do agendamento, não da observação logística.** `motivo_falta`
+existe só enquanto `status='FALTOU'`; enviá-lo com outro status é 422 e sair de
+`FALTOU` limpa o campo. Ele é separado de `observacao_logistica` de propósito —
+usar a observação como justificativa apagaria a nota logística que a recepção já
+tinha escrito. O modal de captura é habilitado por
+`AppointmentTable.permitirMotivoFalta`, ligado **só** em `PsyReceptionDashboard`
+(recepção, RT e coordenação); odontologia marca falta direto.
+
 **A ordem dos guards importa quando o `detail` é normativo.** `require_curso` foi
 feito para aceitar o guard de papel em `base=`, avaliado **antes** do curso. Sem
 isso a recepção recebia 403 de "clínica restrita" no lugar do `RN-001` — mesmo
@@ -176,6 +186,29 @@ status, `detail` errado, e os testes de conformidade affinei pelo identificador
 da regra. Não desfaça isso registrando as duas dependências separadas no
 endpoint: o FastAPI não garante qual resolve primeiro.
 
+**Bypass de `exigir_perfil` não é permissão de gestão.** A coordenação passa pelo
+guard como a RT, mas `_pode_gerenciar` limita os alvos: supervisor, estagiário e
+recepção. Criar, editar, desativar, aprovar ou recusar pedido de RT/coordenação
+continua sendo ato exclusivo da RT. Em `solicitacoes.py`, a guarda do perfil
+**final** vem antes de `email_service.enviar`; sem isso a pessoa recebe a senha
+de uma conta que o servidor recusou criar.
+
+**Senha inicial de psicologia é gerada no servidor, não escolhida pela gestão.**
+`AprovacaoSolicitacao.senha` é opcional no schema porque a obrigatoriedade
+depende de quem aprova: RT e coordenação de psicologia **não enviam senha**
+(422 se enviarem), e o servidor gera com `gerar_senha_inicial()`; a RT de
+odontologia continua exigindo a senha. A resolução fica depois de
+`_pode_gerenciar` e antes do e-mail — inverter isso faz o 403 de alçada virar
+422, ou dispara mensagem com senha de conta que não será criada. Os testes leem
+a senha gerada do corpo do e-mail simulado (`_EnvioAprovacao.senha_do_ultimo()`);
+não há senha fixa para logar. Não reintroduza o campo editável em
+`SolicitacoesCadastro` para a psicologia.
+
+**`require_roles([ESTAGIARIO])` não restringe a escrita ao estagiário.**
+`exigir_perfil` deixa RT e coordenação passarem por bypass, então a rota de
+criação de evolução psi confere `current_user.perfil != ESTAGIARIO` diretamente.
+Esconder o formulário no `PsyRecordPage` não basta: o `POST /prontuarios/psico`
+precisa recusar supervisor, RT e coordenação com 403.
 
 **Rota pós-login é uma função só, e `recepcao` se decide por curso.** `getDestinationRoute`
 vive em `src/features/auth/routes.ts`, e tanto `LoginFields` (login) quanto
@@ -286,6 +319,13 @@ pessoa.
 campo só no frontend deixa a regra como conveniência: qualquer cliente chama a
 rota direto. `HomologacaoRequest.parecer` recusa texto vazio com 422 nas duas
 clínicas, e dois testes garantem que a recusa não grava nada.
+
+**Endereço obrigatório em psicologia não vale para `ambos` no servidor.** O
+modal compartilhado só mostra endereço/número quando `defaultCurso='psicologia'`,
+mas `ambos` também é criado pela recepção de odontologia. O backend exige os
+campos apenas para `curso='psicologia'`; o formulário de psicologia exige também
+quando o destino é `ambos`. Não mova a exigência para `ambos` sem dar à
+odontologia os mesmos campos.
 
 **Teste que consome pendência do seed vira dependente de ordem.** Os testes de
 homologação anteriores já consomem as duas fichas pendentes do seed, então um

@@ -142,7 +142,18 @@ def atualizar_status(
     # de psicologia não confirma presença de uma consulta odontológica.
     validar_curso_do_registro(current_user, agendamento.curso)
 
+    motivo_falta = (body.motivo_falta or "").strip() or None
+    if body.status != StatusAgendamento.FALTOU and motivo_falta is not None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="O motivo da falta só pode ser registrado quando o status é FALTOU."
+        )
+
     agendamento.status = body.status
+    # O motivo é do estado atual da sessão: ao sair de FALTOU, o registro
+    # anterior deixa de valer. Sem isso, uma falta corrigida continuaria
+    # exibindo justificativa no prontuário/agenda do estagiário.
+    agendamento.motivo_falta = motivo_falta if body.status == StatusAgendamento.FALTOU else None
     session.add(agendamento)
     session.commit()
     session.refresh(agendamento)

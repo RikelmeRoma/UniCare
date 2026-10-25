@@ -5,6 +5,7 @@ import { AppointmentTable } from '../../../reception/components/AppointmentTable
 import { PatientAssignmentPanel } from '../components/PatientAssignmentPanel';
 import { NewPatientModal } from '../../../reception/components/NewPatientModal';
 import { NewAppointmentModal } from '../../../reception/components/NewAppointmentModal';
+import { InfoTooltip } from '../../../../components/ui/InfoTooltip';
 import {
   CalendarIcon,
   ShieldCheckIcon,
@@ -18,7 +19,7 @@ export function PsyReceptionDashboard() {
   return (
     <AppLayout
       title="Recepção do Serviço de Psicologia Aplicada (SPA)"
-      subtitle="Controle de acolhimento presencial, encaminhamento para consultórios e triagem sob conformidade com a Resolução CFP nº 06/2019"
+      info="Controle de acolhimento presencial, encaminhamento para consultórios e triagem sob conformidade com a Resolução CFP nº 06/2019"
       badge="Recepção SPA • CFP"
       badgeType="blue"
       actions={
@@ -47,7 +48,10 @@ export function PsyReceptionDashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3 space-y-6">
-            <AppointmentTable />
+            <AppointmentTable
+              exibirTextoSalvaguarda={false}
+              permitirMotivoFalta
+            />
           </div>
 
           <div className="lg:col-span-1 space-y-6">
@@ -55,19 +59,15 @@ export function PsyReceptionDashboard() {
 
 
             {/* Painel Informativo de Ética e Sigilo */}
-            <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-5 text-xs space-y-3">
+            <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-5">
               <h4 className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
                 <ShieldCheckIcon className="w-4 h-4 text-blue-700" />
                 <span>Segurança e Sigilo no SPA</span>
+                <InfoTooltip
+                  align="right"
+                  texto="As anotações confidenciais de psicoterapia são de acesso exclusivo do estagiário e do orientador docente (CRP). Resolução CFP 06/2019: vedação de citações diretas. Art. 11 LGPD: tratamento de dados sensíveis de saúde. Custódia: Diretoria Técnica Master."
+                />
               </h4>
-              <p className="text-slate-600 text-[11px] leading-relaxed">
-                As anotações confidenciais de psicoterapia são de acesso exclusivo do estagiário e do orientador docente (CRP).
-              </p>
-              <div className="bg-slate-50 border border-slate-200/70 p-3 rounded-xl text-[10px] text-slate-700 space-y-1 font-medium">
-                <p>• <strong>Resolução CFP 06/2019:</strong> Vedação de citações diretas.</p>
-                <p>• <strong>Art. 11 LGPD:</strong> Tratamento de dados sensíveis de saúde.</p>
-                <p>• <strong>Custódia:</strong> Diretoria Técnica Master.</p>
-              </div>
             </div>
           </div>
         </div>

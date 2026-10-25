@@ -8,23 +8,43 @@ import {
 } from '../../../components/icons/CorporateIcons';
 
 /**
- * Fila de pedidos de credencial da RT.
+ * Fila de pedidos de credencial da RT ou da coordenação.
  *
  * Quem pede não tem conta: o pedido entra pela tela pública `/cadastro` e a
- * **RT autoriza**. Aprovar cria a conta no mesmo ato do servidor — não existe
- * estado "aprovado sem usuário".
+ * **gestão da clínica autoriza**. Aprovar cria a conta no mesmo ato do
+ * servidor — não existe estado "aprovado sem usuário".
  *
  * Três coisas que a tela não inventa:
  *
  * - O perfil enviado aqui é o **final**, não o declarado. O solicitante pede,
- *   a RT confirma e pode corrigir.
- * - A senha é definida **aqui**, pela RT. A solicitação nunca transporta senha.
- * - A clínica é a da RT, e o servidor a force pelo token. Não há seletor de
- *   curso, porque a RT não pode escolher.
+ *   a gestão confirma e pode corrigir.
+ * - A senha inicial **não é digitada** na psicologia: a RT e a coordenação
+ *   aprovam sem escolher credencial, e o servidor gera uma senha aleatória que
+ *   só existe no e-mail do solicitante. Na odontologia a RT continua definindo
+ *   a senha. A solicitação nunca transporta senha.
+ * - A clínica é a de quem aprova, e o servidor a força pelo token. Não há
+ *   seletor de curso.
+ *
+ * A coordenação decide apenas perfis operacionais. Pedido declarado como RT ou
+ * coordenação só pode ser decidido pela RT.
  */
+const PERFIL_LABEL: Record<RoleType, string> = {
+  estagiario: 'Estagiário',
+  supervisor: 'Supervisor',
+  recepcao: 'Recepção',
+  rt: 'RT',
+  coordenacao: 'Coordenação',
+};
+
 export function SolicitacoesCadastro() {
   const { solicitacoes, carregarSolicitacoes, aprovarSolicitacao, recusarSolicitacao, user } =
     useAuth();
+  const isCoordenacao = user?.perfil === 'coordenacao';
+  /** Na psicologia a senha inicial é do servidor: RT e coordenação não escolhem.
+   *  A odontologia mantém o campo, porque o contrato de lá é a RT definir. */
+  const senhaAutomatica =
+    user?.curso === 'psicologia' &&
+    (user?.perfil === 'rt' || user?.perfil === 'coordenacao');
 
   const [selecionada, setSelecionada] = useState<number | null>(null);
   const [perfil, setPerfil] = useState<RoleType>('estagiario');
@@ -50,8 +70,19 @@ export function SolicitacoesCadastro() {
     setMostrarSenha(false);
     setMostrarRecusa(false);
     const pedido = solicitacoes.find((s) => s.id === id);
-    // Pré-preenche com o declarado; a RT pode mudar antes de aprovar.
-    setPerfil((pedido?.perfil_declarado as RoleType) ?? 'estagiario');
+    // Pré-preenche com o declarado; a gestão pode mudar antes de aprovar. A
+    // coordenação não pode confirmar RT/coordenação, então nesse caso o select
+    // cai em um perfil que ela realmente administra.
+    const declarado = pedido?.perfil_declarado as RoleType | undefined;
+    const foraDaAlcada =
+      isCoordenacao && (declarado === 'rt' || declarado === 'coordenacao');
+    const coordenacaoIndisponivel =
+      declarado === 'coordenacao' && user?.curso !== 'psicologia';
+    setPerfil(
+      foraDaAlcada || coordenacaoIndisponivel
+        ? 'estagiario'
+        : (declarado ?? 'estagiario')
+    );
     setRegistro('');
   };
 
@@ -68,7 +99,7 @@ export function SolicitacoesCadastro() {
   };
 
   const aprovar = async (id: number) => {
-    if (senha.length < 6) {
+    if (!senhaAutomatica && senha.length < 6) {
       setErro('A senha inicial precisa de ao menos 6 caracteres.');
       return;
     }
@@ -77,7 +108,7 @@ export function SolicitacoesCadastro() {
     const resultado = await aprovarSolicitacao(id, {
       perfil,
       registro_profissional: registro.trim() || undefined,
-      senha,
+      senha: senhaAutomatica ? undefined : senha,
     });
     setIsSaving(false);
 
@@ -126,8 +157,9 @@ export function SolicitacoesCadastro() {
             )}
           </h3>
           <p className="text-[11px] text-slate-500 mt-0.5">
-            Pedidos feitos pela tela pública. Ao aprovar, a conta nasce e a senha é a
-            que você definir aqui.
+            {senhaAutomatica
+              ? 'Pedidos feitos pela tela pública. Ao aprovar, a conta nasce e a senha inicial é gerada pelo sistema e enviada por e-mail.'
+              : 'Pedidos feitos pela tela pública. Ao aprovar, a conta nasce e a senha é a que você definir aqui.'}
           </p>
         </div>
         <button
@@ -154,6 +186,10 @@ export function SolicitacoesCadastro() {
         <ul className="space-y-2">
           {solicitacoes.map((s) => {
             const aberto = selecionada === s.id;
+            const foraDaAlcada =
+              isCoordenacao &&
+              (s.perfil_declarado === 'rt' ||
+                s.perfil_declarado === 'coordenacao');
             return (
               <li key={s.id} className="bg-white border border-slate-200 rounded-lg">
                 <button
@@ -170,11 +206,8 @@ export function SolicitacoesCadastro() {
                   <div className="text-[10px] font-semibold text-slate-500 shrink-0 text-right">
                     <p>
                       Declarou:{' '}
-                      {s.perfil_declarado === 'estagiario'
-                        ? 'Estagiário'
-                        : s.perfil_declarado === 'supervisor'
-                          ? 'Supervisor'
-                          : 'Recepção'}
+                      {PERFIL_LABEL[s.perfil_declarado as RoleType] ??
+                        s.perfil_declarado}
                     </p>
                     <p className="font-mono text-slate-400">#{s.id}</p>
                   </div>
@@ -189,6 +222,12 @@ export function SolicitacoesCadastro() {
                       </p>
                     )}
 
+                    {foraDaAlcada ? (
+                      <p className="p-2.5 bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-semibold rounded-lg">
+                        Somente a RT pode decidir pedidos de RT ou de coordenação.
+                      </p>
+                    ) : (
+                      <>
                     {mostrarRecusa ? (
                       <div className="space-y-2">
                         <label className="block text-[11px] font-bold text-slate-700">
@@ -233,7 +272,14 @@ export function SolicitacoesCadastro() {
                             <option value="estagiario">Estagiário</option>
                             <option value="supervisor">Supervisor</option>
                             <option value="recepcao">Recepção</option>
-                            <option value="rt">RT</option>
+                            {!isCoordenacao && (
+                              <>
+                                <option value="rt">RT</option>
+                                {user?.curso === 'psicologia' && (
+                                  <option value="coordenacao">Coordenação</option>
+                                )}
+                              </>
+                            )}
                           </select>
                         </div>
                         <div>
@@ -247,36 +293,48 @@ export function SolicitacoesCadastro() {
                             className="w-full px-2.5 py-2 text-xs border border-slate-200 rounded-lg bg-slate-50 font-mono"
                           />
                         </div>
-                        <div className="flex items-end gap-2">
-                          <div className="flex-1">
+                        {senhaAutomatica ? (
+                          <div>
                             <label className="block text-[11px] font-bold text-slate-700 mb-1">
                               Senha inicial
                             </label>
-                            <input
-                              type={mostrarSenha ? 'text' : 'password'}
-                              value={senha}
-                              onChange={(e) => setSenha(e.target.value)}
-                              placeholder="Mínimo 6 caracteres"
-                              className="w-full px-2.5 py-2 text-xs border border-slate-200 rounded-lg bg-slate-50 font-mono"
-                            />
+                            <p className="px-2.5 py-2 text-[11px] leading-relaxed border border-emerald-200 rounded-lg bg-emerald-50 text-emerald-800">
+                              Gerada automaticamente e enviada por e-mail ao
+                              solicitante. A gestão não define esta senha.
+                            </p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={gerarSenhaSegura}
-                            disabled={isSaving}
-                            className="px-2.5 py-2 text-[11px] font-semibold border border-slate-200 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 disabled:opacity-50"
-                          >
-                            Gerar senha
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setMostrarSenha(!mostrarSenha)}
-                            aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
-                            className="px-2.5 py-2 text-[11px] font-semibold border border-slate-200 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 flex items-center gap-1"
-                          >
-                            {mostrarSenha ? '🙈' : '👁️'}
-                          </button>
-                        </div>
+                        ) : (
+                          <div className="flex items-end gap-2">
+                            <div className="flex-1">
+                              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                                Senha inicial
+                              </label>
+                              <input
+                                type={mostrarSenha ? 'text' : 'password'}
+                                value={senha}
+                                onChange={(e) => setSenha(e.target.value)}
+                                placeholder="Mínimo 6 caracteres"
+                                className="w-full px-2.5 py-2 text-xs border border-slate-200 rounded-lg bg-slate-50 font-mono"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={gerarSenhaSegura}
+                              disabled={isSaving}
+                              className="px-2.5 py-2 text-[11px] font-semibold border border-slate-200 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+                            >
+                              Gerar senha
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setMostrarSenha(!mostrarSenha)}
+                              aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                              className="px-2.5 py-2 text-[11px] font-semibold border border-slate-200 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 flex items-center gap-1"
+                            >
+                              {mostrarSenha ? '🙈' : '👁️'}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -300,6 +358,8 @@ export function SolicitacoesCadastro() {
                           Aprovar e criar conta
                         </button>
                       </div>
+                    )}
+                      </>
                     )}
                   </div>
                 )}

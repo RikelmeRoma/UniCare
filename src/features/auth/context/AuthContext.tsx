@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { api, type ApiUsuario, type SolicitacaoCadastro } from '../../../services/api';
 
-export type RoleType = 'estagiario' | 'supervisor' | 'recepcao' | 'rt';
+export type RoleType = 'estagiario' | 'supervisor' | 'recepcao' | 'rt' | 'coordenacao';
 /** 'geral' = papéis institucionais (RT e recepção), que não pertencem a uma clínica. */
 export type CourseType = 'psicologia' | 'odontologia' | 'geral';
 
@@ -30,7 +30,7 @@ interface AuthContextType {
   carregarSolicitacoes: (situacao?: 'PENDENTE' | 'APROVADA' | 'RECUSADA') => Promise<void>;
   aprovarSolicitacao: (
     id: number,
-    dados: { perfil: RoleType; registro_profissional?: string; senha: string }
+    dados: { perfil: RoleType; registro_profissional?: string; senha?: string }
   ) => Promise<{ success: boolean; message: string }>;
   recusarSolicitacao: (id: number, motivo: string) => Promise<{ success: boolean; message: string }>;
   carregarUsuarios: () => Promise<void>;
@@ -125,8 +125,8 @@ const carregarSolicitacoes = useCallback(
       try {
         setSolicitacoes(await api.getSolicitacoes(situacao));
       } catch (err) {
-        // 403 é o esperado para quem não é RT. A lista vazia é o estado
-        // correto nesses casos, e não um erro de sistema.
+        // 403 é o esperado para quem não é da gestão (RT/coordenação). A lista
+        // vazia é o estado correto nesses casos, e não um erro de sistema.
         const msg = err instanceof Error ? err.message : '';
         if (!msg.includes('403')) {
           console.error('[UniCare] falha ao carregar solicitações:', err);
@@ -145,7 +145,7 @@ const carregarSolicitacoes = useCallback(
    */
   const aprovarSolicitacao = async (
     id: number,
-    dados: { perfil: RoleType; registro_profissional?: string; senha: string }
+    dados: { perfil: RoleType; registro_profissional?: string; senha?: string }
   ): Promise<{ success: boolean; message: string }> => {
     try {
       await api.aprovarSolicitacao(id, dados);
@@ -290,9 +290,13 @@ try {
       };
       setUser(newUser);
 
-      // RT e supervisor são os perfis que administram usuários; a lista é
-      // carregada no login para as telas de gestão já nascerem com dado real.
-      if (eu.perfil === 'rt' || eu.perfil === 'supervisor') {
+      // RT, coordenação e supervisor administram usuários; a lista é carregada
+      // no login para as telas de gestão já nascerem com dado real.
+      if (
+        eu.perfil === 'rt' ||
+        eu.perfil === 'coordenacao' ||
+        eu.perfil === 'supervisor'
+      ) {
         void carregarUsuarios();
       }
 

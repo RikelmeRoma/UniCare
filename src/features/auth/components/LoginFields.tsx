@@ -40,7 +40,12 @@ export function LoginFields({ onDomainChange }: LoginFieldsProps) {
       onDomainChange('psicologia');
     } else if (low.includes('odo') || low.includes('cro') || low.includes('9122') || low.includes('dente')) {
       onDomainChange('odontologia');
-    } else if (low.includes('rec') || low.includes('rt') || low.includes('adm')) {
+    } else if (
+      low.includes('rec') ||
+      low.includes('rt') ||
+      low.includes('adm') ||
+      low.includes('coord')
+    ) {
       onDomainChange('institucional');
     } else {
       onDomainChange('credenciais');

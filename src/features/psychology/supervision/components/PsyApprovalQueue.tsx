@@ -10,6 +10,7 @@ import {
   ExclamationTriangleIcon,
   ArrowPathIcon,
 } from '../../../../components/icons/CorporateIcons';
+import { InfoTooltip } from '../../../../components/ui/InfoTooltip';
 
 // RN-002 / CFP nº 06/2019: o mesmo teste que a ficha do estagiário usa na
 // digitação. A fila exibia "Conformidade Anti-Aspas CFP" em verde sem rodar
@@ -135,10 +136,8 @@ const decidir = async (decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE') => {
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <DocumentTextIcon className="w-5 h-5 text-blue-700" />
                 <span>Fila de Homologação de Prontuários SPA</span>
+                <InfoTooltip texto="Evoluções clínicas submetidas pelos estagiários de psicologia para visto docente." />
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Evoluções clínicas submetidas pelos estagiários de psicologia para visto docente
-              </p>
             </div>
             <div className="flex items-center gap-2">
               <span className="bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold px-3 py-1 rounded-full font-mono">
@@ -233,8 +232,10 @@ const decidir = async (decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE') => {
                 <ShieldCheckIcon className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-slate-900 text-sm">Devolutiva Pedagógica</h3>
-                <p className="text-[10px] text-slate-400">Homologação com Visto Digital (CRP)</p>
+                <h3 className="flex items-center gap-1.5 text-sm font-bold text-slate-900">
+                  Devolutiva Pedagógica
+                  <InfoTooltip texto="Homologação com Visto Digital (CRP)." />
+                </h3>
               </div>
             </div>
 
@@ -307,7 +308,7 @@ const decidir = async (decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE') => {
           {/* Sem "na Semana": `historico` não filtra por período, e `dataSessao` é texto
           livre. O título afirmava um recorte que a lista não faz. Também não é
           só de homologados — traz também as devolvidas. */}
-          <span>Histórico de Decisões de Homologação (Custódia RT)</span>
+          <span>Histórico de Decisões de Homologação (Custódia da Gestão)</span>
         </h4>
         {/* Tabela em vez de lista inline: o supervisor precisa comparar linha a linha
             quem foi aprovado e quem foi devolvido. Empilhado, o nome ficava acima

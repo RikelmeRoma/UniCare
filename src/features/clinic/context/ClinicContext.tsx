@@ -11,6 +11,9 @@ export interface Paciente {
   cpf: string;
   dataNascimento: string;
   telefone: string;
+  endereco?: string;
+  numero?: string;
+  complemento?: string;
   ehMenor: boolean;
   nomeResponsavel?: string;
   contatoResponsavel?: string;
@@ -33,6 +36,8 @@ export interface Agendamento {
   tipoConsulta: string; // Ex: 'Psicoterapia Adulto' ou 'Restauração Resina'
   status: StatusAgendamento;
   observacaoLogistica?: string;
+  /** Motivo operacional da ausência; só existe enquanto o status é `FALTOU`. */
+  motivoFalta?: string;
 }
 
 export interface Atribuicao {
@@ -146,7 +151,11 @@ interface ClinicContextType {
    *  em runtime). No `Agendamento` ela é opcional porque as sessões anteriores
    *  à coluna existem sem dia. */
   adicionarAgendamento: (a: Omit<Agendamento, 'id' | 'dataSessao'> & { dataSessao: string }) => Promise<{ success: boolean; message: string; agendamento?: Agendamento }>;
-  atualizarStatusAgendamento: (id: number, status: StatusAgendamento) => void;
+  atualizarStatusAgendamento: (
+    id: number,
+    status: StatusAgendamento,
+    motivoFalta?: string
+  ) => Promise<{ success: boolean; message: string }>;
   homologarEvolucaoPsico: (id: number, decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE', parecer: string) => Promise<{ success: boolean; message: string }>;
   adicionarEvolucaoPsico: (e: Omit<EvolucaoPsico, 'id' | 'status' | 'submetidoEm'>) => Promise<{ success: boolean; message: string; evolucao?: EvolucaoPsico }>;
   adicionarFichaOdonto: (f: Omit<FichaOdonto, 'id' | 'status' | 'submetidoEm'>) => Promise<{ success: boolean; message: string; ficha?: FichaOdonto }>;
@@ -270,6 +279,7 @@ const INITIAL_AGENDAMENTOS: Agendamento[] = [
     tipoConsulta: 'Acolhimento Inicial / Triagem',
     status: 'FALTOU',
     observacaoLogistica: 'Paciente justificou ausência por motivo de trabalho',
+    motivoFalta: 'Paciente justificou ausência por motivo de trabalho',
   },
 ];
 
@@ -356,6 +366,9 @@ const mapearPaciente = (p: ApiPaciente): Paciente => ({
   cpf: p.cpf_rg,
   dataNascimento: p.data_nascimento,
   telefone: p.telefone,
+  endereco: p.endereco ?? undefined,
+  numero: p.numero ?? undefined,
+  complemento: p.complemento ?? undefined,
   ehMenor: p.eh_menor,
   nomeResponsavel: p.nome_responsavel,
   contatoResponsavel: p.contato_responsavel,
@@ -377,6 +390,7 @@ const mapearAgendamento = (a: ApiAgendamento): Agendamento => ({
   tipoConsulta: a.tipo_consulta,
   status: a.status,
   observacaoLogistica: a.observacao_logistica,
+  motivoFalta: a.motivo_falta ?? undefined,
 });
 
 const mapearEvolucao = (pr: ApiProntuarioPsico): EvolucaoPsico => ({
@@ -446,10 +460,20 @@ const mensagemDeErro = (err: unknown, padrao: string): string =>
  *   `detalhe` cru, porque a mensagem que a tela vê já vem sem identificador;
  * - **o perfil é o de recepção**: é a recepção que, por desenho, não tem
  *   acesso a dado clínico.
+ *
+ * Também é esperado o 403 de vertical slice: quem é de psicologia recebe 403
+ * ao buscar fichas de odontologia (e vice-versa). Sem isso a coordenação de
+ * psicologia via "fichas odonto: 403" como falha de sincronização em toda tela.
  */
-const e403Esperado = (motivo: unknown, perfil?: string): boolean => {
-  if (!(motivo instanceof ApiError)) return false;
-  return motivo.status === 403 && motivo.detalhe.includes('RN-001') && perfil === 'recepcao';
+const e403Esperado = (
+  motivo: unknown,
+  perfil?: string,
+  curso?: string,
+  cursoDoRecurso?: 'psicologia' | 'odontologia'
+): boolean => {
+  if (!(motivo instanceof ApiError) || motivo.status !== 403) return false;
+  if (motivo.detalhe.includes('RN-001') && perfil === 'recepcao') return true;
+  return cursoDoRecurso !== undefined && curso !== cursoDoRecurso;
 };
 
 export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -580,7 +604,7 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
       // acertava e o 403 esperado acabava despejado cru na tela da recepcao.
       // A regra funcionando: a recepcao nao acessa dado clinico, por desenho.
       // Nao e falha de sincronizacao e nao deve virar aviso na tela.
-      if (!e403Esperado(apiProntuarios.reason, user?.perfil)) {
+      if (!e403Esperado(apiProntuarios.reason, user?.perfil, user?.curso, 'psicologia')) {
         falhas.push(msg.includes('403') ? 'prontuários: 403 (perfil sem acesso)' : `prontuários: ${msg}`);
       }
     }
@@ -595,7 +619,7 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
       const msg = apiFichasOdonto.reason?.message ?? 'falhou';
       // Mesma regra do prontuário psicológico: recepção é barrada pelo RN-001.
       // Bloqueio por desenho, não falha de sincronização.
-      if (!e403Esperado(apiFichasOdonto.reason, user?.perfil)) {
+      if (!e403Esperado(apiFichasOdonto.reason, user?.perfil, user?.curso, 'odontologia')) {
         falhas.push(msg.includes('403') ? 'fichas odonto: 403 (perfil sem acesso)' : `fichas odonto: ${msg}`);
       }
     }
@@ -621,7 +645,7 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
   // `user?.perfil` entra porque a escolha entre `/minha` e a rota da clínica
   // depende dele. Sem esta dependência, um logout que troque o perfil mantendo a
   // matrícula não recarregaria os vínculos da clínica certa.
-  }, [isAuthenticated, matriculaAutenticada, user?.perfil]);
+  }, [isAuthenticated, matriculaAutenticada, user?.perfil, user?.curso]);
 
   // Sincroniza quando a matrícula autenticada muda (login e logout). Não cita
   // mais switchUser: o atalho de troca de usuário foi removido com o caminho
@@ -698,6 +722,9 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
         cpf_rg: dados.cpf,
         data_nascimento: dados.dataNascimento,
         telefone: dados.telefone,
+        endereco: dados.endereco,
+        numero: dados.numero,
+        complemento: dados.complemento,
         eh_menor: dados.ehMenor,
         nome_responsavel: dados.nomeResponsavel,
         contato_responsavel: dados.contatoResponsavel,
@@ -750,16 +777,51 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
    * backend recusar (id obsoleto → 404, permissão → 403), o estado local volta ao
    * anterior em vez de divergir silenciosamente do banco.
    */
-  const atualizarStatusAgendamento = (id: number, status: StatusAgendamento) => {
-    const anterior = agendamentos.find((a) => a.id === id)?.status;
-    if (!anterior) return;
+  const atualizarStatusAgendamento = async (
+    id: number,
+    status: StatusAgendamento,
+    motivoFalta?: string
+  ): Promise<{ success: boolean; message: string }> => {
+    const anterior = agendamentos.find((a) => a.id === id);
+    if (!anterior) {
+      return { success: false, message: 'O agendamento não está mais na agenda.' };
+    }
 
-    setAgendamentos((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
+    const motivoNormalizado = motivoFalta?.trim() || undefined;
+    // Motivo de falta é do estado FALTOU. Ao sair dele, o campo é limpo tanto
+    // na tela quanto no servidor.
+    const motivoAtualizado = status === 'FALTOU' ? motivoNormalizado : undefined;
 
-    api.updateAgendamentoStatus(id, status).catch((err) => {
+    setAgendamentos((prev) =>
+      prev.map((a) =>
+        a.id === id ? { ...a, status, motivoFalta: motivoAtualizado } : a
+      )
+    );
+
+    try {
+      const atualizado = await api.updateAgendamentoStatus(
+        id,
+        status,
+        status === 'FALTOU' ? motivoNormalizado : undefined
+      );
+      // O servidor é a fonte final: ele normaliza branco para nulo e devolve o
+      // motivo persistido.
+      setAgendamentos((prev) =>
+        prev.map((a) => (a.id === id ? mapearAgendamento(atualizado) : a))
+      );
+      return { success: true, message: 'Status do agendamento atualizado.' };
+    } catch (err) {
+      const msg = mensagemDeErro(err, 'Falha ao atualizar o status do agendamento.');
       console.error('[UniCare] atualização de status revertida:', err);
-      setAgendamentos((prev) => prev.map((a) => (a.id === id ? { ...a, status: anterior } : a)));
-    });
+      setAgendamentos((prev) =>
+        prev.map((a) =>
+          a.id === id
+            ? { ...a, status: anterior.status, motivoFalta: anterior.motivoFalta }
+            : a
+        )
+      );
+      return { success: false, message: msg };
+    }
   };
 
   const homologarEvolucaoPsico = async (

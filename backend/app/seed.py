@@ -127,6 +127,17 @@ def seed_usuarios(session: Session) -> None:
             matricula="RT-002",
             registro_profissional="RT-PSICO"
         ),
+        # A coordenação tem a governança da RT dentro da psicologia, mas não
+        # gerencia RT nem outra coordenação. Existe como conta própria porque
+        # a tela não é a mesma da RT: o painel é escopado à psicologia.
+        Usuario(
+            nome="Coordenação do Serviço de Psicologia Aplicada",
+            email="coordenacao.psi@uninassau.edu.br",
+            senha_hash=get_password_hash(SENHA_DEMO),
+            perfil=PerfilUsuario.COORDENACAO,
+            curso=CursoUsuario.PSICOLOGIA,
+            matricula="COORD-001",
+        ),
     ])
     session.commit()
 
@@ -342,7 +353,8 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
             sala_ou_cadeira="Consultório SPA-05",
             tipo_consulta="Acompanhamento Psicológico de Ansiedade",
             status=StatusAgendamento.FALTOU,
-            observacao_logistica="Falta registrada na recepção após contato sem sucesso"
+            observacao_logistica="Falta registrada na recepção após contato sem sucesso",
+            motivo_falta="Contato telefônico sem sucesso"
         ),
     ])
     session.commit()

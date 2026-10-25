@@ -25,6 +25,7 @@ def test_login_perfis_institucionais():
         ("REC-001", "recepcao"),
         ("REC-002", "recepcao"),
         ("RT-001", "rt"),
+        ("COORD-001", "coordenacao"),
     ]
     for matricula, perfil_esperado in perfis:
         token = get_auth_token(matricula)
@@ -216,6 +217,47 @@ def test_cadastro_impede_cpf_duplicado():
     res = client.post("/api/v1/pacientes", json=payload_duplicado, headers=headers)
     assert res.status_code == 400
     assert "RF-007" in res.json()["detail"]
+
+def test_cadastro_psicologia_exige_endereco_e_cpf_com_11_digitos():
+    """Cadastro de psicologia: endereço/número obrigatórios e CPF formatado."""
+    token_recepcao = get_auth_token("REC-002")
+    headers = {"Authorization": f"Bearer {token_recepcao}"}
+
+    payload = {
+        "nome": "Paciente Teste Endereco Psicologia",
+        "cpf_rg": "32165498700",
+        "data_nascimento": "1990-01-01",
+        "telefone": "(79) 99999-0000",
+        "endereco": "Rua das Acácias",
+        "numero": "123",
+        "complemento": "Apto 4",
+        "eh_menor": False,
+        "curso": "psicologia",
+    }
+
+    for campo in ("endereco", "numero"):
+        res = client.post(
+            "/api/v1/pacientes",
+            json={**payload, campo: "   "},
+            headers=headers,
+        )
+        assert res.status_code == 422, f"{campo} vazio deveria ser recusado"
+
+    for cpf in ("3216549870", "321654987000"):
+        res = client.post(
+            "/api/v1/pacientes",
+            json={**payload, "cpf_rg": cpf},
+            headers=headers,
+        )
+        assert res.status_code == 422, f"CPF com {len(cpf)} dígitos deveria ser recusado"
+
+    res = client.post("/api/v1/pacientes", json=payload, headers=headers)
+    assert res.status_code == 201, res.text
+    paciente = res.json()
+    assert paciente["cpf_rg"] == "321.654.987-00"
+    assert paciente["endereco"] == "Rua das Acácias"
+    assert paciente["numero"] == "123"
+    assert paciente["complemento"] == "Apto 4"
 
 def test_rf004_homologacao_docente_supervisor():
     """RF-004: O supervisor valida a evolução do estagiário com visto digital e parecer pedagógico"""
@@ -720,7 +762,7 @@ def test_rf009_supervisor_gerencia_apenas_estagiario():
 
 
 def test_rf009_estagiario_e_recepcao_nao_gerenciam_usuarios():
-    """RF-009: só RT e supervisor administram contas"""
+    """RF-009: só RT, coordenação e supervisor administram contas"""
     for matricula in ("16024402", "REC-001"):
         headers = {"Authorization": f"Bearer {get_auth_token(matricula)}"}
         assert client.get("/api/v1/usuarios", headers=headers).status_code == 403
@@ -790,6 +832,211 @@ def test_rf009_rt_nao_altera_o_proprio_cadastro():
 
     res_del = client.delete(f"/api/v1/usuarios/{eu['id']}", headers=headers)
     assert res_del.status_code == 400
+
+
+def test_rf009_coordenacao_gerencia_apenas_operacao_da_psicologia():
+    """A coordenação administra a operação, mas RT/coordenação são ato da RT.
+
+    A conta existe para a clínica de psicologia: a coordenação vê a RT e a
+    própria conta na listagem, mas não as edita nem desativa. A segregação de
+    curso continua valendo — nenhuma rota de odontologia é alcançável.
+    """
+    coord = {"Authorization": f"Bearer {get_auth_token('COORD-001')}"}
+    rt = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
+
+    lista = client.get("/api/v1/usuarios", headers=coord)
+    assert lista.status_code == 200
+    usuarios = lista.json()
+    assert usuarios
+    assert all(u["curso"] == "psicologia" for u in usuarios)
+    assert any(u["matricula"] == "RT-002" for u in usuarios)
+    assert any(u["matricula"] == "COORD-001" for u in usuarios)
+
+    # O bypass de `exigir_perfil` não atravessa a clínica: psicologia abre,
+    # odontologia continua 403.
+    assert client.get("/api/v1/prontuarios/psico", headers=coord).status_code == 200
+    assert client.get("/api/v1/prontuarios/odonto", headers=coord).status_code == 403
+    assert client.get(
+        "/api/v1/usuarios/estagiarios/disponiveis", headers=coord
+    ).status_code == 200
+
+    # Cria os três perfis que administra.
+    for perfil, matricula, email in (
+        ("supervisor", "CRD-SUP-1", "coord.sup@prof.uninassau.edu.br"),
+        ("estagiario", "CRD-EST-1", "coord.est@prof.uninassau.edu.br"),
+        ("recepcao", "CRD-REC-1", "coord.rec@uninassau.edu.br"),
+    ):
+        res = client.post("/api/v1/usuarios", json={
+            "nome": f"Coordenação {perfil}",
+            "email": email,
+            "senha": "senha-teste-123",
+            "perfil": perfil,
+            "matricula": matricula,
+        }, headers=coord)
+        assert res.status_code == 201, res.text
+        assert res.json()["curso"] == "psicologia"
+
+    # Não cria RT nem outra coordenação.
+    for perfil, matricula in (("rt", "CRD-RT-1"), ("coordenacao", "CRD-COORD-1")):
+        res = client.post("/api/v1/usuarios", json={
+            "nome": f"Coordenação {perfil}",
+            "email": f"{matricula.lower()}@uninassau.edu.br",
+            "senha": "senha-teste-123",
+            "perfil": perfil,
+            "matricula": matricula,
+        }, headers=coord)
+        assert res.status_code == 403
+        assert "RT" in res.json()["detail"]
+
+    # Edita e desativa um estagiário que está na alçada dela.
+    estagiario = next(
+        u for u in client.get("/api/v1/usuarios", headers=coord).json()
+        if u["matricula"] == "CRD-EST-1"
+    )
+    editado = client.patch(
+        f"/api/v1/usuarios/{estagiario['id']}",
+        json={"nome": "Estagiário Editado pela Coordenação"},
+        headers=coord,
+    )
+    assert editado.status_code == 200
+    assert editado.json()["nome"] == "Estagiário Editado pela Coordenação"
+    assert client.delete(
+        f"/api/v1/usuarios/{estagiario['id']}", headers=coord
+    ).status_code == 200
+
+    # RT e coordenação são visíveis, mas não geríveis. A conta temporária é
+    # criada pela RT para que uma falha aqui não desative a RT do seed.
+    rt_temp = client.post("/api/v1/usuarios", json={
+        "nome": "RT Temporária",
+        "email": "coord.rt.temp@uninassau.edu.br",
+        "senha": "senha-teste-123",
+        "perfil": "rt",
+        "matricula": "CRD-RT-TMP",
+    }, headers=rt)
+    assert rt_temp.status_code == 201
+    rt_temp_id = rt_temp.json()["id"]
+    try:
+        assert client.patch(
+            f"/api/v1/usuarios/{rt_temp_id}",
+            json={"nome": "Nome Indevido"},
+            headers=coord,
+        ).status_code == 403
+        assert client.delete(
+            f"/api/v1/usuarios/{rt_temp_id}", headers=coord
+        ).status_code == 403
+
+        relida = next(
+            u for u in client.get("/api/v1/usuarios", headers=rt).json()
+            if u["id"] == rt_temp_id
+        )
+        assert relida["ativo"] is True
+        assert relida["nome"] == "RT Temporária"
+    finally:
+        client.delete(f"/api/v1/usuarios/{rt_temp_id}", headers=rt)
+
+
+def test_coordenacao_homologa_prontuario_da_psicologia():
+    """A coordenação tem paridade com a RT na homologação da psicologia.
+
+    A fila de homologação aparece para ela em `/psi/supervisao`; sem esta
+    permissão o botão existiria na tela e falharia com 403 no servidor.
+    """
+    estagiario = {"Authorization": f"Bearer {get_auth_token('16032935')}"}
+    coord = {"Authorization": f"Bearer {get_auth_token('COORD-001')}"}
+
+    criada = client.post("/api/v1/prontuarios/psico", json={
+        "paciente_id": 1,
+        "paciente_nome": "Paciente Teste Coordenação",
+        "estagiario_nome": "Teste",
+        "estagiario_matricula": "16032935",
+        "data_sessao": "10/10/2026",
+        "numero_sessao": "Sessão 99",
+        "redacao_texto": "Sessão iniciada no horário pactuado. Intervenção concluída sem intercorrências. Encerramento com retorno agendado.",
+    }, headers=estagiario)
+    assert criada.status_code == 201, criada.text
+
+    res = client.patch(
+        f"/api/v1/prontuarios/psico/{criada.json()['id']}/homologar",
+        json={"decisao": "VALIDADO", "parecer": "Síntese adequada. Homologado pela coordenação."},
+        headers=coord,
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["status"] == "VALIDADO"
+    assert res.json()["supervisor_nome"] == client.get(
+        "/api/v1/auth/me", headers=coord
+    ).json()["nome"]
+
+
+def test_somente_estagiario_registra_sessao_psico():
+    """Supervisor, RT e coordenação consultam a linha do tempo, mas não escrevem.
+
+    A restrição precisa existir no servidor: esconder o formulário na tela não
+    impede um cliente de chamar `POST /prontuarios/psico` direto.
+    """
+    estagiario = {"Authorization": f"Bearer {get_auth_token('16032935')}"}
+    supervisor = {"Authorization": f"Bearer {get_auth_token('DOC-8821')}"}
+    rt = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
+    coord = {"Authorization": f"Bearer {get_auth_token('COORD-001')}"}
+
+    antes = len(client.get("/api/v1/prontuarios/psico", headers=supervisor).json())
+
+    payload = {
+        "paciente_id": 1,
+        "paciente_nome": "Paciente Teste Escrita Exclusiva",
+        "estagiario_nome": "IGNORADO PELO SERVIDOR",
+        "estagiario_matricula": "IGNORADO",
+        "data_sessao": "10/10/2026",
+        "numero_sessao": "Sessão 100",
+        "redacao_texto": (
+            "Sessão iniciada no horário pactuado. Intervenção concluída sem "
+            "intercorrências. Encerramento com retorno agendado."
+        ),
+    }
+
+    for headers in (supervisor, rt, coord):
+        res = client.post("/api/v1/prontuarios/psico", json=payload, headers=headers)
+        assert res.status_code == 403, res.text
+        assert "estagi" in res.json()["detail"].lower()
+
+    # A recusa não pode ter gravado nada.
+    depois = client.get("/api/v1/prontuarios/psico", headers=supervisor).json()
+    assert len(depois) == antes
+
+    # O caminho do estagiário continua aberto.
+    criada = client.post("/api/v1/prontuarios/psico", json=payload, headers=estagiario)
+    assert criada.status_code == 201, criada.text
+    assert criada.json()["estagiario_matricula"] == "16032935"
+
+
+def test_rf009_coordenacao_e_exclusiva_da_psicologia(monkeypatch):
+    """Nem a RT de odontologia cria coordenação, por cadastro ou aprovação."""
+    odonto = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
+
+    res = client.post("/api/v1/usuarios", json={
+        "nome": "Coordenação Indevida",
+        "email": "coord.odonto.direto@uninassau.edu.br",
+        "senha": "senha-teste-123",
+        "perfil": "coordenacao",
+        "matricula": "CRD-ODONTO-1",
+    }, headers=odonto)
+    assert res.status_code == 400
+    assert "psicologia" in res.json()["detail"]
+
+    envio = _EnvioAprovacao()
+    monkeypatch.setattr("app.routers.solicitacoes.email_service", envio)
+    criada = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
+        "coord.odonto.aprova@uninassau.edu.br", matricula="17110004",
+        curso_declarado="odontologia", perfil_declarado="coordenacao"))
+    assert criada.status_code == 201
+
+    aprovacao = client.post(
+        f"/api/v1/solicitacoes-cadastro/{criada.json()['id']}/aprovar",
+        json={"perfil": "coordenacao", "senha": "senha-inicial-8"},
+        headers=odonto,
+    )
+    assert aprovacao.status_code == 400
+    assert "psicologia" in aprovacao.json()["detail"]
+    assert envio.chamadas == 0
 
 # --- RF-004: o parecer do supervisor e obrigatorio nas DUAS clinicas ---
 
@@ -1228,8 +1475,10 @@ def test_rt_nao_aprova_solicitacao_da_outra_clinica():
     assert res.status_code == 403
 
 
-def test_aprovacao_cria_conta_na_clinica_da_rt():
+def test_aprovacao_cria_conta_na_clinica_da_rt(monkeypatch):
     """Aprovar cria o usuário no mesmo ato, com o curso vindo do token da RT"""
+    envio = _EnvioAprovacao()
+    monkeypatch.setattr("app.routers.solicitacoes.email_service", envio)
     criada = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
         "aprovada.psi@prof.uninassau.edu.br", matricula="17070001"))
     solicitacao_id = criada.json()["id"]
@@ -1238,8 +1487,8 @@ def test_aprovacao_cria_conta_na_clinica_da_rt():
     res = client.post(
         f"/api/v1/solicitacoes-cadastro/{solicitacao_id}/aprovar",
         # O solicitante pediu "estagiario"; a RT confirma com registro.
-        json={"perfil": "estagiario", "registro_profissional": "9º Período",
-              "senha": "senha-inicial-2"},
+        # Sem `senha`: na psicologia quem gera é o servidor.
+        json={"perfil": "estagiario", "registro_profissional": "9º Período"},
         headers=psi,
     )
     assert res.status_code == 200
@@ -1249,9 +1498,11 @@ def test_aprovacao_cria_conta_na_clinica_da_rt():
     assert aprovacao["decidido_em"] is not None
     assert aprovacao["usuario_criado_id"] is not None
 
-    # A conta existe, na clínica da RT, e a senha é a que a RT definiu.
+    # A conta existe, na clínica da RT, e a senha é a que saiu no e-mail.
+    senha_gerada = envio.senha_do_ultimo()
+    assert len(senha_gerada) == 12
     login = client.post("/api/v1/auth/login", json={
-        "email_ou_matricula": "17070001", "senha": "senha-inicial-2"
+        "email_ou_matricula": "17070001", "senha": senha_gerada
     })
     assert login.status_code == 200
     assert login.json()["curso"] == "psicologia"
@@ -1261,11 +1512,108 @@ def test_aprovacao_cria_conta_na_clinica_da_rt():
     assert not any(s["id"] == solicitacao_id for s in pendentes)
 
 
-def test_aprovacao_com_conflito_nao_encerra_o_pedido():
+@pytest.mark.parametrize(
+    "matricula,pedido_matricula,email",
+    [
+        ("RT-002", "17120001", "sem.senha.rt@prof.uninassau.edu.br"),
+        ("COORD-001", "17120002", "sem.senha.coord@prof.uninassau.edu.br"),
+    ],
+)
+def test_psicologia_nao_escolhe_a_senha_inicial(
+    matricula, pedido_matricula, email, monkeypatch
+):
+    """RT e coordenação de psicologia não enviam senha: o servidor gera.
+
+    A regra é do servidor, não da tela. Um cliente que insista em mandar `senha`
+    recebe 422 e nada é gravado — nem e-mail, nem conta, e o pedido continua na
+    fila.
+    """
+    envio = _EnvioAprovacao()
+    monkeypatch.setattr("app.routers.solicitacoes.email_service", envio)
+    criada = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
+        email, matricula=pedido_matricula))
+    assert criada.status_code == 201
+
+    headers = {"Authorization": f"Bearer {get_auth_token(matricula)}"}
+    res = client.post(
+        f"/api/v1/solicitacoes-cadastro/{criada.json()['id']}/aprovar",
+        json={"perfil": "estagiario", "senha": "senha-escolhida-pela-gestao"},
+        headers=headers,
+    )
+    assert res.status_code == 422, res.text
+    assert "gerada pelo servidor" in res.json()["detail"]
+    assert envio.chamadas == 0
+
+    pendentes = client.get(
+        "/api/v1/solicitacoes-cadastro/?situacao=PENDENTE", headers=headers).json()
+    assert next(
+        s for s in pendentes if s["id"] == criada.json()["id"]
+    )["situacao"] == "PENDENTE"
+
+
+def test_cada_aprovacao_da_psicologia_gera_uma_senha_diferente(monkeypatch):
+    """Senha gerada não é constante: duas aprovações não compartilham credencial."""
+    envio = _EnvioAprovacao()
+    monkeypatch.setattr("app.routers.solicitacoes.email_service", envio)
+    psi = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
+    senhas = []
+
+    for matricula, email in [
+        ("17120003", "senha.a@prof.uninassau.edu.br"),
+        ("17120004", "senha.b@prof.uninassau.edu.br"),
+    ]:
+        criada = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
+            email, matricula=matricula))
+        assert criada.status_code == 201
+        res = client.post(
+            f"/api/v1/solicitacoes-cadastro/{criada.json()['id']}/aprovar",
+            json={"perfil": "estagiario"},
+            headers=psi,
+        )
+        assert res.status_code == 200, res.text
+        senhas.append(envio.senha_do_ultimo())
+
+    assert senhas[0] != senhas[1]
+    assert all(len(s) == 12 for s in senhas)
+
+
+def test_odontologia_continua_definindo_a_senha(monkeypatch):
+    """A geração automática é da psicologia; o contrato da odontologia não muda."""
+    envio = _EnvioAprovacao()
+    monkeypatch.setattr("app.routers.solicitacoes.email_service", envio)
+    criada = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
+        "odonto.senha@uninassau.edu.br", matricula="17120005",
+        curso_declarado="odontologia"))
+    assert criada.status_code == 201
+    odonto = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
+
+    # Sem senha não há geração automática na odontologia.
+    sem_senha = client.post(
+        f"/api/v1/solicitacoes-cadastro/{criada.json()['id']}/aprovar",
+        json={"perfil": "estagiario"}, headers=odonto)
+    assert sem_senha.status_code == 422
+    assert "Informe a senha inicial" in sem_senha.json()["detail"]
+    assert envio.chamadas == 0
+
+    com_senha = client.post(
+        f"/api/v1/solicitacoes-cadastro/{criada.json()['id']}/aprovar",
+        json={"perfil": "estagiario", "senha": "senha-da-rt-odonto"},
+        headers=odonto)
+    assert com_senha.status_code == 200, com_senha.text
+    assert envio.senha_do_ultimo() == "senha-da-rt-odonto"
+
+    login = client.post("/api/v1/auth/login", json={
+        "email_ou_matricula": "17120005", "senha": "senha-da-rt-odonto"})
+    assert login.status_code == 200
+    assert login.json()["curso"] == "odontologia"
+
+
+def test_aprovacao_com_conflito_nao_encerra_o_pedido(monkeypatch):
     """Matrícula já cadastrada: 400 e o pedido continua PENDENTE
 
     Se marcasse como aprovada sem criar conta, existiria "aprovado sem usuário".
     """
+    monkeypatch.setattr("app.routers.solicitacoes.email_service", _EnvioAprovacao())
     criada = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
         "conflito.psi@prof.uninassau.edu.br", matricula="16032935"))
     solicitacao_id = criada.json()["id"]
@@ -1273,7 +1621,7 @@ def test_aprovacao_com_conflito_nao_encerra_o_pedido():
     psi = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
     res = client.post(
         f"/api/v1/solicitacoes-cadastro/{solicitacao_id}/aprovar",
-        json={"perfil": "estagiario", "senha": "senha-inicial-3"},
+        json={"perfil": "estagiario"},
         headers=psi,
     )
     assert res.status_code == 400
@@ -1330,8 +1678,11 @@ def test_solicitacao_nao_e_decidida_duas_vezes():
     assert segunda.status_code == 409
 
 
-def test_fila_de_solicitacoes_so_abre_para_a_rt():
-    """Supervisor, estagiário e recepção não listam nem decidem"""
+def test_fila_de_solicitacoes_so_abre_para_a_gestao():
+    """RT e coordenação listam; supervisor, estagiário e recepção não"""
+    coord = {"Authorization": f"Bearer {get_auth_token('COORD-001')}"}
+    assert client.get("/api/v1/solicitacoes-cadastro/", headers=coord).status_code == 200
+
     for matricula in ("DOC-8821", "16032935", "REC-002"):
         headers = {"Authorization": f"Bearer {get_auth_token(matricula)}"}
         assert client.get("/api/v1/solicitacoes-cadastro/", headers=headers).status_code == 403
@@ -1340,15 +1691,16 @@ def test_fila_de_solicitacoes_so_abre_para_a_rt():
     assert client.get("/api/v1/solicitacoes-cadastro/").status_code == 401
 
 
-def test_decisao_da_rt_entra_na_trilha_de_auditoria():
+def test_decisao_da_rt_entra_na_trilha_de_auditoria(monkeypatch):
     """Aprovar e recusar deixam rastro"""
+    monkeypatch.setattr("app.routers.solicitacoes.email_service", _EnvioAprovacao())
     rt_psi = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
 
     aprovada = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
         "auditoria.aprovada@prof.uninassau.edu.br", matricula="17100001"))
     client.post(
         f"/api/v1/solicitacoes-cadastro/{aprovada.json()['id']}/aprovar",
-        json={"perfil": "estagiario", "senha": "senha-inicial-5"},
+        json={"perfil": "estagiario"},
         headers=rt_psi,
     )
 
@@ -1369,8 +1721,117 @@ def test_decisao_da_rt_entra_na_trilha_de_auditoria():
     assert "RECUSA_SOLICITACAO_CREDENCIAL" in acoes
 
     rt_odonto = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
-    acoes_da_outra = {log["acao"] for log in client.get("/api/v1/auditoria/", headers=rt_odonto).json()}
-    assert "APROVACAO_SOLICITACAO_CREDENCIAL" not in acoes_da_outra
+    logs_da_outra = client.get("/api/v1/auditoria/", headers=rt_odonto).json()
+    # A trilha é segregada por curso: o log desta aprovação não aparece para a RT
+    # da outra clínica. Filtrar só pela ação não serve — outro teste também pode
+    # ter aprovado um pedido de odontologia, e a ação seria a mesma.
+    assert not any(
+        log["acao"] == "APROVACAO_SOLICITACAO_CREDENCIAL"
+        and log["registro_id"] == aprovada.json()["id"]
+        for log in logs_da_outra
+    )
+
+
+class _EnvioAprovacao:
+    """Dublê mínimo: a aprovação só cria conta se o envio disser que saiu.
+
+    Guarda o corpo porque na psicologia a senha inicial é gerada no servidor e
+    **só existe aqui** — é daqui que o teste a lê para provar que o login
+    funciona com a credencial que o solicitante receberia.
+    """
+
+    def __init__(self):
+        self.chamadas = 0
+        self.enviados: list[tuple[str, str, str]] = []
+
+    def enviar(self, destinatario: str, assunto: str, corpo: str):
+        from app.services.email_service import ResultadoEnvio, StatusEnvio
+
+        self.chamadas += 1
+        self.enviados.append((destinatario, assunto, corpo))
+        return ResultadoEnvio(StatusEnvio.ENVIADO)
+
+    def senha_do_ultimo(self) -> str:
+        """Senha inicial que saiu no último e-mail de aprovação."""
+        assert self.enviados, "nenhum e-mail de aprovação foi enviado"
+        corpo = self.enviados[-1][2]
+        for linha in corpo.splitlines():
+            if linha.startswith("Sua senha inicial de acesso ao UniCare é:"):
+                return linha.split(":", 1)[1].strip()
+        raise AssertionError("o e-mail de aprovação não trouxe a senha inicial")
+
+
+def test_coordenacao_aprova_pedido_operacional(monkeypatch):
+    """A coordenação aprova supervisor/estagiário/recepção na própria clínica"""
+    envio = _EnvioAprovacao()
+    monkeypatch.setattr("app.routers.solicitacoes.email_service", envio)
+
+    criada = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
+        "coord.aprova@prof.uninassau.edu.br", matricula="17110001",
+        perfil_declarado="supervisor"))
+    assert criada.status_code == 201
+    solicitacao_id = criada.json()["id"]
+
+    coord = {"Authorization": f"Bearer {get_auth_token('COORD-001')}"}
+    res = client.post(
+        f"/api/v1/solicitacoes-cadastro/{solicitacao_id}/aprovar",
+        json={"perfil": "supervisor"},
+        headers=coord,
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["situacao"] == "APROVADA"
+    assert res.json()["decidido_por_matricula"] == "COORD-001"
+    assert envio.chamadas == 1
+
+    token = get_auth_token("17110001", envio.senha_do_ultimo())
+    me = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert me.json()["perfil"] == "supervisor"
+    assert me.json()["curso"] == "psicologia"
+
+
+def test_coordenacao_nao_aprova_nem_recusa_pedido_de_rt(monkeypatch):
+    """A guarda é pelo perfil FINAL e vem antes do e-mail.
+
+    Sem ela, a coordenação dispararia o e-mail com a senha e só depois receberia
+    403 — a pessoa ficaria com a senha de uma conta que nunca existiu.
+    """
+    envio = _EnvioAprovacao()
+    monkeypatch.setattr("app.routers.solicitacoes.email_service", envio)
+    coord = {"Authorization": f"Bearer {get_auth_token('COORD-001')}"}
+
+    # Declarou estagiário, mas a coordenação tenta confirmar como RT.
+    criada = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
+        "coord.rt.final@prof.uninassau.edu.br", matricula="17110002",
+        perfil_declarado="estagiario"))
+    assert criada.status_code == 201
+    res = client.post(
+        f"/api/v1/solicitacoes-cadastro/{criada.json()['id']}/aprovar",
+        json={"perfil": "rt", "senha": "senha-inicial-7"},
+        headers=coord,
+    )
+    assert res.status_code == 403
+    assert "RT" in res.json()["detail"]
+    assert envio.chamadas == 0
+
+    # Declarou RT: recusar também é decidir, e a coordenação não decide.
+    declarada_rt = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
+        "coord.rt.recusa@prof.uninassau.edu.br", matricula="17110003",
+        perfil_declarado="rt"))
+    assert declarada_rt.status_code == 201
+    recusa = client.post(
+        f"/api/v1/solicitacoes-cadastro/{declarada_rt.json()['id']}/recusar",
+        json={"motivo": "Pedido de RT não é da alçada da coordenação."},
+        headers=coord,
+    )
+    assert recusa.status_code == 403
+    assert "RT" in recusa.json()["detail"]
+    assert envio.chamadas == 0
+
+    # Nenhuma decisão parcial: os dois pedidos continuam pendentes.
+    fila = client.get("/api/v1/solicitacoes-cadastro/", headers=coord).json()
+    pendentes = {s["id"] for s in fila if s["situacao"] == "PENDENTE"}
+    assert criada.json()["id"] in pendentes
+    assert declarada_rt.json()["id"] in pendentes
 
 
 # --- Recuperação de senha por token no e-mail ---
@@ -1721,9 +2182,11 @@ def _paciente_novo(curso: str = "psicologia") -> int:
         "/api/v1/pacientes",
         json={
             "nome": f"Paciente Vinculo {n}",
-            "cpf_rg": f"9{n:03d}.111.222-33",
+            "cpf_rg": f"{n:03d}.111.222-33",
             "data_nascimento": "1995-05-05",
             "telefone": f"(79) 9999{n:04d}",
+            "endereco": f"Rua do Teste {n}",
+            "numero": str(100 + n),
             "eh_menor": False,
             "curso": curso,
         },
@@ -1964,22 +2427,26 @@ def test_transferencia_move_a_responsabilidade_e_preserva_o_historico():
     assert antigo["estagiario_nome"] == _nome_a()
 
 
-def test_supervisor_e_rt_nao_sao_bloqueados_pelo_vinculo():
-    """A regra é de responsabilidade do aluno, não de quem supervisiona.
+def test_supervisor_e_rt_consultam_sem_vinculo_mas_nao_escrevem():
+    """O vínculo não tranca a consulta; a escrita é exclusiva do estagiário.
 
-    Supervisor e RT abrem o prontuário para consultar. Nenhum dos dois tem
-    paciente vinculado — o vínculo é do estagiário — então aplicar a regra a
-    eles trancaria a supervisão e a auditoria.
+    Supervisor e RT não têm paciente vinculado — o vínculo é do estagiário —
+    então a leitura da clínica continua liberada. A criação de sessão, porém,
+    é recusada para os dois.
     """
     paciente_id = _paciente_novo()  # fica sem nenhum responsável
 
     for matricula in ("DOC-8821", "RT-002"):
+        headers = _psi(get_auth_token(matricula))
+        assert client.get("/api/v1/prontuarios/psico", headers=headers).status_code == 200
+
         res = client.post(
             "/api/v1/prontuarios/psico",
             json=_sintese(paciente_id, f"Registro de {matricula}."),
-            headers=_psi(get_auth_token(matricula)),
+            headers=headers,
         )
-        assert res.status_code == 201, f"{matricula}: {res.status_code} {res.text}"
+        assert res.status_code == 403, f"{matricula}: {res.status_code} {res.text}"
+        assert "estagi" in res.json()["detail"].lower()
 
 
 def test_estagiario_nao_atribui_paciente():
@@ -2414,6 +2881,106 @@ def test_a_data_volta_na_leitura_da_agenda():
     ).json()
     minha = next(a for a in agenda if a["id"] == res.json()["id"])
     assert minha["data_sessao"] == DATA_SESSAO_TESTE
+
+
+def _marcar_falta(agendamento_id: int, matricula: str, motivo=None):
+    corpo = {"status": "FALTOU"}
+    if motivo is not None:
+        corpo["motivo_falta"] = motivo
+    return client.patch(
+        f"/api/v1/agendamentos/{agendamento_id}/status",
+        json=corpo,
+        headers=_psi(get_auth_token(matricula)),
+    )
+
+
+def test_motivo_da_falta_e_opcional_e_chega_na_agenda_do_estagiario():
+    """O motivo pertence à falta e o aluno que atende precisa vê-lo.
+
+    Branco não é motivo: vira `None` e a tela não deve renderizar um bloco
+    vazio. O valor digitado volta na leitura da agenda, que é o que alimenta
+    a tela "Meus Agendamentos".
+    """
+    token_a = _token_a()
+    paciente_id = _paciente_novo()
+    criado = _agendar_psicologia(paciente_id, _nome_a(), "VINCU001")
+    assert criado.status_code == 201, criado.text
+    agendamento_id = criado.json()["id"]
+
+    sem_motivo = _marcar_falta(agendamento_id, "REC-002", "   ")
+    assert sem_motivo.status_code == 200, sem_motivo.text
+    assert sem_motivo.json()["motivo_falta"] is None
+
+    motivo = "Paciente avisou que não poderia comparecer por motivo de trabalho."
+    com_motivo = _marcar_falta(agendamento_id, "REC-002", motivo)
+    assert com_motivo.status_code == 200, com_motivo.text
+    assert com_motivo.json()["motivo_falta"] == motivo
+
+    agenda = client.get("/api/v1/agendamentos", headers=_psi(token_a)).json()
+    minha = next(a for a in agenda if a["id"] == agendamento_id)
+    assert minha["motivo_falta"] == motivo
+
+
+def test_motivo_da_falta_nao_e_aceito_fora_de_faltou():
+    """Motivo de ausência em sessão presente seria dado sem significado."""
+    _token_a()
+    paciente_id = _paciente_novo()
+    criado = _agendar_psicologia(paciente_id, _nome_a(), "VINCU001")
+    assert criado.status_code == 201, criado.text
+
+    res = client.patch(
+        f"/api/v1/agendamentos/{criado.json()['id']}/status",
+        json={
+            "status": "PRESENTE",
+            "motivo_falta": "Este motivo não deveria ser gravado.",
+        },
+        headers=_psi(get_auth_token("REC-002")),
+    )
+    assert res.status_code == 422, res.text
+    assert "FALTOU" in res.json()["detail"]
+
+    # A recusa acontece antes da escrita: o agendamento continua como estava.
+    agenda = client.get(
+        "/api/v1/agendamentos", headers=_psi(get_auth_token("REC-002"))
+    ).json()
+    atual = next(a for a in agenda if a["id"] == criado.json()["id"])
+    assert atual["status"] == "AGENDADO"
+    assert atual["motivo_falta"] is None
+
+
+@pytest.mark.parametrize("matricula", ["REC-002", "RT-002", "COORD-001"])
+def test_recepcao_rt_e_coordenacao_registram_motivo_da_falta(matricula):
+    """A recepção de psicologia é compartilhada pelos três perfis operacionais.
+
+    O motivo não pode existir só na tela da recepção: RT e coordenação usam a
+    mesma agenda e precisam conseguir registrar a ausência com a justificativa.
+    """
+    _token_a()
+    paciente_id = _paciente_novo()
+    criado = _agendar_psicologia(paciente_id, _nome_a(), "VINCU001")
+    assert criado.status_code == 201, criado.text
+
+    motivo = f"Falta registrada por {matricula}."
+    res = _marcar_falta(criado.json()["id"], matricula, motivo)
+    assert res.status_code == 200, res.text
+    assert res.json()["motivo_falta"] == motivo
+
+
+def test_motivo_da_falta_nao_atravessa_o_guard_de_curso():
+    """A justificativa não pode virar porta dos fundos para a outra clínica."""
+    agendamento_odonto = next(
+        a for a in client.get(
+            "/api/v1/agendamentos", headers=_psi(get_auth_token("REC-001"))
+        ).json()
+        if a["curso"] == "odontologia"
+    )
+
+    res = _marcar_falta(
+        agendamento_odonto["id"],
+        "REC-002",
+        "Tentativa de registrar falta na clínica alheia.",
+    )
+    assert res.status_code == 403, res.text
 
 
 # ---------------------------------------------------------------------------

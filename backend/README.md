@@ -240,15 +240,18 @@ sem isso, um ciclo `downgrade` → `upgrade` falha com `type ... already exists`
 
 ## 🔌 Endpoints principais
 
-Prefixo global `/api/v1`. Perfis: `estagiario`, `supervisor`, `recepcao`, `rt`.
+Prefixo global `/api/v1`. Perfis: `estagiario`, `supervisor`, `recepcao`, `rt`,
+`coordenacao`.
 
-Cada clínica é uma fatia vertical isolada: `estagiario`, `supervisor`, `recepcao` e
-`rt` só veem e gravam dados do **curso do próprio cadastro**. O RT tem visão
-panorâmica da sua clínica, não das duas; a recepção também é uma conta por
-clínica (`REC-001` odontologia, `REC-002` psicologia), porque concili agenda das
-duas em um login só não é separação. Paciente com `curso = ambos` aparece nas
-duas clínicas. `CursoUsuario.GERAL` existe no ENUM por compatibilidade mas
-**nenhum cadastro o usa**, e ele não abre atalho em nenhum guard.
+Cada clínica é uma fatia vertical isolada: `estagiario`, `supervisor`, `recepcao`,
+`rt` e `coordenacao` só veem e gravam dados do **curso do próprio cadastro**. O RT
+tem visão panorâmica da sua clínica, não das duas; a coordenação existe apenas na
+psicologia, tem a mesma visão operacional da RT, mas não gerencia RT nem outra
+coordenação. A recepção também é uma conta por clínica (`REC-001` odontologia,
+`REC-002` psicologia), porque conciliar agenda das duas em um login só não é
+separação. Paciente com `curso = ambos` aparece nas duas clínicas.
+`CursoUsuario.GERAL` existe no ENUM por compatibilidade mas **nenhum cadastro o
+usa**, e ele não abre atalho em nenhum guard.
 
 | Recurso | Rotas | Acesso |
 |---|---|---|
@@ -256,14 +259,25 @@ duas clínicas. `CursoUsuario.GERAL` existe no ENUM por compatibilidade mas
 | Pacientes | `GET /pacientes`, `POST /pacientes` | autenticado, escopado ao curso |
 | **Anamnese / sinais vitais** | `GET /pacientes/{id}/anamnese`, `POST /pacientes/{id}/anamnese` | clínico (RN-001 bloqueia recepção), escopado ao curso |
 | Agendamentos | `GET /agendamentos`, `POST /agendamentos`, `PATCH /agendamentos/{id}/status` | autenticado, escopado ao curso |
-| Prontuáriofinder | `GET/POST /prontuarios/psico`, `PATCH /prontuarios/psico/{id}/homologar` | clínico, restrito ao curso |
+| Prontuário psi | `GET/POST /prontuarios/psico`, `PATCH /prontuarios/psico/{id}/homologar` | GET: clínico, restrito ao curso · POST: só estagiário · PATCH: supervisor, RT e coordenação |
 | Ficha odonto | `GET/POST /prontuarios/odonto`, `PATCH /prontuarios/odonto/{id}/homologar` | clínico, restrito ao curso |
-| **Vinculo paciente-estagiario (RF-001)** | `GET/POST /atribuicoes/psico`, `PATCH /atribuicoes/psico/{id}/transferir`, `GET /atribuicoes/psico/minha` | recepcao e rt (escrita), clinico (leitura) |
-| Auditoria | `GET /auditoria` | rt, supervisor — filtrada por curso |
-| **Usuários (RF-009)** | `GET /usuarios`, `POST /usuarios`, `PATCH /usuarios/{id}`, `DELETE /usuarios/{id}` | rt (clínica inteira) · supervisor (só estagiários da clínica) |
-| Relatórios | `GET /relatorios/estatisticas` | rt, supervisor — filtrado pelo curso |
+| **Vinculo paciente-estagiario (RF-001)** | `GET/POST /atribuicoes/psico`, `PATCH /atribuicoes/psico/{id}/transferir`, `GET /atribuicoes/psico/minha` | recepcao, rt e coordenação (escrita), clinico (leitura) |
+| Auditoria | `GET /auditoria` | rt, coordenação, supervisor — filtrada por curso |
+| **Usuários (RF-009)** | `GET /usuarios`, `POST /usuarios`, `PATCH /usuarios/{id}`, `DELETE /usuarios/{id}` | rt (clínica inteira) · coordenação (operação da clínica, sem RT/coordenação) · supervisor (só estagiários da clínica) |
+| Relatórios | `GET /relatorios/estatisticas` | rt, coordenação, supervisor — filtrado pelo curso |
 
 O vinculo de paciente **nao** tem bloqueio RN-001: e fila de trabalho da recepcao, e ela precisa enxergar a clinica inteira para atribuir. O estagiario, ao escribir prontuario, so alcanca paciente ativo em seu nome.
+
+O cadastro de psicologia exige endereco, numero e CPF com 11 digitos; a
+odontologia mantem o contrato anterior. Como `ambos` tambem pode ser criado pela
+recepcao de odontologia, o servidor exige os campos apenas para
+`curso = psicologia`; o formulario de psicologia exige tambem quando o destino e
+`ambos`.
+
+A escrita de evolução psicológica é exclusiva do estagiário. Supervisor, RT e
+coordenação usam `/psi/prontuario` apenas para consultar a linha do tempo e
+homologar; `POST /prontuarios/psico` recusa esses perfis com 403. A restrição
+vale no servidor, não só no formulário.
 
 O filtro de listagem não protege a escrita: `PATCH` por id confere o curso do
 registro. Sem isso, esconder a agenda da outra clínica era só conveniência de
@@ -274,8 +288,8 @@ tela.
 ## 🔒 Controles de Segurança & Conformidade Normativa
 * **RN-001 (Bloqueio de Recepção):** O endpoint `/api/v1/prontuarios` intercepta e proíbe qualquer requisição feita com token de perfil `recepcao` (HTTP 403 Forbidden).
 * **RN-002 (Vedação de Aspas CFP):** O schema `ProntuarioPsicoCreate` analisa via regex `["“”«»]` e recusa a gravação de falas literais (HTTP 422 Unprocessable Entity).
-* **RN-003 (Salvaguarda Institucional):** Usuários com perfil `RT` possuem salvaguarda institucional, mas **não escapa da própria clínica** — a segregação por curso vale inclusive para a RT.
-* **RN-004 (Homologação Docente):** Apenas supervisores e RT podem alterar o status de prontuários para `VALIDADO`, e só nas fichas da clínica deles.
+* **RN-003 (Salvaguarda Institucional):** Usuários com perfil `RT` e a coordenação de psicologia possuem salvaguarda institucional, mas **não escapam da própria clínica** — a segregação por curso vale inclusive para eles.
+* **RN-004 (Homologação Docente):** Apenas supervisores, RT e a coordenação de psicologia podem alterar o status de prontuários para `VALIDADO`, e só nas fichas da clínica deles.
 * **RNF-004 (Logs de Auditoria):** Cada login, cadastro de paciente e visto é registrado na tabela `logs_auditoria`, com o **IP real da requisição** (`request.client.host`, nunca um valor fixo) e o **curso** de quem praticou o ato.
 * **Senhas:** bcrypt com `rounds=12`. `verify_password` só aceita `bcrypt.checkpw` — não existe fallback que compare texto puro.
 
@@ -293,8 +307,8 @@ esta tabela é a definição que o código assume.
 |---|---|---|
 | RN-001 | Perfil `recepcao` é bloqueado no prontuário | `require_roles` em `prontuarios.py`; o guard de papel roda **antes** do de curso para preservar o `detail` |
 | RN-002 | Vedação de falas literais (CFP 06/2019) | validador de aspas no `ProntuarioPsicoCreate` (422) |
-| RN-003 | Salvaguarda institucional da RT | `require_roles` — mas **não** atravessa a clínica; `require_curso` não tem bypass |
-| RN-004 | Homologação é ato docente | `autorizado_homologacao` + conferência do curso do paciente |
+| RN-003 | Salvaguarda institucional da RT e da coordenação | `require_roles` — mas **não** atravessa a clínica; `require_curso` não tem bypass |
+| RN-004 | Homologação é ato docente | `autorizado_homologacao`/`autorizado_homologacao_psico` + conferência do curso do paciente |
 | RN-004 (parcial) | Responsável obrigatório para menor | `cadastrar_paciente` (400) |
 | RNF-004 | Trilha de auditoria com IP real e curso | `registrar_log` + `ip_do_cliente` |
 

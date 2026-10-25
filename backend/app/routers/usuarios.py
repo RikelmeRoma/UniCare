@@ -31,19 +31,34 @@ router = APIRouter(prefix="/usuarios", tags=["Gestão de Usuários (RF-009)"])
 # A RT cadastra, edita e desativa usuários da PRÓPRIA clínica — a salvaguarda
 # institucional do RN-003 não atravessa a segregação por curso.
 #
+# A COORDENAÇÃO tem a mesma governança da RT dentro da própria clínica, mas não
+# gerencia RT nem outra coordenação: esses dois perfis são ato exclusivo da RT.
+#
 # O SUPERVISOR administra apenas ESTAGIÁRIOS da clínica dele (o relatório:
 # "supervisores de odontologia podem gerenciar acadêmicos vinculados à Clínica
 # Integrada"). Ele não promove ninguém a supervisor nem a RT, nem toca em
 # recepção. Estagiário e recepção não administram ninguém.
 
-autorizado_gestao = require_roles([PerfilUsuario.RT, PerfilUsuario.SUPERVISOR])
+autorizado_gestao = require_roles([
+    PerfilUsuario.RT,
+    PerfilUsuario.SUPERVISOR,
+    PerfilUsuario.COORDENACAO,
+])
 
 
 def _pode_gerenciar(gestor: Usuario, perfil_alvo: PerfilUsuario) -> bool:
     if gestor.perfil == PerfilUsuario.RT:
         return True
-    # Supervisor só cria/edita estagiário. Promover a supervisor ou a RT passa a
-    # ser ato exclusivo da RT da clínica.
+    if gestor.perfil == PerfilUsuario.COORDENACAO:
+        # A coordenação administra a operação da clínica, não a RT nem outra
+        # coordenação. Criar ou editar esses dois perfis continua sendo ato da RT.
+        return perfil_alvo in (
+            PerfilUsuario.SUPERVISOR,
+            PerfilUsuario.ESTAGIARIO,
+            PerfilUsuario.RECEPCAO,
+        )
+    # Supervisor só cria/edita estagiário. Promover a supervisor, RT ou
+    # coordenação passa a ser ato exclusivo da RT da clínica.
     return gestor.perfil == PerfilUsuario.SUPERVISOR and perfil_alvo == PerfilUsuario.ESTAGIARIO
 
 
@@ -81,13 +96,21 @@ def _supervisor_valido(session: Session, matricula: str, curso: str) -> Usuario:
     return supervisor
 
 
-def _negar_gestao(perfil_alvo: PerfilUsuario) -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail=(
+def _negar_gestao(gestor: Usuario, perfil_alvo: PerfilUsuario) -> HTTPException:
+    if gestor.perfil == PerfilUsuario.COORDENACAO:
+        detalhe = (
+            "Acesso negado: a coordenação administra supervisores, estagiários e "
+            "recepção. Criar, editar ou desativar RT ou coordenação é ato "
+            "exclusivo da RT."
+        )
+    else:
+        detalhe = (
             f"Acesso negado: supervisor só administra estagiários. "
             f"Criar ou editar perfil '{perfil_alvo.value}' é ato exclusivo da RT."
         )
+    return HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=detalhe,
     )
 
 
@@ -100,8 +123,8 @@ def listar_usuarios(
 ):
     """Lista os usuários visíveis ao gestor.
 
-    A RT enxerga a clínica inteira; o supervisor vê os estagiários da clínica
-    dele. Nenhum dos dois atravessa a segregação de curso.
+    A RT e a coordenação enxergam a clínica inteira; o supervisor vê os
+    estagiários da clínica dele. Nenhum deles atravessa a segregação de curso.
     """
     query = select(Usuario).where(Usuario.curso == current_user.curso)
 
@@ -112,8 +135,9 @@ def listar_usuarios(
             Usuario.perfil == PerfilUsuario.ESTAGIARIO,
             Usuario.supervisor_matricula == current_user.matricula,
         )
-    elif current_user.perfil == PerfilUsuario.RT:
-        # RT vê a clínica inteira, inclusive os estagiários sem supervisor ainda.
+    elif current_user.perfil in (PerfilUsuario.RT, PerfilUsuario.COORDENACAO):
+        # RT e coordenação veem a clínica inteira, inclusive os estagiários sem
+        # supervisor ainda. A coordenação vê a RT, mas não a gerencia.
         pass
     else:
         # Recepção não administra ninguém — mas a rota exige autorizado_gestao,
@@ -169,8 +193,8 @@ def listar_estagiarios_disponiveis(
     """Estagiários ativos da clínica que ainda NÃO têm supervisor.
 
     É a lista que o supervisor usa para assumir um aluno que já estava no
-    sistema — o que a RT cadastrou, por exemplo. Sem esta rota o supervisor
-    só enxergava quem ele mesmo criou, e um aluno criado pela RT ficava
+    sistema — o que a gestão cadastrou, por exemplo. Sem esta rota o supervisor
+    só enxergava quem ele mesmo criou, e um aluno criado pela gestão ficava
     invisível para todo mundo.
 
     O filtro `supervisor_matricula IS NULL` é NO SERVIDOR. Devolver todos e
@@ -178,10 +202,14 @@ def listar_estagiarios_disponiveis(
     colegas da clínica — inclusive os que já são de outro supervisor, que é
     justamente a segregação que o RF-005 cria.
 
-    Só supervisor e RT. A recepção não precisa: para a agenda ela usa
+    Supervisor, RT e coordenação. A recepção não precisa: para a agenda ela usa
     `GET /usuarios/estagiarios`, que traz todos os estagiários da clínica.
     """
-    exigir_perfil(current_user, [PerfilUsuario.SUPERVISOR, PerfilUsuario.RT])
+    exigir_perfil(current_user, [
+        PerfilUsuario.SUPERVISOR,
+        PerfilUsuario.RT,
+        PerfilUsuario.COORDENACAO,
+    ])
 
     query = select(Usuario).where(
         Usuario.perfil == PerfilUsuario.ESTAGIARIO,
@@ -223,7 +251,16 @@ def criar_usuario_para_gestor(
     e-mail ou a matrícula já existem.
     """
     if not _pode_gerenciar(gestor, perfil):
-        raise _negar_gestao(perfil)
+        raise _negar_gestao(gestor, perfil)
+
+    # Coordenação é um perfil da psicologia; a clínica de odontologia não tem
+    # essa função. A checagem fica depois da alçada para o supervisor receber
+    # 403 (não administra esse perfil) em vez de 400 (perfil da outra clínica).
+    if perfil == PerfilUsuario.COORDENACAO and gestor.curso != CursoUsuario.PSICOLOGIA:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Coordenação é exclusiva da clínica de psicologia.",
+        )
 
     usuario = Usuario(
         nome=nome.strip(),
@@ -275,7 +312,8 @@ def cadastrar_usuario(
 ):
     """Cadastra um usuário na clínica do gestor.
 
-    O curso nunca vem do corpo: é o da RT ou do supervisor que está cadastrando.
+    O curso nunca vem do corpo: é o da RT, da coordenação ou do supervisor que
+    está cadastrando.
     """
     return criar_usuario_para_gestor(
         session=session,
@@ -309,15 +347,16 @@ def vincular_supervisor(
     Quem pode:
     - o supervisor vincula **a si mesmo**. A matrícula vem do token; mandar a
       de outro no corpo seria o supervisor montar lista dos colegas;
-    - a RT vincula a um supervisor escolhido, e aí o corpo é consultado.
+    - a RT e a coordenação vinculam a um supervisor escolhido, e aí o corpo é
+      consultado.
 
     Regras que não cedem:
     - só estagiário, e da mesma clínica de quem está chamando;
     - **apenas se ainda não tiver supervisor**. Estagiário com dono não é
-      puxado por outro supervisor: a troca de dono é ato da RT, senão a
-      segregação que o RF-005 cria vira decorativa.
+      puxado por outro supervisor: a troca de dono é ato da RT ou da
+      coordenação, senão a segregação que o RF-005 cria vira decorativa.
     """
-    if current_user.perfil == PerfilUsuario.RT:
+    if current_user.perfil in (PerfilUsuario.RT, PerfilUsuario.COORDENACAO):
         matricula_alvo = dados.supervisor_matricula
         if not matricula_alvo:
             raise HTTPException(
@@ -363,7 +402,7 @@ def vincular_supervisor(
             detail=(
                 f"Este estagiário já está sob responsabilidade de "
                 f"{estagiario.supervisor_matricula}. Trocar o responsável é ato "
-                "da Referência Técnica."
+                "da Referência Técnica ou da Coordenação."
             ),
         )
 
@@ -392,7 +431,7 @@ def atualizar_usuario(
     if usuario_id == current_user.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A RT não pode editar o próprio cadastro por esta rota."
+            detail="A gestão não pode editar o próprio cadastro por esta rota."
         )
 
     usuario = session.get(Usuario, usuario_id)
@@ -409,11 +448,13 @@ def atualizar_usuario(
                    f"Seu cadastro é da clínica de {current_user.curso.value}."
         )
 
-    # Supervisor não edita supervisor nem RT, mesmo na própria clínica.
+    # Supervisor não edita supervisor nem RT; coordenação não edita RT nem
+    # outra coordenação, mesmo na própria clínica.
     if not _pode_gerenciar(current_user, usuario.perfil):
-        raise _negar_gestao(usuario.perfil)
+        raise _negar_gestao(current_user, usuario.perfil)
 
-    # Supervisor só edita estagiário vinculado a ele. A RT pode editar todos.
+    # Supervisor só edita estagiário vinculado a ele. RT e coordenação podem
+    # editar todos os perfis que gerenciam.
     if (
         current_user.perfil == PerfilUsuario.SUPERVISOR
         and usuario.supervisor_matricula != current_user.matricula
@@ -433,12 +474,16 @@ def atualizar_usuario(
         usuario.registro_profissional = dados.registro_profissional or None
     if dados.ativo is not None:
         usuario.ativo = dados.ativo
-    # Atribuir supervisor é ato da RT. Supervisor não se auto-atribui estagiário.
+    # Atribuir supervisor é ato da RT ou da coordenação. Supervisor não se
+    # auto-atribui estagiário.
     if dados.supervisor_matricula is not None:
-        if current_user.perfil != PerfilUsuario.RT:
+        if current_user.perfil not in (PerfilUsuario.RT, PerfilUsuario.COORDENACAO):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Atribuir estagiário a supervisor é ato da Referência Técnica (RF-009).",
+                detail=(
+                    "Atribuir estagiário a supervisor é ato da Referência Técnica "
+                    "ou da Coordenação (RF-009)."
+                ),
             )
         if dados.supervisor_matricula == '':
             usuario.supervisor_matricula = None
@@ -489,7 +534,7 @@ def desativar_usuario(
     if usuario_id == current_user.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A RT não pode desativar o próprio cadastro."
+            detail="A gestão não pode desativar o próprio cadastro."
         )
 
     usuario = session.get(Usuario, usuario_id)
@@ -507,7 +552,7 @@ def desativar_usuario(
         )
 
     if not _pode_gerenciar(current_user, usuario.perfil):
-        raise _negar_gestao(usuario.perfil)
+        raise _negar_gestao(current_user, usuario.perfil)
 
     # Supervisor só desativa estagiário vinculado a ele.
     if (

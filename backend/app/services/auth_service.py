@@ -51,8 +51,10 @@ def exigir_perfil(usuario: Usuario, allowed_roles: List[PerfilUsuario]) -> None:
     função: o agendamento só sabe a clínica depois de ler o corpo, e uma
     dependência do FastAPI age antes disso.
     """
-    # A Referência Técnica (RT) possui salvaguarda institucional ampla (RN-003)
-    if usuario.perfil == PerfilUsuario.RT:
+    # A Referência Técnica (RT) possui salvaguarda institucional ampla (RN-003).
+    # A coordenação tem a mesma salvaguarda de papel, mas continua presa ao
+    # próprio curso por require_curso — o bypass aqui não atravessa clínica.
+    if usuario.perfil in (PerfilUsuario.RT, PerfilUsuario.COORDENACAO):
         return
     if usuario.perfil not in allowed_roles:
         raise HTTPException(

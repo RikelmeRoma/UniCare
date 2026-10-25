@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppSidebar } from './AppSidebar';
 import { useAuth } from '../../features/auth/context/AuthContext';
+import { InfoTooltip } from '../ui/InfoTooltip';
 import {
   ShieldCheckIcon,
   ArrowRightOnRectangleIcon,
@@ -11,6 +12,7 @@ interface AppLayoutProps {
   children: React.ReactNode;
   title: string;
   subtitle?: string;
+  info?: string;
   badge?: string;
   badgeType?: 'blue' | 'emerald' | 'indigo' | 'amber' | 'slate' | 'granada';
   actions?: React.ReactNode;
@@ -20,6 +22,7 @@ export function AppLayout({
   children,
   title,
   subtitle,
+  info,
   badge,
   badgeType = 'blue',
   actions,
@@ -30,6 +33,7 @@ export function AppLayout({
   const isPsico = user?.curso === 'psicologia';
   const isOdonto = user?.curso === 'odontologia';
   const isRT = user?.perfil === 'rt';
+  const isCoordenacao = user?.perfil === 'coordenacao';
 
   const getBadgeStyle = () => {
     switch (badgeType) {
@@ -63,7 +67,9 @@ export function AppLayout({
             <span className="font-bold text-slate-700">UNINASSAU Aracaju</span>
             <span className="text-slate-300">/</span>
             <span className="text-slate-600 font-semibold">
-              {isPsico
+              {isCoordenacao
+                ? 'Coordenação de Psicologia'
+                : isPsico
                 ? 'Serviço de Psicologia Aplicada (SPA)'
                 : isOdonto
                 ? 'Clínica Odontológica Integrada'
@@ -101,7 +107,9 @@ export function AppLayout({
             {/* Avatar Inicial na Cor Oficial do Curso */}
             <div
               className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs text-white shadow-xs ${
-                isPsico
+                isCoordenacao
+                  ? 'bg-blue-800'
+                  : isPsico
                   ? 'bg-blue-700'
                   : isOdonto
                   ? 'bg-[#881337]'
@@ -136,6 +144,7 @@ export function AppLayout({
                 <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
                   {title}
                 </h1>
+                {info && <InfoTooltip texto={info} />}
                 {badge && (
                   <span
                     className={`inline-flex sm:hidden items-center px-2 py-0.5 rounded-md text-[10px] font-bold border ${getBadgeStyle()}`}

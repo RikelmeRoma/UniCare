@@ -17,7 +17,7 @@ import {
  * - **Envia de verdade.** A versão anterior tinha `alert('Solicitação
  *   credenciamento enviada')` e nenhuma chamada de API. Agora vai para
  *   `POST /solicitacoes-cadastro/`.
- * - **Sem campo de senha.** A senha é definida pela RT no ato de aprovar.
+ * - **Sem campo de senha.** A senha é definida pela gestão no ato de aprovar.
  *   Guardar credencial de quem nem tem conta, em tabela alcançável por
  *   qualquer chamada anônima, não é uma superfície que vale abrir.
  * - **Sai o "Mínimo 8 caracteres" e o badge "Forte" fixo.** A regra real é 6, no
@@ -25,7 +25,7 @@ import {
  *   campo vazio.
  * - **Sai o "Docente Supervisor Responsável: Profa. Dra. Juliana Moura Feitosa
  *   (CRO/SE 412)".** Nome que não existe no seed, com conselho de odontologia
- *   num campo que aceita psicologia. Quem designa o docente é a RT.
+ *   num campo que aceita psicologia. Quem designa o docente é a gestão.
  * - **Os termos de sigilo passam a ser exigidos** de verdade, não decorativos.
  */
 export function RegisterForm() {
@@ -117,9 +117,9 @@ export function RegisterForm() {
         </div>
         <h1 className="text-xl font-bold text-slate-900 tracking-tight">Pedido registrado</h1>
         <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-          Seu pedido entrou na fila da Referência Técnica da clínica e será analisado.
-          A conta só é criada <strong>quando a RT autorizar</strong> — e é a RT que
-          define a senha inicial.
+          Seu pedido entrou na fila da gestão da clínica e será analisado.
+          A conta só é criada <strong>quando a gestão autorizar</strong> — e é a
+          gestão que define a senha inicial.
         </p>
 
         {/* Sem canal de e-mail, o número do protocolo é a única forma de a
@@ -131,8 +131,8 @@ export function RegisterForm() {
         </div>
 
         <p className="text-[11px] text-slate-500 mt-3 leading-relaxed">
-          Guarde este número: é por ele que a coordenação localiza seu pedido.
-          A senha não será enviada por e-mail — combine a entrega com a RT.
+          Guarde este número: é por ele que a gestão localiza seu pedido.
+          A senha inicial é enviada ao e-mail cadastrado quando o pedido for aprovado.
         </p>
 
         <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100">
@@ -286,9 +286,9 @@ export function RegisterForm() {
                   </button>
                 ))}
               </div>
-              {/* O perfil é pedido, não concedido: a RT confirma e pode corrigir. */}
+              {/* O perfil é pedido, não concedido: a gestão confirma e pode corrigir. */}
               <p className="text-[10px] text-slate-500 mt-2">
-                É o que você solicita. A RT confirma na hora de aprovar.
+                É o que você solicita. A gestão confirma na hora de aprovar.
               </p>
             </div>
           </div>

@@ -49,7 +49,7 @@ flowchart TD
 ## 2. Matriz de Requisitos Funcionais (Spec-Kit)
 
 ### RF-001: Gestão de Recepção e Triagem
-- Cadastro rápido de pacientes com validação de CPF e dados de contato.
+- Cadastro rápido de pacientes com validação de CPF, endereço e dados de contato.
 - Agendamento ambulatorial por curso (Psicologia ou Odontologia) com status: *Agendado*, *Confirmado*, *Em Atendimento*, *Concluído* e *Faltou*.
 - Métricas em tempo real de absenteísmo ambulatorial e demanda reprimida.
 
@@ -92,11 +92,12 @@ flowchart TD
 - Metadados capturados: Carimbo Temporal (UTC/BRT), Nome do Usuário, Matrícula, Ação, Tabela Afetada, Registro ID e Endereço IP.
 
 ### RF-008: Troca Rápida de Perfil com Imposição de Senha
-- Presets rápidos para os 4 perfis fundamentais para facilitar demonstrações e rotinas de plantão.
+- Presets rápidos para os 5 perfis fundamentais para facilitar demonstrações e rotinas de plantão.
 - Salvaguarda mandatória: para alternar ou logar em qualquer conta, o operador deve confirmar a senha institucional (`Unicare123`).
 
 ### RF-009: Gerenciamento RBAC com Ciclo de Vida Completo
 - A RT Master pode cadastrar, editar e excluir qualquer usuário (Supervisores, Estagiários e Operadores de Recepção).
+- A Coordenação de Psicologia pode cadastrar, editar e excluir supervisores, estagiários e operadores de recepção da própria clínica. Criar ou alterar RT ou outra coordenação continua sendo ato exclusivo da RT.
 - Supervisores de Psicologia podem gerenciar acadêmicos vinculados à sua turma de SPA.
 - Supervisores de Odontologia podem gerenciar acadêmicos vinculados à Clínica Integrada.
 - Sincronização reativa com o `localStorage` para que novos usuários cadastrados ou editados surtam efeito imediato na tela de login.
@@ -154,6 +155,9 @@ erDiagram
         string cpf_rg UK "unico, idx"
         string data_nascimento "str, nao DATE"
         string telefone
+        string endereco "obrigatorio em psicologia"
+        string numero "obrigatorio em psicologia"
+        string complemento "opcional"
         bool   eh_menor
         string nome_responsavel "se menor"
         string contato_responsavel "se menor"
@@ -175,6 +179,7 @@ erDiagram
         string tipo_consulta
         string status "ENUM 6 estados"
         string observacao_logistica "opcional"
+        string motivo_falta "opcional, so com status FALTOU"
     }
 
     ATRIBUICOES_CLINICAS {
@@ -304,6 +309,8 @@ erDiagram
                           │  UK cpf_rg          ← dado sensível │
                           │     data_nascimento                   │
                           │     telefone                          │
+                          │     endereco / numero                 │
+                          │     complemento (opcional)            │
                           │     eh_menor                          │
                           │     nome_responsavel / contato_resp. │
                           │     curso ▸ psicologia | odontologia  │
@@ -328,6 +335,7 @@ erDiagram
 │     tipo_consulta     │        │     redacao  TEXT  │        │     parecer_sup. TEXT │
 │     status ▸ enum     │        │                   │        │     status    ▸ enum  │
 │     observacao_log.   │        │                   │        │     criado_em         │
+│     motivo_falta      │        │                   │        │                       │
 └───────────────────────┘        │     parecer_sup.  TXT │        └───────────────────────┘
                                  │     status    ▸ enum  │
                                  │     criado_em         │
@@ -343,13 +351,14 @@ erDiagram
 USUARIOS (id PK, nome, email UQ, senha_hash, perfil, curso, matricula UQ,
           registro_profissional, ativo)
 
-PACIENTES (id PK, nome, cpf_rg UQ, data_nascimento, telefone, eh_menor,
-           nome_responsavel, contato_responsavel, curso, prontuario_ativo,
-           criado_em)
+PACIENTES (id PK, nome, cpf_rg UQ, data_nascimento, telefone, endereco,
+           numero, complemento, eh_menor, nome_responsavel,
+           contato_responsavel, curso, prontuario_ativo, criado_em)
 
 AGENDAMENTOS (id PK, paciente_id FK->PACIENTES, paciente_nome,
               estagiario_nome, estagiario_matricula, curso, horario, turno,
-              sala_ou_cadeira, tipo_consulta, status, observacao_logistica)
+              sala_ou_cadeira, tipo_consulta, status, observacao_logistica,
+              motivo_falta)
 
 PRONTUARIOS_PSICO (id PK, paciente_id FK->PACIENTES, paciente_nome,
                    estagiario_nome, estagiario_matricula, supervisor_nome,
@@ -379,7 +388,7 @@ UQ = unique   FK = foreign key   idx = índice   -> = referencia
 
 | Tipo | Valores gravados |
 | :--- | :--- |
-| `perfilusuario` | `estagiario`, `supervisor`, `recepcao`, `rt` |
+| `perfilusuario` | `estagiario`, `supervisor`, `recepcao`, `rt`, `coordenacao` |
 | `cursousuario` | `psicologia`, `odontologia`, `geral` |
 | `statusagendamento` | `AGENDADO`, `PRESENTE`, `EM_ATENDIMENTO`, `CONCLUIDO`, `FALTOU`, `CANCELADO` |
 | `statusprontuario` | `EM_ELABORACAO`, `AGUARDANDO_VALIDACAO`, `VALIDADO`, `DEVOLVIDO_PARA_AJUSTE` |
@@ -411,8 +420,8 @@ UQ = unique   FK = foreign key   idx = índice   -> = referencia
 
 5. **Pendências conhecidas do modelo:** `data_nascimento` e `data_sessao` são
    `str` e não `DATE`, o que impede ordenação e comparação — corrigir exige
-   migração com reformatação dos dados existentes. CPF/RG e contatos de
-   paciente estão em claro, o que não passaria em LGPD para dado real de saúde.
+   migração com reformatação dos dados existentes. CPF/RG, endereço e contatos
+   de paciente estão em claro, o que não passaria em LGPD para dado real de saúde.
 
 ---
 
@@ -488,6 +497,7 @@ Todos os usuários abaixo utilizam a senha institucional obrigatória:
 | :--- | :--- | :--- | :--- | :--- |
 | **RT Odontologia** | Dra. Camila (Referência Técnica) | `RT-001` | `camila.rt@uninassau.edu.br` | Odontologia (RT-ODONTO) |
 | **RT Psicologia** | Dr. Renato (Referência Técnica) | `RT-002` | `renato.rt@uninassau.edu.br` | Psicologia (RT-PSICO) |
+| **Coordenação Psicologia** | Coordenação do Serviço de Psicologia Aplicada | `COORD-001` | `coordenacao.psi@uninassau.edu.br` | Psicologia (Coordenação) |
 | **Supervisor Psico** | Prof. Dr. Robert Santos do Carmo | `DOC-8821` | `robert.carmo@uninassau.edu.br` | Psicologia (CRP 19/0844) |
 | **Supervisor Odonto** | Profa. Dra. Bianca Nubia | `DOC-9122` | `bianca.silva@uninassau.edu.br` | Odontologia (CRO-SE 4512) |
 | **Estagiário Psico** | Rikelme Roma Santos | `16032935` | `rikelmeroma13@gmail.com` | Psicologia (9º Período SPA) |

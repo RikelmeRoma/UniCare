@@ -1,10 +1,16 @@
 import { useState } from 'react';
-import { useClinic, type StatusAgendamento } from '../../clinic/context/ClinicContext';
+import {
+  useClinic,
+  type Agendamento,
+  type StatusAgendamento,
+} from '../../clinic/context/ClinicContext';
 import { rotuloStatus } from '../../../shared/statusAgendamento';
+import { RegistrarFaltaModal } from './RegistrarFaltaModal';
 import {
   LockClosedIcon,
   MagnifyingGlassIcon,
   CheckIcon,
+  XMarkIcon,
 } from '../../../components/icons/CorporateIcons';
 
 function StatusBadge({ status }: { status: StatusAgendamento }) {
@@ -29,10 +35,22 @@ function rotuloData(iso?: string | null): string {
   return `${dia}/${mes}/${ano}`;
 }
 
-export function AppointmentTable() {
+interface AppointmentTableProps {
+  exibirTextoSalvaguarda?: boolean;
+  /** Psicologia captura o motivo da falta; odontologia mantém o fluxo direto. */
+  permitirMotivoFalta?: boolean;
+}
+
+export function AppointmentTable({
+  exibirTextoSalvaguarda = true,
+  permitirMotivoFalta = false,
+}: AppointmentTableProps) {
   const { agendamentos, atualizarStatusAgendamento } = useClinic();
   const [statusFiltro, setStatusFiltro] = useState<string>('TODOS');
   const [busca, setBusca] = useState<string>('');
+  const [agendamentoParaFalta, setAgendamentoParaFalta] =
+    useState<Agendamento | null>(null);
+  const [erroStatus, setErroStatus] = useState('');
 
   const itensFiltrados = agendamentos
     .filter((item) => {
@@ -54,20 +72,42 @@ export function AppointmentTable() {
       return a.horario < b.horario ? -1 : a.horario > b.horario ? 1 : 0;
     });
 
+  const alterarStatus = async (id: number, status: StatusAgendamento) => {
+    setErroStatus('');
+    const res = await atualizarStatusAgendamento(id, status);
+    if (!res.success) setErroStatus(res.message);
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden font-sans">
       {/* Alerta de Conformidade RN-001 (Visão Exclusivamente Logística da Recepção) */}
       <div className="bg-slate-900 text-slate-300 px-6 py-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
         <div className="flex items-center gap-2">
           <LockClosedIcon className="w-4 h-4 text-amber-400 shrink-0" />
-          <span>
-            <strong className="text-white">Salvaguarda:</strong> Perfil de recepção restrito a agendamento e acolhimento presencial.
-          </span>
+          {exibirTextoSalvaguarda && (
+            <span>
+              <strong className="text-white">Salvaguarda:</strong> Perfil de recepção restrito a agendamento e acolhimento presencial.
+            </span>
+          )}
         </div>
         <span className="text-[10px] bg-slate-800 text-slate-400 font-mono px-2 py-0.5 rounded-md">
           {itensFiltrados.length} registros ativos
         </span>
       </div>
+
+      {erroStatus && (
+        <div className="bg-red-50 border-b border-red-200 px-6 py-2.5 flex items-start justify-between gap-3 text-xs text-red-800">
+          <p className="leading-relaxed">{erroStatus}</p>
+          <button
+            type="button"
+            onClick={() => setErroStatus('')}
+            className="text-red-500 hover:text-red-800 p-0.5 rounded shrink-0"
+            aria-label="Fechar aviso"
+          >
+            <XMarkIcon className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Barra de Filtros e Busca */}
       <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-3">
@@ -181,7 +221,7 @@ export function AppointmentTable() {
                       {item.status === 'AGENDADO' && (
                         <button
                           type="button"
-                          onClick={() => atualizarStatusAgendamento(item.id, 'PRESENTE')}
+                          onClick={() => void alterarStatus(item.id, 'PRESENTE')}
                           className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-1.5 rounded-lg text-[11px] transition-colors shadow-2xs flex items-center gap-1"
                           title="Confirmar presença do paciente"
                         >
@@ -193,7 +233,7 @@ export function AppointmentTable() {
                       {item.status === 'PRESENTE' && (
                         <button
                           type="button"
-                          onClick={() => atualizarStatusAgendamento(item.id, 'EM_ATENDIMENTO')}
+                          onClick={() => void alterarStatus(item.id, 'EM_ATENDIMENTO')}
                           className="bg-blue-700 hover:bg-blue-800 text-white font-bold px-3 py-1.5 rounded-lg text-[11px] transition-colors shadow-2xs flex items-center gap-1"
                           title="Encaminhar para atendimento no box/sala"
                         >
@@ -204,7 +244,7 @@ export function AppointmentTable() {
                       {item.status === 'EM_ATENDIMENTO' && (
                         <button
                           type="button"
-                          onClick={() => atualizarStatusAgendamento(item.id, 'CONCLUIDO')}
+                          onClick={() => void alterarStatus(item.id, 'CONCLUIDO')}
                           className="bg-slate-900 hover:bg-slate-800 text-white font-bold px-3 py-1.5 rounded-lg text-[11px] transition-colors shadow-2xs"
                         >
                           Concluir
@@ -214,7 +254,16 @@ export function AppointmentTable() {
                       {(item.status === 'AGENDADO' || item.status === 'PRESENTE') && (
                         <button
                           type="button"
-                          onClick={() => atualizarStatusAgendamento(item.id, 'FALTOU')}
+                          onClick={() => {
+                            if (
+                              permitirMotivoFalta &&
+                              item.curso === 'psicologia'
+                            ) {
+                              setAgendamentoParaFalta(item);
+                              return;
+                            }
+                            void alterarStatus(item.id, 'FALTOU');
+                          }}
                           className="text-red-700 hover:bg-red-50 border border-red-200 font-semibold px-2 py-1.5 rounded-lg text-[11px] transition-colors"
                           title="Registrar falta para indicador de absenteísmo"
                         >
@@ -229,6 +278,13 @@ export function AppointmentTable() {
           </tbody>
         </table>
       </div>
+
+      {agendamentoParaFalta && (
+        <RegistrarFaltaModal
+          agendamento={agendamentoParaFalta}
+          onClose={() => setAgendamentoParaFalta(null)}
+        />
+      )}
     </div>
   );
 }

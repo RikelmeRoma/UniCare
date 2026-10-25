@@ -1,12 +1,14 @@
-"""Pedido de credencial e autorização pela RT.
+"""Pedido de credencial e autorização pela RT ou pela coordenação.
 
-O fluxo: alguém sem conta pede na tela pública, a **RT da clínica** autoriza, e a
-conta nasce no mesmo ato da aprovação. Por isso não existe estado "aprovada sem
-usuário" — `usuario_criado_id` aponta para a conta criada.
+O fluxo: alguém sem conta pede na tela pública, a **RT ou a coordenação da
+clínica** autoriza, e a conta nasce no mesmo ato da aprovação. Por isso não
+existe estado "aprovada sem usuário" — `usuario_criado_id` aponta para a conta
+criada.
 
-Quem decide é só a RT. O supervisor já cria estagiário direto pelo RF-009 e não
-passa por esta fila: misturar os dois caminhos só confundiria quem tem conta de
-quem ainda não tem.
+A coordenação decide apenas perfis operacionais (supervisor, estagiário e
+recepção); aprovar RT ou outra coordenação continua sendo ato exclusivo da RT.
+O supervisor já cria estagiário direto pelo RF-009 e não passa por esta fila:
+misturar os dois caminhos só confundiria quem tem conta de quem ainda não tem.
 
 As regras do relatório (RF-009) descrevem o ciclo de vida do usuário já
 cadastrado e **não** mencionam este pedido, então aqui nada é numerado como RF.
@@ -19,7 +21,7 @@ from sqlmodel import Session, select
 
 from app.database import get_session
 from app.models.solicitacao import SolicitacaoCadastro, SituacaoSolicitacao
-from app.models.usuario import Usuario, PerfilUsuario
+from app.models.usuario import Usuario, PerfilUsuario, CursoUsuario
 from app.schemas.solicitacao import (
     SolicitacaoCreate,
     SolicitacaoRead,
@@ -29,23 +31,31 @@ from app.schemas.solicitacao import (
 from app.services.auth_service import get_current_user
 from app.services.auditoria_service import registrar_log, ip_do_cliente
 from app.services import email_service
+from app.services.crypto_service import gerar_senha_inicial
 from app.services.email_service import StatusEnvio
-from app.routers.usuarios import criar_usuario_para_gestor
+from app.routers.usuarios import (
+    criar_usuario_para_gestor,
+    _pode_gerenciar,
+    _negar_gestao,
+)
 
 router = APIRouter(prefix="/solicitacoes-cadastro", tags=["Solicitação de Credencial"])
 
 
-def _exigir_rt(current_user: Usuario = Depends(get_current_user)) -> Usuario:
-    """Só a RT gerencia pedidos de credencial.
+def _exigir_gestao(current_user: Usuario = Depends(get_current_user)) -> Usuario:
+    """Só RT e coordenação gerenciam pedidos de credencial.
 
     O `Depends` interno é obrigatório: `Usuario` é um SQLModel, e portanto também
     um modelo Pydantic. Sem o `Depends`, o FastAPI o trataria como tipo de corpo
     da requisição e responderia 422 pedindo os campos do usuário.
     """
-    if current_user.perfil != PerfilUsuario.RT:
+    if current_user.perfil not in (PerfilUsuario.RT, PerfilUsuario.COORDENACAO):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Somente a Referência Técnica da clínica autoriza solicitações de credencial.",
+            detail=(
+                "Somente a Referência Técnica ou a Coordenação da clínica "
+                "autoriza solicitações de credencial."
+            ),
         )
     return current_user
 
@@ -60,8 +70,8 @@ def solicitar_credencial(
 
     A resposta é sempre a mesma estrutura e **não diz** se o e-mail ou a
     matrícula já têm conta no sistema: uma rota pública que responde "existe"
-    serve de oráculo para enumerar cadastro. A RT descobre o conflito na hora
-    de aprovar, que é quem pode agir sobre ele.
+    serve de oráculo para enumerar cadastro. A gestão descobre o conflito na
+    hora de aprovar, que é quem pode agir sobre ele.
     """
     ja_pendente = session.exec(
         select(SolicitacaoCadastro).where(
@@ -71,10 +81,13 @@ def solicitar_credencial(
     ).first()
     if ja_pendente:
         # Também é o que substitui um rate limiter: sem isso, qualquer chamada
-        # anônima inundaria a fila da RT.
+        # anônima inundaria a fila da gestão.
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Já existe uma solicitação pendente com este e-mail. Aguarde a análise da RT.",
+            detail=(
+                "Já existe uma solicitação pendente com este e-mail. "
+                "Aguarde a análise da gestão da clínica."
+            ),
         )
 
     solicitacao = SolicitacaoCadastro(
@@ -92,7 +105,7 @@ def solicitar_credencial(
 
     # Sem log de auditoria aqui: quem pede ainda não é usuário, e `registrar_log`
     # exige um Usuario. A própria linha da solicitação é o registro; o que entra
-    # na trilha é a decisão da RT, que é a parte sensível.
+    # na trilha é a decisão da gestão, que é a parte sensível.
     return solicitacao
 
 
@@ -101,10 +114,10 @@ def solicitar_credencial(
 def listar_solicitacoes(
     situacao: Optional[SituacaoSolicitacao] = SituacaoSolicitacao.PENDENTE,
     session: Session = Depends(get_session),
-    current_user: Usuario = Depends(_exigir_rt),
+    current_user: Usuario = Depends(_exigir_gestao),
 ):
-    """Fila da RT. Cada RT vê só a clínica dela — a segregação por curso vale
-    aqui tanto quanto no resto do sistema."""
+    """Fila da gestão. Cada RT/coordenação vê só a própria clínica — a
+    segregação por curso vale aqui tanto quanto no resto do sistema."""
     query = select(SolicitacaoCadastro).where(
         SolicitacaoCadastro.curso_declarado == current_user.curso.value
     )
@@ -113,19 +126,23 @@ def listar_solicitacoes(
     return session.exec(query.order_by(SolicitacaoCadastro.criado_em)).all()
 
 
-def _buscar_da_clinica(session: Session, solicitacao_id: int, rt: Usuario) -> SolicitacaoCadastro:
+def _buscar_da_clinica(
+    session: Session,
+    solicitacao_id: int,
+    gestor: Usuario,
+) -> SolicitacaoCadastro:
     solicitacao = session.get(SolicitacaoCadastro, solicitacao_id)
     if not solicitacao:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Solicitação não localizada.",
         )
-    if solicitacao.curso_declarado != rt.curso.value:
+    if solicitacao.curso_declarado != gestor.curso.value:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(
                 f"Acesso negado: a solicitação é da clínica de "
-                f"{solicitacao.curso_declarado}. Sua clínica é {rt.curso.value}."
+                f"{solicitacao.curso_declarado}. Sua clínica é {gestor.curso.value}."
             ),
         )
     return solicitacao
@@ -139,20 +156,57 @@ def _recusar_se_ja_decidida(solicitacao: SolicitacaoCadastro) -> None:
         )
 
 
+def _senha_inicial_para(current_user: Usuario, dados: AprovacaoSolicitacao) -> str:
+    """Resolve a senha inicial conforme quem aprova.
+
+    Na psicologia, RT e coordenação não escolhem a senha: ela é gerada pelo
+    servidor e só existe no e-mail do solicitante. A recusa de uma senha enviada
+    é explícita (422) porque ignorá-la faria a gestão acreditar que definiu uma
+    credencial que nunca foi usada.
+
+    Na odontologia o contrato antigo continua: a RT define a senha, e a ausência
+    dela é erro — não há geração automática lá.
+    """
+    gestor_psicologia = (
+        current_user.curso == CursoUsuario.PSICOLOGIA
+        and current_user.perfil in (PerfilUsuario.RT, PerfilUsuario.COORDENACAO)
+    )
+
+    if gestor_psicologia:
+        if dados.senha is not None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    "Na psicologia, a senha inicial é gerada pelo servidor e "
+                    "enviada por e-mail. Não envie o campo 'senha' na aprovação."
+                ),
+            )
+        return gerar_senha_inicial()
+
+    if dados.senha is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Informe a senha inicial para criar a conta.",
+        )
+    return dados.senha
+
+
 @router.post("/{solicitacao_id}/aprovar", response_model=SolicitacaoRead)
 def aprovar_solicitacao(
     solicitacao_id: int,
     dados: AprovacaoSolicitacao,
     http_request: Request,
     session: Session = Depends(get_session),
-    current_user: Usuario = Depends(_exigir_rt),
+    current_user: Usuario = Depends(_exigir_gestao),
 ):
     """Aprova e **cria a conta no mesmo ato**, só se o e-mail com a senha inicial for enviado.
 
-    O fluxo é: primeiro tenta enviar o e-mail com a senha inicial para o
-    solicitante. Se o e-mail não for entregue (SMTP não configurado ou falha de
-    rede), a conta **não é criada** e a solicitação permanece PENDENTE — a RT
-    tenta novamente depois ou comunica a senha por outro canal.
+    O fluxo é: primeiro valida se quem aprova pode criar o perfil final, depois
+    resolve a senha inicial — gerada pelo servidor quando quem aprova é a RT ou a
+    coordenação de psicologia, enviada no corpo quando é a RT de odontologia — e
+    só então tenta enviar o e-mail. Se o e-mail não for entregue (SMTP não
+    configurado ou falha de rede), a conta **não é criada** e a solicitação
+    permanece PENDENTE — a gestão tenta novamente depois.
 
     Se o e-mail for enviado com sucesso, a conta é criada e a solicitação
     marcada como APROVADA.
@@ -160,12 +214,32 @@ def aprovar_solicitacao(
     solicitacao = _buscar_da_clinica(session, solicitacao_id, current_user)
     _recusar_se_ja_decidida(solicitacao)
 
+    # A guarda vem ANTES do e-mail de propósito. Se a coordenação tentasse
+    # aprovar um pedido de RT, o envio sairia e a criação falharia depois com
+    # 403: a pessoa receberia uma senha de uma conta que não existe.
+    if dados.perfil == PerfilUsuario.COORDENACAO and current_user.curso != CursoUsuario.PSICOLOGIA:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Coordenação é exclusiva da clínica de psicologia.",
+        )
+    if not _pode_gerenciar(current_user, dados.perfil):
+        raise _negar_gestao(current_user, dados.perfil)
+
+    # A senha é resolvida antes do e-mail: na psicologia ela vem do servidor,
+    # na odontologia vem do corpo. Um erro aqui não pode disparar mensagem.
+    senha_inicial = _senha_inicial_para(current_user, dados)
+
     # 1. PRIMEIRO: tenta enviar o e-mail com a senha inicial.
     # Só cria a conta se o envio tiver sucesso.
+    aprovador = (
+        "Coordenação"
+        if current_user.perfil == PerfilUsuario.COORDENACAO
+        else "Referência Técnica"
+    )
     corpo = (
         f"Olá, {solicitacao.nome}.\n\n"
-        f"Sua solicitação de credencial foi aprovada pela Referência Técnica.\n\n"
-        f"Sua senha inicial de acesso ao UniCare é: {dados.senha}\n\n"
+        f"Sua solicitação de credencial foi aprovada pela {aprovador}.\n\n"
+        f"Sua senha inicial de acesso ao UniCare é: {senha_inicial}\n\n"
         f"Ao entrar pela primeira vez, troque essa senha.\n\n"
         f"Matrícula: {solicitacao.matricula}\n"
         f"Clínica: {solicitacao.curso_declarado}\n"
@@ -180,7 +254,7 @@ def aprovar_solicitacao(
 
     if not resultado.enviou:
         # SMTP não configurado ou quebrou: não cria conta, a solicitação fica
-        # PENDENTE para a RT tentar novamente depois.
+        # PENDENTE para a gestão tentar novamente depois.
         detalhe = (
             "O envio de e-mail não está configurado neste ambiente."
             if resultado.status is StatusEnvio.NAO_CONFIGURADO
@@ -190,7 +264,7 @@ def aprovar_solicitacao(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
                 f"{detalhe} A conta não foi criada. "
-                f"Comunique a senha à pessoa por outro canal ou tente novamente depois."
+                f"Tente novamente quando o envio estiver disponível."
             ),
         )
 
@@ -203,7 +277,7 @@ def aprovar_solicitacao(
         email=solicitacao.email,
         matricula=solicitacao.matricula,
         perfil=dados.perfil,
-        senha=dados.senha,
+        senha=senha_inicial,
         registro_profissional=dados.registro_profissional,
     )
 
@@ -230,11 +304,16 @@ def recusar_solicitacao(
     dados: RecusaSolicitacao,
     http_request: Request,
     session: Session = Depends(get_session),
-    current_user: Usuario = Depends(_exigir_rt),
+    current_user: Usuario = Depends(_exigir_gestao),
 ):
     """Recusa com motivo obrigatório. Nenhum usuário é criado."""
     solicitacao = _buscar_da_clinica(session, solicitacao_id, current_user)
     _recusar_se_ja_decidida(solicitacao)
+
+    # A coordenação também não decide pedido declarado como RT/coordenação:
+    # recusar é decidir. Só a RT fecha esses pedidos.
+    if not _pode_gerenciar(current_user, solicitacao.perfil_declarado):
+        raise _negar_gestao(current_user, solicitacao.perfil_declarado)
 
     solicitacao.situacao = SituacaoSolicitacao.RECUSADA
     solicitacao.motivo_recusa = dados.motivo.strip()

@@ -24,6 +24,11 @@ router = APIRouter(prefix="/prontuarios", tags=["Prontuários Clínicos & Homolo
 # compartilhada com as rotas de anamnese em pacientes.py.
 
 autorizado_homologacao = require_roles([PerfilUsuario.SUPERVISOR, PerfilUsuario.RT])
+# A coordenação de psicologia tem paridade com a RT na operação da clínica,
+# inclusive na homologação. Odontologia continua sem coordenação.
+autorizado_homologacao_psico = require_roles(
+    [PerfilUsuario.SUPERVISOR, PerfilUsuario.RT, PerfilUsuario.COORDENACAO]
+)
 
 
 def _validar_vinculo_estagiario(
@@ -37,10 +42,10 @@ def _validar_vinculo_estagiario(
     dropdown deixaria qualquer cliente chamar a rota direto e registrar síntese
     em nome de quem não é o responsável.
 
-    **Só para o perfil ESTAGIÁRIO.** Supervisor e RT abrem esta tela para
-    consultar e, no fluxo da RT, para registrar o que a supervisao viu — e nenhum
-    dos dois tem paciente vinculado, porque o vínculo é de responsabilidade
-    do aluno. Aplicar a regra a eles trancaria a supervisão.
+    **Só para o perfil ESTAGIÁRIO.** A rota de criação recusa supervisor, RT e
+    coordenação antes de chamar esta função; eles abrem a tela apenas para
+    consultar a linha do tempo e homologar. Nenhum deles tem paciente vinculado,
+    porque o vínculo é de responsabilidade do aluno.
 
     Bloqueia nos dois sentidos, e é proposital:
       - paciente com outro responsável ativo → 403 (é o vínculo que protege);
@@ -136,6 +141,16 @@ def criar_evolucao_psico(
     current_user: Usuario = Depends(require_curso("psicologia", base=autorizado_clinico))
 ):
     _validar_paciente_do_curso(session, dados.paciente_id, "psicologia")
+
+    # A escrita é exclusiva do estagiário. Não use require_roles([ESTAGIARIO]):
+    # `exigir_perfil` deixa RT e coordenação passarem, então a exclusividade
+    # precisa ser conferida diretamente aqui.
+    if current_user.perfil != PerfilUsuario.ESTAGIARIO:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Apenas estagiários podem registrar novas sessões clínicas.",
+        )
+
     # O vínculo vem do token, não do corpo: `dados.estagiario_matricula` é
     # ignorado aqui (é o que o Bloco 4 já fazia). Conferir o corpo deixaria
     # qualquer cliente escrever em nome de outro estagiário.
@@ -173,7 +188,7 @@ def homologar_prontuario_psico(
     http_request: Request,
     session: Session = Depends(get_session),
     current_user: Usuario = Depends(
-        require_curso("psicologia", base=autorizado_homologacao)
+        require_curso("psicologia", base=autorizado_homologacao_psico)
     )
 ):
     prontuario = session.get(ProntuarioPsico, prontuario_id)

@@ -22,6 +22,7 @@ import type { User } from './context/AuthContext';
  */
 export function getDestinationRoute(u: User): string {
   if (u.perfil === 'rt') return '/rt/relatorios';
+  if (u.perfil === 'coordenacao') return '/psi/coordenacao';
 
   if (u.curso === 'psicologia') {
     if (u.perfil === 'recepcao') return '/psi/recepcao';

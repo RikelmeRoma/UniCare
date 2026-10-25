@@ -2,6 +2,7 @@ import {
   ShieldCheckIcon,
   LockClosedIcon,
 } from '../../../../components/icons/CorporateIcons';
+import { InfoTooltip } from '../../../../components/ui/InfoTooltip';
 import { useAuth } from '../../../auth/context/AuthContext';
 
 /**
@@ -17,20 +18,26 @@ export function PsyTeacherHeader() {
   const { user } = useAuth();
   if (!user) return null;
 
+  const isCoordenacao = user.perfil === 'coordenacao';
+
   return (
     <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
       <div>
-        <div className="flex items-center gap-3 mb-1">
+        <div className="flex items-center gap-3 mb-2">
           <h2 className="text-xl font-bold text-slate-900">{user.nome}</h2>
           {user.registro_profissional && (
             <span className="bg-blue-700 text-white text-xs px-2.5 py-0.5 rounded-md font-bold font-mono">
               {user.registro_profissional}
             </span>
           )}
+          <InfoTooltip
+            texto={
+              isCoordenacao
+                ? 'Coordenação de Psicologia • Gestão da clínica, homologação e acompanhamento pedagógico'
+                : 'Docente Supervisor de Psicologia Clínica • Ênfase em Saúde Mental e Psicoterapia Individual'
+            }
+          />
         </div>
-        <p className="text-xs font-semibold text-blue-700 mb-2">
-          Docente Supervisor de Psicologia Clínica • Ênfase em Saúde Mental e Psicoterapia Individual
-        </p>
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
           {/* A turma não aparece: não existe vínculo estagiário↔turma↔supervisor
               no schema, e um rótulo fixo aqui seria afirmação sem lastro. */}

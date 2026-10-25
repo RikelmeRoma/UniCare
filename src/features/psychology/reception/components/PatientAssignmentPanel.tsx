@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useClinic, type Atribuicao } from '../../../clinic/context/ClinicContext';
 import { api, type ApiEstagiario } from '../../../../services/api';
+import { InfoTooltip } from '../../../../components/ui/InfoTooltip';
 import {
   UserGroupIcon,
   PlusIcon,
@@ -139,6 +140,10 @@ export function PatientAssignmentPanel({ cursoFiltro = 'psicologia' }: { cursoFi
         <h4 className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
           <UserGroupIcon className="w-4 h-4 text-blue-700" />
           <span>Estagiário Responsável</span>
+          <InfoTooltip
+            align="right"
+            texto="A recepção vincula o paciente ao estagiário responsável. O estagiário só escreve de paciente ativo em seu nome; a transferência guarda o motivo no histórico."
+          />
         </h4>
       </div>
 
@@ -236,8 +241,12 @@ export function PatientAssignmentPanel({ cursoFiltro = 'psicologia' }: { cursoFi
 
           {trocandoId !== null && (
             <>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                 Motivo da transferência
+                <InfoTooltip
+                  align="right"
+                  texto="O estagiário anterior deixa de escrever. O prontuário já registrado continua com o nome dele."
+                />
               </label>
               <textarea
                 rows={2}
@@ -246,10 +255,6 @@ export function PatientAssignmentPanel({ cursoFiltro = 'psicologia' }: { cursoFi
                 placeholder="O que motivou a troca. Fica no histórico do vínculo."
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-slate-800 focus:border-blue-600 focus:outline-none resize-none"
               />
-              <p className="text-[10px] text-slate-400">
-                O estagiário anterior deixa de escrever. O prontuário já registrado continua
-                com o nome dele.
-              </p>
             </>
           )}
 

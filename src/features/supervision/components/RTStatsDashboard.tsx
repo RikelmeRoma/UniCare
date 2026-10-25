@@ -3,6 +3,7 @@ import { api, type RelatorioEstatisticas, type ApiLogAuditoria } from '../../../
 import { useClinic } from '../../clinic/context/ClinicContext';
 import { useAuth, type RoleType, type CourseType } from '../../auth/context/AuthContext';
 import { SolicitacoesCadastro } from './SolicitacoesCadastro';
+import { InfoTooltip } from '../../../components/ui/InfoTooltip';
 import {
   ChartBarIcon,
   ShieldCheckIcon,
@@ -22,7 +23,11 @@ import {
   TrashIcon,
 } from '../../../components/icons/CorporateIcons';
 
-export function RTStatsDashboard() {
+interface RTStatsDashboardProps {
+  modo?: 'rt' | 'coordenacao';
+}
+
+export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
   const { pacientes, agendamentos, evolucoesPsico, planosTratamento } = useClinic();
   const { allUsers, createUser, updateUser, deleteUser, user } = useAuth();
   const [stats, setStats] = useState<RelatorioEstatisticas | null>(null);
@@ -110,7 +115,14 @@ export function RTStatsDashboard() {
   // clínica do solicitante. Ler .psicologia e .odontologia fixos mostraria
   // números de outro curso — ou cairia nos fallbacks inventados (?? 1, ?? 2).
   const cursoPainel = user?.curso === 'odontologia' ? 'odontologia' : 'psicologia';
-const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
+  const isCoordenacao = user?.perfil === 'coordenacao';
+  const isPainelPsicologia =
+    modo === 'coordenacao' ||
+    (user?.perfil === 'rt' && user?.curso === 'psicologia');
+  const gestaoLabel = isCoordenacao
+    ? 'Coordenação de Psicologia'
+    : 'Responsável Técnica (RT)';
+  const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
     | Record<string, number>
     | undefined;
   // Sem API não se inventa número de tela docente.
@@ -275,7 +287,7 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
 
   return (
     <div className="space-y-6">
-      {/* Feedback Toast de Sucesso da RT */}
+      {/* Feedback Toast de Sucesso da gestão */}
       {userSuccessMsg && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between gap-3 text-xs text-emerald-800 shadow-xs animate-fadeIn">
           <div className="flex items-center gap-2">
@@ -296,7 +308,9 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
         <div>
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase tracking-wider">
-              Controladoria Clínica & Responsabilidade Técnica
+              {isCoordenacao
+                ? 'Coordenação de Psicologia & Governança'
+                : 'Controladoria Clínica & Responsabilidade Técnica'}
             </span>
             <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase tracking-wider">
               LGPD Art. 11 Auditável
@@ -311,7 +325,9 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
             Painel Executivo de Gestão, Indicadores & Custódia Legal
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            UNINASSAU Aracaju • Sistema Integrado de Saúde Hospitalar (Psicologia e Odontologia)
+            {isPainelPsicologia
+              ? 'UNINASSAU Aracaju • Sistema Integrado de Saúde Hospitalar (Psicologia)'
+              : 'UNINASSAU Aracaju • Sistema Integrado de Saúde Hospitalar (Psicologia e Odontologia)'}
           </p>
         </div>
 
@@ -447,7 +463,7 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
           </div>
 
           {/* Comparativo Estrutural dos Módulos Clínicos */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className={`grid grid-cols-1 gap-6 ${isPainelPsicologia ? '' : 'lg:grid-cols-2'}`}>
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
@@ -501,6 +517,7 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
               </div>
             </div>
 
+            {!isPainelPsicologia && (
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
@@ -559,6 +576,7 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                 </div>
               </div>
             </div>
+            )}
           </div>
         </>
       )}
@@ -571,12 +589,10 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
               <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-widest">
                 Salvaguarda Institucional
               </span>
-              <h2 className="text-lg font-bold text-slate-900 mt-0.5">
+              <h2 className="text-lg font-bold text-slate-900 mt-0.5 flex items-center gap-1.5">
                 Custódia Legal e Arquivamento Permanente de Prontuários
+                <InfoTooltip texto={`Acesso exclusivo da ${gestaoLabel} para emissão de dossiê completo de guarda (prazo de guarda: 20 anos).`} />
               </h2>
-              <p className="text-xs text-slate-500">
-                Acesso exclusivo da Responsável Técnica (RT) para emissão de dossiê completo de guarda (prazo de guarda: 20 anos).
-              </p>
             </div>
 
             <div className="w-full md:w-80 relative">
@@ -732,9 +748,9 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
               {/* Carimbo de Custódia e Termo de Guarda */}
               <div className="p-4 bg-white rounded-lg border border-indigo-200 flex flex-col md:flex-row justify-between items-center gap-4 text-xs">
                 <div>
-                  <p className="font-bold text-slate-900">Termo de Guarda e Custódia Definitiva (Resoluções CFP e CFO)</p>
-                  <p className="text-slate-500 text-[11px]">
-                    Certificamos a integridade deste prontuário para guarda legal pelo prazo mínimo de 20 anos sob responsabilidade da RT.
+                  <p className="font-bold text-slate-900 flex items-center gap-1.5">
+                    Termo de Guarda e Custódia Definitiva (Resoluções CFP e CFO)
+                    <InfoTooltip texto={`Certificamos a integridade deste prontuário para guarda legal pelo prazo mínimo de 20 anos sob responsabilidade da ${gestaoLabel}.`} />
                   </p>
                 </div>
                 <button
@@ -759,10 +775,8 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <ShieldCheckIcon className="w-5 h-5 text-indigo-700" />
                 <span>Trilha de Auditoria e Rastreabilidade LGPD (Artigo 11)</span>
+                <InfoTooltip texto="Registro criptográfico e imutável de autenticações, submissões clínicas e alterações de status de atendimento." />
               </h2>
-              <p className="text-xs text-slate-500">
-                Registro criptográfico e imutável de autenticações, submissões clínicas e alterações de status de atendimento.
-              </p>
             </div>
 
             <div className="w-full md:w-80 relative">
@@ -844,10 +858,8 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <UserGroupIcon className="w-5 h-5 text-[#002B49]" />
                 <span>Gestão Corporativa de Perfis, Credenciais & Acessos RBAC</span>
+                <InfoTooltip texto={`Painel executivo da ${gestaoLabel} para emissão de credenciais de Supervisores, Estagiários e Operadores de Recepção com disponibilidade instantânea no Login.`} />
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Painel executivo da RT Master para emissão de credenciais de Supervisores, Estagiários e Operadores de Recepção com disponibilidade instantânea no Login.
-              </p>
             </div>
 
             <div className="flex items-center gap-2.5 w-full md:w-auto">
@@ -904,7 +916,9 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                         <div className="flex items-center gap-2.5">
                           <div
                             className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs text-white shadow-2xs shrink-0 ${
-                              u.curso === 'psicologia' && u.perfil !== 'rt'
+                              u.perfil === 'coordenacao'
+                                ? 'bg-blue-800'
+                                : u.curso === 'psicologia' && u.perfil !== 'rt'
                                 ? 'bg-blue-700'
                                 : u.curso === 'odontologia' && u.perfil !== 'recepcao' && u.perfil !== 'rt'
                                 ? 'bg-[#881337]'
@@ -927,6 +941,8 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                           className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
                             u.perfil === 'rt'
                               ? 'bg-indigo-50 text-[#002B49] border border-indigo-200'
+                              : u.perfil === 'coordenacao'
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
                               : u.perfil === 'supervisor'
                               ? 'bg-purple-50 text-purple-700 border border-purple-200'
                               : u.perfil === 'recepcao'
@@ -936,6 +952,8 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                         >
                           {u.perfil === 'rt'
                             ? 'RT Master'
+                            : u.perfil === 'coordenacao'
+                            ? 'Coordenação'
                             : u.perfil === 'supervisor'
                             ? 'Supervisor'
                             : u.perfil === 'recepcao'
@@ -988,24 +1006,36 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                         </span>
                       </td>
                       <td className="py-3 px-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditUserModal(key, u)}
-                            className="p-1.5 text-slate-500 hover:text-[#002B49] hover:bg-slate-100 rounded-lg transition-colors"
-                            title="Editar usuário"
+                        {isCoordenacao &&
+                        (u.perfil === 'rt' ||
+                          u.perfil === 'coordenacao' ||
+                          u.id === user?.id) ? (
+                          <span
+                            className="text-[10px] text-slate-400 font-mono"
+                            title="Perfil fora da alçada da coordenação"
                           >
-                            <PencilSquareIcon className="w-4 h-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setUserToDelete({ key, nome: u.nome })}
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Excluir usuário"
-                          >
-                            <TrashIcon className="w-4 h-4" />
-                          </button>
-                        </div>
+                            —
+                          </span>
+                        ) : (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditUserModal(key, u)}
+                              className="p-1.5 text-slate-500 hover:text-[#002B49] hover:bg-slate-100 rounded-lg transition-colors"
+                              title="Editar usuário"
+                            >
+                              <PencilSquareIcon className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setUserToDelete({ key, nome: u.nome })}
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Excluir usuário"
+                            >
+                              <TrashIcon className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -1026,10 +1056,10 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                   <KeyIcon className="w-4 h-4 text-[#FFD100]" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Cadastrar Usuário RBAC (RT Master)</h3>
-                  <p className="text-[10px] text-slate-500">
-                    Crie credenciais para Supervisores, Estagiários ou Recepção com login automático.
-                  </p>
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                    Cadastrar Usuário RBAC ({isCoordenacao ? 'Coordenação' : 'RT Master'})
+                    <InfoTooltip texto="Crie credenciais para Supervisores, Estagiários ou Recepção com login automático." />
+                  </h3>
                 </div>
               </div>
               <button
@@ -1055,6 +1085,9 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                     <option value="supervisor">Supervisor Docente</option>
                     <option value="estagiario">Acadêmico Estagiário</option>
                     <option value="recepcao">Operador de Recepção</option>
+                    {!isCoordenacao && user?.curso === 'psicologia' && (
+                      <option value="coordenacao">Coordenação de Psicologia</option>
+                    )}
                   </select>
                 </div>
 
@@ -1067,7 +1100,9 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                   usa o da RT. A RT de odontologia via "Psicologia" marcado. */}
               <div className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-700 font-semibold flex items-center justify-between">
                 <span>{user?.curso === 'psicologia' ? 'Psicologia (SPA)' : 'Odontologia Integrada'}</span>
-                <span className="text-[10px] font-mono text-slate-500">travada pela sua RT</span>
+                <span className="text-[10px] font-mono text-slate-500">
+                  {isCoordenacao ? 'travada pela sua clínica' : 'travada pela sua RT'}
+                </span>
               </div>
             </div>
           </div>
@@ -1135,8 +1170,9 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 mb-1">
                 Senha Provisória *
+                <InfoTooltip texto={`O usuário é gravado na clínica desta ${gestaoLabel} e já pode entrar com a senha definida acima. A senha é guardada com hash bcrypt — nem a ${gestaoLabel} consegue lê-la depois.`} />
               </label>
               <input
                 type="text"
@@ -1152,17 +1188,6 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                   {userErrorMsg}
                 </div>
               )}
-
-              <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl text-[11px] text-amber-900 space-y-1">
-                <div className="flex items-center gap-1.5 font-bold">
-                  <ShieldCheckIcon className="w-4 h-4 text-amber-700" />
-<span>Conformidade RBAC & Regra de Acesso com Senha</span>
-            </div>
-            <p className="text-[10px] text-slate-600">
-              O usuário é gravado na clínica desta RT e já pode entrar com a senha definida
-              acima. A senha é guardada com hash bcrypt — nem a RT consegue lê-la depois.
-            </p>
-              </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
@@ -1195,10 +1220,10 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                   <PencilSquareIcon className="w-4 h-4 text-[#002B49]" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Editar Perfil de Usuário</h3>
-                  <p className="text-[10px] text-slate-500">
-                    Modifique dados cadastrais, perfil RBAC ou registro do profissional/estagiário.
-                  </p>
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                    Editar Perfil de Usuário
+                    <InfoTooltip texto="Modifique dados cadastrais, perfil RBAC ou registro do profissional/estagiário." />
+                  </h3>
                 </div>
               </div>
               <button
@@ -1224,7 +1249,14 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                     <option value="supervisor">Supervisor Docente</option>
                     <option value="estagiario">Acadêmico Estagiário</option>
                     <option value="recepcao">Operador de Recepção</option>
-                    <option value="rt">Responsável Técnico (RT)</option>
+                    {!isCoordenacao && (
+                      <>
+                        <option value="rt">Responsável Técnico (RT)</option>
+                        {user?.curso === 'psicologia' && (
+                          <option value="coordenacao">Coordenação de Psicologia</option>
+                        )}
+                      </>
+                    )}
                   </select>
                 </div>
 
@@ -1334,8 +1366,10 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                 <TrashIcon className="w-5 h-5 text-red-600" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Confirmar Exclusão de Usuário</h3>
-                <p className="text-[11px] text-slate-500">Revogação imediata de credenciais</p>
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                  Confirmar Exclusão de Usuário
+                  <InfoTooltip texto="Revogação imediata de credenciais." />
+                </h3>
               </div>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed">

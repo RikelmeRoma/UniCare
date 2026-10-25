@@ -7,6 +7,7 @@ class PerfilUsuario(str, Enum):
     SUPERVISOR = "supervisor"
     RECEPCAO = "recepcao"
     RT = "rt"
+    COORDENACAO = "coordenacao"
 
 class CursoUsuario(str, Enum):
     PSICOLOGIA = "psicologia"

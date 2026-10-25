@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import date
 from typing import Optional
 from app.models.agendamento import StatusAgendamento
@@ -20,6 +20,10 @@ class AgendamentoCreate(BaseModel):
 
 class AgendamentoUpdateStatus(BaseModel):
     status: StatusAgendamento
+    # Opcional: só faz sentido quando o status é FALTOU. O router recusa o
+    # campo nos demais status para não misturar motivo de ausência com uma
+    # mudança de presença.
+    motivo_falta: Optional[str] = Field(default=None, max_length=500)
 
 class AgendamentoRead(BaseModel):
     id: int
@@ -37,3 +41,4 @@ class AgendamentoRead(BaseModel):
     tipo_consulta: str
     status: StatusAgendamento
     observacao_logistica: Optional[str] = None
+    motivo_falta: Optional[str] = None

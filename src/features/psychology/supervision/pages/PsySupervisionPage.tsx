@@ -3,60 +3,40 @@ import { AppLayout } from '../../../../components/layout/AppLayout';
 import { PsyTeacherHeader } from '../components/PsyTeacherHeader';
 import { PsySupervisionStats } from '../components/PsySupervisionStats';
 import { PsyApprovalQueue } from '../components/PsyApprovalQueue';
-  import {
-    UserGroupIcon,
-    PlusIcon,
-    XMarkIcon,
-    CheckCircleIcon,
-    ShieldCheckIcon,
-    ArrowPathIcon,
-    PencilSquareIcon,
-    TrashIcon,
-    MagnifyingGlassIcon,
-  } from '../../../../components/icons/CorporateIcons';
+import {
+  UserGroupIcon,
+  XMarkIcon,
+  CheckCircleIcon,
+  ArrowPathIcon,
+  PencilSquareIcon,
+  TrashIcon,
+  MagnifyingGlassIcon,
+} from '../../../../components/icons/CorporateIcons';
 import { useAuth, type User } from '../../../auth/context/AuthContext';
 import { api, type ApiEstagiarioDisponivel } from '../../../../services/api';
-
-/** Os dez períodos do curso. O campo começa vazio: "9º Período" como padrão
- *  era palpite do código, não escolha de ninguém. */
-const PERIODOS_CURSO = [
-  '1º Período',
-  '2º Período',
-  '3º Período',
-  '4º Período',
-  '5º Período',
-  '6º Período',
-  '7º Período',
-  '8º Período',
-  '9º Período',
-  '10º Período',
-];
+import { InfoTooltip } from '../../../../components/ui/InfoTooltip';
 
 export function PsySupervisionPage() {
-  const { user } = useAuth();
-  const isRT = user?.perfil === 'rt';
-  const { allUsers, createUser, updateUser, deleteUser, vincularSupervisor } =
-    useAuth();
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [nome, setNome] = useState('');
-  const [matricula, setMatricula] = useState('');
-  const [email, setEmail] = useState('');
-  // Senha obrigatoria: o backend grava com bcrypt e nao aceita usuario sem ela.
-  const [senha, setSenha] = useState('');
-  const [periodo, setPeriodo] = useState('');
-  // Antes vinha preenchida com 'Turma Terça Tarde (SPA)' e era gravada em
-  // registro_profissional: um nome de turma que ninguém escolheu, e que ainda
-  // aparecia no cabeçalho como se fosse a turma real da clínica.
-  const [turma, setTurma] = useState('');
+  const {
+    user,
+    allUsers,
+    updateUser,
+    deleteUser,
+    vincularSupervisor,
+    carregarUsuarios,
+  } = useAuth();
+  const isGestor = user?.perfil === 'rt' || user?.perfil === 'coordenacao';
+  const [showVincularModal, setShowVincularModal] = useState(false);
   const [feedbackSuccess, setFeedbackSuccess] = useState('');
   const [validationError, setValidationError] = useState('');
   const [busca, setBusca] = useState('');
 
   // Estagiários que já estão no sistema e ainda não têm supervisor. É o que
-  // permite ao supervisor assumir um aluno que a RT cadastrou — antes ele só
+  // permite ao supervisor assumir um aluno que a gestão cadastrou — antes ele só
   // enxergava quem ele mesmo criou.
   const [disponiveis, setDisponiveis] = useState<ApiEstagiarioDisponivel[]>([]);
   const [disponivelEscolhido, setDisponivelEscolhido] = useState('');
+  const [supervisorEscolhido, setSupervisorEscolhido] = useState('');
   const [vinculando, setVinculando] = useState(false);
   const [vincularErro, setVincularErro] = useState('');
 
@@ -70,12 +50,12 @@ export function PsySupervisionPage() {
   const [internToDelete, setInternToDelete] = useState<{ key: string; nome: string } | null>(null);
 
   // Estagiários de Psicologia registrados no sistema. O supervisor vê apenas
-  // os que estão vinculados a ele (RF-005); a RT vê todos da clínica.
+  // os que estão vinculados a ele (RF-005); a gestão vê todos da clínica.
   const psicoInterns = Object.entries(allUsers || {}).filter(
     ([, u]) =>
       u.curso === 'psicologia' &&
       u.perfil === 'estagiario' &&
-      (isRT || u.supervisor_matricula === user?.matricula)
+      (isGestor || u.supervisor_matricula === user?.matricula)
   );
 
   // Busca por nome ou matrícula: mesmo controle que a tela de duplas
@@ -92,6 +72,19 @@ export function PsySupervisionPage() {
       )
     : psicoInterns;
 
+  const supervisores = Object.values(allUsers || {})
+    .filter(
+      (u) =>
+        u.perfil === 'supervisor' &&
+        u.curso === 'psicologia' &&
+        u.ativo
+    )
+    .sort((a, b) => a.nome.localeCompare(b.nome));
+
+  useEffect(() => {
+    void carregarUsuarios();
+  }, [carregarUsuarios]);
+
   // A lista de quem ainda não tem supervisor. O filtro é do servidor: aqui só
   // chega quem de fato pode ser assumido, e a tela não precisa saber de onde
   // veio o critério.
@@ -103,8 +96,8 @@ export function PsySupervisionPage() {
         if (!cancelado) setDisponiveis(lista);
       })
       .catch(() => {
-        // Falha aqui não impede o cadastro de um estagiário novo: a lista é um
-        // caminho a mais, não o principal.
+        // Sem a lista não há como escolher quem vincular; a falha fica visível
+        // como estado vazio, não como erro de sistema.
         if (!cancelado) setDisponiveis([]);
       });
     return () => {
@@ -114,7 +107,11 @@ export function PsySupervisionPage() {
 
   const handleVincular = async () => {
     if (!disponivelEscolhido) {
-      setVincularErro('Escolha o estagiário que você vai assumir.');
+      setVincularErro('Escolha o estagiário que será vinculado.');
+      return;
+    }
+    if (isGestor && !supervisorEscolhido) {
+      setVincularErro('Escolha o supervisor responsável.');
       return;
     }
     const alvo = disponiveis.find((e) => e.matricula === disponivelEscolhido);
@@ -122,15 +119,18 @@ export function PsySupervisionPage() {
       setVincularErro('Não foi possível localizar esse estagiário.');
       return;
     }
+    const supervisorAlvo = supervisores.find(
+      (s) => s.matricula === supervisorEscolhido
+    );
 
     setVincularErro('');
     setVinculando(true);
 
-    // O supervisor se vincula a si mesmo — a matrícula vem do token. A RT
-    // escolhe a quem vincular, e aí a matrícula vai no corpo.
+    // O supervisor se vincula a si mesmo — a matrícula vem do token. A gestão
+    // escolhe a quem vincular, e aí a matrícula do supervisor vai no corpo.
     const resultado = await vincularSupervisor(
       String(alvo.id),
-      isRT ? disponivelEscolhido : undefined
+      isGestor ? supervisorEscolhido : undefined
     );
     setVinculando(false);
 
@@ -141,54 +141,13 @@ export function PsySupervisionPage() {
 
     setDisponiveis((prev) => prev.filter((e) => e.matricula !== disponivelEscolhido));
     setDisponivelEscolhido('');
-    setFeedbackSuccess(resultado.message);
-  };
-
-  const handleCreateIntern = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setValidationError('');
-
-    if (!nome.trim() || !matricula.trim() || !email.trim()) {
-      setValidationError('Nome completo, Matrícula e E-mail institucional são obrigatórios.');
-      return;
-    }
-    if (senha.length < 6) {
-      setValidationError('A senha precisa de ao menos 6 caracteres.');
-      return;
-    }
-
-    const cleanMatricula = matricula.trim();
-
-    // O e-mail deixa de ser fabricado: antes, campo em branco virava
-    // nome.matricula@uninassau.edu.br e ia para o banco como se o supervisor
-    // tivesse digitado. Endereço que ninguém preencheu e que ninguém consegue
-    // distinguir de real é dado falso persistido.
-    const resultado = await createUser({
-      nome: nome.trim(),
-      matricula: cleanMatricula,
-      email: email.trim(),
-      perfil: 'estagiario',
-      // Anotação livre do supervisor. Só entra o que ele preencheu: campo vazio
-      // não vira "Turma Terça Tarde (SPA)" na base.
-      registro_profissional: [periodo.trim(), turma.trim()].filter(Boolean).join(' • ') || undefined,
-      senha,
-    });
-
-    if (!resultado.success) {
-      setValidationError(resultado.message);
-      return;
-    }
-
-    setFeedbackSuccess(resultado.message);
-    setNome('');
-    setMatricula('');
-    setEmail('');
-    setSenha('');
-    setShowCreateModal(false);
-
-    setTimeout(() => {
-      setFeedbackSuccess('');
-    }, 6000);
+    setSupervisorEscolhido('');
+    setShowVincularModal(false);
+    setFeedbackSuccess(
+      isGestor
+        ? `${alvo.nome} vinculado a ${supervisorAlvo?.nome ?? 'supervisor selecionado'}.`
+        : resultado.message
+    );
   };
 
   const handleOpenEdit = (key: string, intern: User) => {
@@ -267,7 +226,7 @@ export function PsySupervisionPage() {
   return (
     <AppLayout
       title="Supervisão Docente de Psicologia (SPA)"
-      subtitle="Fila de homologação de prontuários eletrônicos, vistos digitais e devolutivas formativas sob a Resolução CFP nº 06/2019"
+      info="Fila de homologação de prontuários eletrônicos, vistos digitais e devolutivas formativas sob a Resolução CFP nº 06/2019"
       badge="Resolução CFP nº 06/2019"
       badgeType="blue"
     >
@@ -301,12 +260,14 @@ export function PsySupervisionPage() {
               <h4 className="font-bold text-slate-900 text-xs flex items-center gap-2 uppercase tracking-wider">
                 <UserGroupIcon className="w-4 h-4 text-blue-700" />
                 <span>Estagiários sob Orientação Docente (Clínica de Psicologia)</span>
+                <InfoTooltip
+                  texto={
+                    isGestor
+                      ? 'A gestão (RT ou coordenação) vê todos os estagiários da clínica e pode atribuir supervisor. O supervisor vê apenas os vinculados a ele.'
+                      : 'Você vê apenas os estagiários vinculados a você.'
+                  }
+                />
               </h4>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {isRT
-                  ? 'A Referência Técnica vê todos os estagiários da clínica e pode atribuir supervisor. O supervisor vê apenas os vinculados a ele.'
-                  : 'Você vê apenas os estagiários vinculados a você.'}
-              </p>
             </div>
 
 <div className="flex items-center gap-2">
@@ -319,12 +280,15 @@ export function PsySupervisionPage() {
                 type="button"
                 onClick={() => {
                   setValidationError('');
-                  setShowCreateModal(true);
+                  setVincularErro('');
+                  setDisponivelEscolhido('');
+                  setSupervisorEscolhido('');
+                  setShowVincularModal(true);
                 }}
                 className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-xs transition-colors flex items-center gap-1.5 border border-blue-900"
               >
-                <PlusIcon className="w-4 h-4" />
-                <span>Cadastrar Estagiário</span>
+                <UserGroupIcon className="w-4 h-4" />
+                <span>Vincular Estagiário</span>
               </button>
             </div>
             <div className="relative w-full sm:w-64">
@@ -342,9 +306,9 @@ export function PsySupervisionPage() {
           {psicoInternsFiltrados.length === 0 ? (
             <p className="text-xs text-slate-400 italic bg-slate-50 border border-dashed border-slate-200 rounded-xl p-4 text-center">
               {psicoInterns.length === 0
-                ? isRT
+                ? isGestor
                   ? 'Nenhum estagiário de psicologia cadastrado.'
-                  : 'Nenhum estagiário vinculado a você. Use "Cadastrar Estagiário" para criar um aluno ou vincular um que já estava no sistema.'
+                  : 'Nenhum estagiário vinculado a você. Use "Vincular Estagiário" para assumir um aluno já cadastrado pela gestão.'
                 : 'Nenhum estagiário corresponde à busca.'}
             </p>
           ) : (
@@ -416,8 +380,8 @@ export function PsySupervisionPage() {
         </div>
       </div>
 
-      {/* Modal de Criação de Estagiário (SPA Psicologia) */}
-      {showCreateModal && (
+      {/* Modal de Vínculo de Estagiário (SPA Psicologia) */}
+      {showVincularModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -426,142 +390,43 @@ export function PsySupervisionPage() {
                   SPA
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Cadastrar Estagiário (Psicologia)</h3>
-                  <p className="text-[10px] text-slate-500">
-                    O estagiário será criado com a senha institucional
-                    Unicare123, que ele troca no primeiro acesso.
-                  </p>
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                    Vincular Estagiário (Psicologia)
+                    <InfoTooltip
+                      texto={
+                        isGestor
+                          ? 'Selecione o estagiário e o supervisor responsável. A troca posterior de supervisor é ato da gestão.'
+                          : 'Selecione um estagiário ativo da clínica que ainda não tenha supervisor. O aluno passará a ficar sob sua orientação.'
+                      }
+                    />
+                  </h3>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => setShowCreateModal(false)}
+                onClick={() => setShowVincularModal(false)}
                 className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg"
               >
                 <XMarkIcon className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateIntern} className="space-y-3.5 text-xs">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  Nome Completo do Acadêmico *
-                </label>
-                <input
-                  type="text"
-                  value={nome}
-                  onChange={(e) => setNome(e.target.value)}
-                  placeholder="Ex: Beatriz Lima Ribeiro"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600/20"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Matrícula Acadêmica *
-                  </label>
-                  <input
-                    type="text"
-                    value={matricula}
-                    onChange={(e) => setMatricula(e.target.value)}
-                    placeholder="Ex: 16038910"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600/20 font-mono"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Período do Curso
-                  </label>
-                  <select
-                    value={periodo}
-                    onChange={(e) => setPeriodo(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-600"
-                  >
-                    {/* Antes eram só 9º e 10º, com o 9º marcado por padrão — um
-                        palpite do código, não uma escolha de ninguém. Agora são
-                        os dez períodos do curso, e o campo começa vazio para
-                        ninguém gravar um período que não escolheu. */}
-                    <option value="">Selecione o período</option>
-                    {PERIODOS_CURSO.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  E-mail Institucional
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Ex: beatriz.ribeiro@uninassau.edu.br"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600/20 font-mono text-[11px]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  Senha de Acesso *
-                </label>
-                <input
-                  type="text"
-                  value={senha}
-                  onChange={(e) => setSenha(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600/20 font-mono text-[11px]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  Turma de Orientação Docente
-                </label>
-                <input
-                  type="text"
-                  value={turma}
-                  onChange={(e) => setTurma(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-600 font-mono text-[11px]"
-                />
-              </div>
-
-              {validationError && (
-                <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs">
-                  {validationError}
-                </div>
-              )}
-
-              <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-[11px] text-blue-900 space-y-1">
-                <div className="flex items-center gap-1.5 font-bold">
-                  <ShieldCheckIcon className="w-4 h-4 text-blue-700" />
-                  <span>Autenticação & Segurança (RBAC)</span>
-                </div>
-                <p className="text-[10px] text-slate-600">
-                  A senha é a que você definir agora: o servidor grava com bcrypt e ela
-                  não fica visível depois. Passe ao estagiário — ele entra com a matrícula e
-                  essa senha.
-                </p>
-              </div>
-
+            <div className="space-y-3.5 text-xs">
               {/* Assumir um estagiário que já está no sistema. É outra ação que
-                  criar um acadêmico novo: o aluno cadastrado pela RT não
+                  criar um acadêmico novo: o aluno cadastrado pela gestão não
                   aparece na lista de ninguém, e sem isto o supervisor só
                   enxerga quem ele mesmo criou. */}
-              <div className="pt-3 border-t border-slate-200 space-y-2">
-                <p className="text-[11px] font-bold text-slate-700">
+              <div className="space-y-2">
+                <p className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
                   Vincular estagiário já cadastrado
-                </p>
-                <p className="text-[10px] text-slate-500 leading-relaxed">
-                  Estagiários ativos da clínica que ainda não têm supervisor.
-                  Assumir um aluno alheio não é permitido — a troca de responsável
-                  é ato da Referência Técnica.
+                  <InfoTooltip
+                    align="left"
+                    texto={
+                      isGestor
+                        ? 'Estagiários ativos da clínica que ainda não têm supervisor. Escolha o supervisor responsável; a troca posterior é ato da gestão.'
+                        : 'Estagiários ativos da clínica que ainda não têm supervisor. Assumir um aluno alheio não é permitido — a troca de responsável é ato da Referência Técnica.'
+                    }
+                  />
                 </p>
 
                 {disponiveis.length === 0 ? (
@@ -570,28 +435,63 @@ export function PsySupervisionPage() {
                   </p>
                 ) : (
                   <>
-                    <div className="flex gap-2">
-                      <select
-                        value={disponivelEscolhido}
-                        onChange={(e) => setDisponivelEscolhido(e.target.value)}
-                        className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-600 text-xs"
-                      >
-                        <option value="">Selecione o estagiário…</option>
-                        {disponiveis.map((e) => (
-                          <option key={e.id} value={e.matricula}>
-                            {e.nome} ({e.matricula})
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() => void handleVincular()}
-                        disabled={vinculando}
-                        className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs transition-colors disabled:opacity-50 whitespace-nowrap"
-                      >
-                        {vinculando ? 'Vinculando...' : 'Vincular'}
-                      </button>
+                    {isGestor && (
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Supervisor Responsável *
+                        </label>
+                        <select
+                          value={supervisorEscolhido}
+                          onChange={(e) => setSupervisorEscolhido(e.target.value)}
+                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-600 text-xs"
+                        >
+                          <option value="">Selecione o supervisor…</option>
+                          {supervisores.map((s) => (
+                            <option key={s.matricula} value={s.matricula}>
+                              {s.nome} ({s.matricula})
+                            </option>
+                          ))}
+                        </select>
+                        {supervisores.length === 0 && (
+                          <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mt-1">
+                            Nenhum supervisor ativo nesta clínica.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Estagiário *
+                      </label>
+                      <div className="flex gap-2">
+                        <select
+                          value={disponivelEscolhido}
+                          onChange={(e) => setDisponivelEscolhido(e.target.value)}
+                          className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-600 text-xs"
+                        >
+                          <option value="">Selecione o estagiário…</option>
+                          {disponiveis.map((e) => (
+                            <option key={e.id} value={e.matricula}>
+                              {e.nome} ({e.matricula})
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => void handleVincular()}
+                          disabled={
+                            vinculando ||
+                            !disponivelEscolhido ||
+                            (isGestor && !supervisorEscolhido)
+                          }
+                          className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs transition-colors disabled:opacity-50 whitespace-nowrap"
+                        >
+                          {vinculando ? 'Vinculando...' : 'Vincular'}
+                        </button>
+                      </div>
                     </div>
+
                     {vincularErro && (
                       <p className="text-[10px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5">
                         {vincularErro}
@@ -604,20 +504,13 @@ export function PsySupervisionPage() {
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={() => setShowVincularModal(false)}
                   className="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 font-bold transition-colors"
                 >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-xl font-bold transition-all shadow-xs border border-blue-900 flex items-center gap-1.5"
-                >
-                  <PlusIcon className="w-4 h-4" />
-                  <span>Cadastrar e Habilitar Login</span>
+                  Fechar
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
@@ -632,10 +525,10 @@ export function PsySupervisionPage() {
                   <PencilSquareIcon className="w-4 h-4 text-blue-800" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Editar Estagiário (Psicologia)</h3>
-                  <p className="text-[10px] text-slate-500">
-                    Atualize os dados acadêmicos ou credenciais do estagiário.
-                  </p>
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                    Editar Estagiário (Psicologia)
+                    <InfoTooltip texto="Atualize os dados acadêmicos ou credenciais do estagiário." />
+                  </h3>
                 </div>
               </div>
               <button
@@ -739,8 +632,10 @@ export function PsySupervisionPage() {
                 <TrashIcon className="w-5 h-5 text-red-600" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Desativar Estagiário</h3>
-                <p className="text-[11px] text-slate-500">Revogação de acesso de estagiário</p>
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                  Desativar Estagiário
+                  <InfoTooltip texto="Revogação de acesso de estagiário." />
+                </h3>
               </div>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed">

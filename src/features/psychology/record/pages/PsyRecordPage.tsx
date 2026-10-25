@@ -30,11 +30,12 @@ export function PsyRecordPage() {
 
   const isEstagiario = user?.perfil === 'estagiario';
 
-  // O vínculo decide quem o estagiário atende (RF-001). Supervisor e RT
-  // abrem esta tela para consultar e não têm paciente vinculado — o vínculo é
-  // de responsabilidade do aluno — então para eles a clínica continua inteira.
-  // O servidor aplica a mesma regra: `_validar_vinculo_estagiario` só roda para
-  // o perfil ESTAGIÁRIO.
+  // O vínculo decide quem o estagiário atende (RF-001). Supervisor, RT e
+  // coordenação abrem esta tela apenas para consultar a linha do tempo — o
+  // vínculo é de responsabilidade do aluno — então para eles a clínica
+  // continua inteira. O servidor recusa a escrita desses perfis em
+  // `POST /prontuarios/psico`; `_validar_vinculo_estagiario` só roda para o
+  // perfil ESTAGIÁRIO.
   const pacientesPsico = useMemo(() => {
     const daClinica = pacientes.filter(
       (p) => p.curso === 'psicologia' || p.curso === 'ambos'
@@ -73,6 +74,10 @@ export function PsyRecordPage() {
     pacientesPsico.find((p) => p.id === selectedPatientId) || pacientesPsico[0];
 
   const [activeTab, setActiveTab] = useState<'registro' | 'historico'>('registro');
+
+  // A escrita é exclusiva do estagiário. Para os demais perfis, a tela sempre
+  // abre na linha do tempo, mesmo que o estado da aba ainda seja o inicial.
+  const abaAtiva = isEstagiario ? activeTab : 'historico';
 
   // Histórico de sessões do paciente atual. A ordenação é feita a partir de
   // `dataSessao`, que chega como `dd/mm/aaaa` (texto livre no schema): tentar
@@ -140,7 +145,7 @@ export function PsyRecordPage() {
   };
 
   const handleSalvarEnviar = async () => {
-    if (temAspas || faltaSintese || !pacienteSelecionado || isSaving) return;
+    if (!isEstagiario || temAspas || faltaSintese || !pacienteSelecionado || isSaving) return;
 
     setIsSaving(true);
     setErroMsg('');
@@ -185,7 +190,7 @@ export function PsyRecordPage() {
   return (
     <AppLayout
       title="Prontuário Psicológico Individual"
-      subtitle="Registro estruturado de psicoterapia e histórico longitudinal sob conformidade com a Resolução CFP nº 06/2019 e LGPD Artigo 11"
+      info="Registro estruturado de psicoterapia e histórico longitudinal sob conformidade com a Resolução CFP nº 06/2019 e LGPD Artigo 11"
       actions={
         <div className="w-64 sm:w-72">
           <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
@@ -267,7 +272,9 @@ export function PsyRecordPage() {
               {/* "Prof. Dr. Robert Santos" também era literal. Não existe
                   vínculo estagiário↔supervisor no schema, então o docente
                   correto aqui é quem está autenticado — e isso vem do token. */}
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Responsável pelo registro</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                {isEstagiario ? 'Responsável pelo registro' : 'Consulta de prontuário'}
+              </p>
               <p className="text-xs font-semibold text-slate-800 truncate max-w-[14rem]">
                 {user?.nome || '—'}
               </p>
@@ -277,32 +284,34 @@ export function PsyRecordPage() {
 
         {/* Menu de Abas Segmentadas */}
         <div className="bg-white p-1 rounded-2xl border border-slate-200/80 shadow-xs flex">
-          <button
-            onClick={() => setActiveTab('registro')}
-            className={`flex-1 py-2.5 px-4 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'registro'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <DocumentTextIcon className="w-4 h-4" />
-            <span>Registrar Nova Sessão Clínica</span>
-          </button>
+          {isEstagiario && (
+            <button
+              onClick={() => setActiveTab('registro')}
+              className={`flex-1 py-2.5 px-4 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
+                abaAtiva === 'registro'
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <DocumentTextIcon className="w-4 h-4" />
+              <span>Registrar Nova Sessão Clínica</span>
+            </button>
+          )}
 
           <button
             onClick={() => setActiveTab('historico')}
             className={`flex-1 py-2.5 px-4 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'historico'
+              abaAtiva === 'historico'
                 ? 'bg-slate-900 text-white shadow-xs'
                 : 'text-slate-500 hover:text-slate-900'
             }`}
           >
             <ClockIcon className="w-4 h-4" />
-              <span>Linha do Tempo Cronológica</span>
+            <span>Linha do Tempo Cronológica</span>
 
             <span
               className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${
-                activeTab === 'historico' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
+                abaAtiva === 'historico' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
               }`}
             >
               {historicoSessoes.length}
@@ -311,7 +320,7 @@ export function PsyRecordPage() {
         </div>
 
         {/* ALERTA NORMATIVO ANTI-ASPAS (RN-002 / CFP nº 06/2019) */}
-        {temAspas && activeTab === 'registro' && (
+        {temAspas && abaAtiva === 'registro' && (
           <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 shadow-xs flex items-start gap-3.5">
             <ExclamationTriangleIcon className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
             <div className="flex-1">
@@ -337,7 +346,7 @@ export function PsyRecordPage() {
           </div>
         )}
 
-        {activeTab === 'registro' ? (
+        {abaAtiva === 'registro' ? (
           /* ABA 1: FORMULÁRIO DE REGISTRO ESTRUTURADO */
           <div className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-8 space-y-8 shadow-xs">
             {/* Parâmetros da Sessão */}
@@ -411,7 +420,7 @@ export function PsyRecordPage() {
                   rows={14}
                   value={redacao}
                   onChange={(e) => setRedacao(e.target.value)}
-                  placeholder="Descreva a sessao em ordem cronologica, do acolhimento ao fechamento: o que trouxe o paciente, o que foi trabalhado e como a sessao terminou..."
+                  placeholder="Descreva a sessao em ordem cronologica, do acolhimento ao fechamento: o que trouxe o paciente (3ª pessoa), o que foi trabalhado e como a sessao terminou..."
                   className={`w-full p-3 text-xs leading-relaxed rounded-xl border outline-none transition-colors ${
                     temAspas
                       ? 'border-amber-400 bg-amber-50/40'

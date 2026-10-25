@@ -12,6 +12,9 @@ as versões deste projeto (passlib 1.7.4 + bcrypt 5.0.0) o passlib falha com
 Ver `AGENTS.md` para a armadilha.
 """
 
+import secrets
+import string
+
 import bcrypt
 
 # Custo do bcrypt: ~250ms por hash. Paga uma vez por login e uma vez por usuario
@@ -26,6 +29,35 @@ LIMITE_BYTES = 72
 
 class SenhaLongaError(ValueError):
     """Senha acima do limite aceito pelo bcrypt."""
+
+
+# Alfabeto da senha inicial gerada pelo servidor. É o mesmo conjunto que a tela
+# usava quando a gestão gerava no navegador, para a senha não mudar de formato.
+ALFABETO_SENHA = string.ascii_letters + string.digits + "!@#$%^&*()"
+TAMANHO_SENHA_INICIAL = 12
+
+
+def gerar_senha_inicial() -> str:
+    """Senha inicial aleatória, gerada no servidor.
+
+    `secrets`, nunca `random`: a senha vai por e-mail e é a credencial de
+    primeiro acesso. As quatro classes de caractere são garantidas na
+    construção, e o `shuffle` espalha os obrigatórios — sem isso, a primeira
+    posição seria sempre maiúscula.
+    """
+    obrigatorios = [
+        secrets.choice(string.ascii_uppercase),
+        secrets.choice(string.ascii_lowercase),
+        secrets.choice(string.digits),
+        secrets.choice("!@#$%^&*()"),
+    ]
+    restantes = [
+        secrets.choice(ALFABETO_SENHA)
+        for _ in range(TAMANHO_SENHA_INICIAL - len(obrigatorios))
+    ]
+    caracteres = obrigatorios + restantes
+    secrets.SystemRandom().shuffle(caracteres)
+    return "".join(caracteres)
 
 
 def get_password_hash(password: str) -> str:
