@@ -107,7 +107,7 @@ export function AppointmentTable() {
               <th className="py-3 px-4">Data / Horário</th>
               <th className="py-3 px-4">Paciente</th>
               <th className="py-3 px-4">Local / Especialidade</th>
-              <th className="py-3 px-4">Estagiário Responsável</th>
+              <th className="py-3 px-4">Estagiários da Sessão</th>
               <th className="py-3 px-4">Status Presença</th>
               <th className="py-3 px-4 text-right">Ações de Recepção</th>
             </tr>
@@ -169,7 +169,10 @@ export function AppointmentTable() {
 
                   <td className="py-3.5 px-4">
                     <p className="font-semibold text-slate-800">{item.estagiarioNome}</p>
-                    <p className="text-[10px] text-slate-400 font-mono">Matrícula: {item.estagiarioMatricula}</p>
+                    <p className="text-[10px] text-slate-400 font-mono">
+                      Matrícula: {item.estagiarioMatricula}
+                      {item.auxiliarMatricula ? ` · Aux.: ${item.auxiliarMatricula}` : ''}
+                    </p>
                   </td>
 
                   <td className="py-3.5 px-4">

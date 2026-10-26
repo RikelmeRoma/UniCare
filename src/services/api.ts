@@ -95,6 +95,8 @@ export interface ApiAgendamento {
   paciente_nome: string;
   estagiario_nome: string;
   estagiario_matricula: string;
+  /** Segundo estagiário da dupla; nulo nas sessões anteriores à coluna. */
+  auxiliar_matricula?: string | null;
   curso: 'psicologia' | 'odontologia';
   /** ISO `YYYY-MM-DD`. O backend tipa como `Date` e devolve string no JSON.
    *  Ausente nas linhas anteriores à coluna — `null`, não string vazia. */
@@ -552,6 +554,7 @@ async getUsuarios(): Promise<ApiUsuario[]> {
     paciente_nome: string;
     estagiario_nome: string;
     estagiario_matricula: string;
+    auxiliar_matricula?: string | null;
     curso: string;
     data_sessao: string;
     horario: string;

@@ -13,6 +13,7 @@ import { AlterarSenhaPage } from './features/auth/pages/AlterarSenhaPage';
 // Odontologia
 import { ReceptionDashboard } from './features/reception/pages/ReceptionDashboard';
 import { DentalRecordPage } from './features/dental-record/pages/DentalRecordPage';
+import { OdontoAppointmentsPage } from './features/dental-record/appointments/pages/OdontoAppointmentsPage';
 import { SupervisionPage } from './features/supervision/pages/SupervisionPage';
 import { RTManagementPage } from './features/supervision/pages/RTManagementPage';
 
@@ -53,6 +54,18 @@ export default function App() {
               element={
                 <ProtectedRoute allowedRoles={['estagiario', 'supervisor', 'rt']} allowedCourses={['odontologia']}>
                   <DentalRecordPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Agenda da clínica odontológica. O estagiário vê as sessões em
+                que é operador ou auxiliar; supervisor e RT veem o escopo que o
+                servidor devolve (duplas supervisionadas / clínica inteira). */}
+            <Route
+              path="/odonto/agendamentos"
+              element={
+                <ProtectedRoute allowedRoles={['estagiario', 'supervisor', 'rt']} allowedCourses={['odontologia']}>
+                  <OdontoAppointmentsPage />
                 </ProtectedRoute>
               }
             />

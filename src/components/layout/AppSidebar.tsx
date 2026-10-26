@@ -249,6 +249,23 @@ export function AppSidebar() {
                   </li>
                 )}
 
+                {/* Agenda odontológica: o estagiário vê a própria dupla;
+                    supervisor e RT veem o escopo que o servidor devolve. */}
+                {(user?.perfil === 'estagiario' ||
+                  user?.perfil === 'supervisor' ||
+                  isRT) && (
+                  <li>
+                    <NavLink to="/odonto/agendamentos" className={getLinkStyle}>
+                      <CalendarIcon className="w-4 h-4 shrink-0 text-slate-500" />
+                      <span>
+                        {user?.perfil === 'estagiario'
+                          ? 'Meus Agendamentos'
+                          : 'Agendamentos Odonto'}
+                      </span>
+                    </NavLink>
+                  </li>
+                )}
+
                 {/* Supervisão Odontologia: Apenas Supervisor e RT (Não aparece para Estagiário) */}
                 {(user?.perfil === 'supervisor' || isRT) && (
                   <li>

@@ -24,8 +24,9 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
   const { pacientes, adicionarAgendamento, atribuicoes, recarregarAtribuicoes } =
     useClinic();
 
-  //só psicologia tem vínculo paciente-estagiário, e é por ele que a lista de
-  //estagiários faz sentido. Odontologia segue com o campo de texto.
+  // Só psicologia tem vínculo paciente-estagiário, e é por ele que o primeiro
+  // select acompanha o responsável do paciente. As duas clínicas, porém, usam
+  // dois estagiários por sessão.
   const ehPsico = defaultCurso === 'psicologia';
 
   const [pacienteId, setPacienteId] = useState<number>(pacientes[0]?.id || 1);
@@ -52,10 +53,8 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
   const [tipoConsulta, setTipoConsulta] = useState(
     defaultCurso === 'psicologia' ? 'Psicoterapia Individual' : 'Dentística Restauradora'
   );
-  const [estagiarioNome, setEstagiarioNome] = useState(
-    defaultCurso === 'psicologia' ? 'Rikelme Roma Santos' : 'Lucas Vasconcelos'
-  );
   const [estagiarioMatricula, setEstagiarioMatricula] = useState('');
+  const [auxiliarMatricula, setAuxiliarMatricula] = useState('');
   // O responsável é o do paciente até a recepção escolher outro. Guardar um
   // "escolheu na mão" e derivar o valor é o que faz o campo acompanhar a troca
   // de paciente sem um efeito que reescreva o estado a cada render.
@@ -63,7 +62,7 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
   const [observacaoLogistica, setObservacaoLogistica] = useState('Paciente confirmado por WhatsApp');
 
   const [estagiarios, setEstagiarios] = useState<ApiEstagiario[]>([]);
-  const [carregandoEstagiarios, setCarregandoEstagiarios] = useState(ehPsico);
+  const [carregandoEstagiarios, setCarregandoEstagiarios] = useState(true);
   const [erroEstagiarios, setErroEstagiarios] = useState('');
 
   const [isSaving, setIsSaving] = useState(false);
@@ -74,8 +73,11 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
   // "João Silva" gravava o nome do João com a matrícula de outra pessoa. A lista
   // vem do servidor — o `GET /usuarios` é gestão de usuário e devolve 403 para a
   // recepção, por isso existe `GET /usuarios/estagiarios`.
+  //
+  // As duas clínicas também usam a lista: a sessão é de dupla, então
+  // responsável/operador e auxiliar precisam sair do cadastro, não de texto
+  // digitado.
   useEffect(() => {
-    if (!ehPsico) return;
     let cancelado = false;
     api
       .getEstagiarios()
@@ -96,7 +98,7 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
     return () => {
       cancelado = true;
     };
-  }, [ehPsico]);
+  }, []);
 
   // Quem já é o responsável ativo deste paciente. O agendamento cria o vínculo
   // quando não existe e transfere quando o escolhido é outro, então a tela
@@ -108,15 +110,24 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
   );
   const matriculaDoResponsavel = responsavelAtual?.estagiarioMatricula ?? '';
 
-  const matriculaEscolhida = ehPsico
+  const matriculaOperador = ehPsico
     ? escolheuEstagiario
       ? estagiarioMatricula
       : matriculaDoResponsavel
-    : '';
+    : estagiarioMatricula;
 
   const estagiarioSelecionado = useMemo(
-    () => estagiarios.find((e) => e.matricula === matriculaEscolhida),
-    [estagiarios, matriculaEscolhida]
+    () => estagiarios.find((e) => e.matricula === matriculaOperador),
+    [estagiarios, matriculaOperador]
+  );
+  const auxiliarSelecionado = useMemo(
+    () => estagiarios.find((e) => e.matricula === auxiliarMatricula),
+    [estagiarios, auxiliarMatricula]
+  );
+  const duplaValida = Boolean(
+    estagiarioSelecionado &&
+      auxiliarSelecionado &&
+      estagiarioSelecionado.matricula !== auxiliarSelecionado.matricula
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -125,8 +136,20 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
     const paciente = pacientes.find((p) => p.id === pacienteId);
     if (!paciente) return;
 
-    if (ehPsico && !estagiarioSelecionado) {
-      setErrorMsg('Escolha o estagiário responsável pela sessão.');
+    if (!estagiarioSelecionado) {
+      setErrorMsg(
+        ehPsico
+          ? 'Escolha o estagiário responsável pela sessão.'
+          : 'Escolha o estagiário operador da dupla.'
+      );
+      return;
+    }
+    if (!auxiliarSelecionado) {
+      setErrorMsg('Escolha o segundo estagiário da dupla.');
+      return;
+    }
+    if (auxiliarSelecionado.matricula === estagiarioSelecionado.matricula) {
+      setErrorMsg('Os dois estagiários da dupla precisam ser diferentes.');
       return;
     }
 
@@ -143,10 +166,9 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
     const res = await adicionarAgendamento({
       pacienteId,
       pacienteNome: paciente.nome,
-      estagiarioNome: ehPsico
-        ? (estagiarioSelecionado?.nome ?? '')
-        : estagiarioNome,
-      estagiarioMatricula: ehPsico ? matriculaEscolhida : '01498231',
+      estagiarioNome: estagiarioSelecionado.nome,
+      estagiarioMatricula: estagiarioSelecionado.matricula,
+      auxiliarMatricula: auxiliarSelecionado.matricula,
       curso,
       dataSessao,
       horario,
@@ -197,10 +219,18 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
             <select
               value={pacienteId}
               onChange={(e) => {
-                setPacienteId(Number(e.target.value));
+                const novoPacienteId = Number(e.target.value);
+                setPacienteId(novoPacienteId);
                 // Volta a seguir o responsável do novo paciente em vez da escolha
                 // da tela anterior.
                 setEscolheuEstagiario(false);
+                const novoResponsavel = atribuicoes.find(
+                  (a) =>
+                    a.pacienteId === novoPacienteId && a.situacao === 'ATIVA'
+                )?.estagiarioMatricula;
+                if (novoResponsavel && auxiliarMatricula === novoResponsavel) {
+                  setAuxiliarMatricula('');
+                }
               }}
               className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none"
             >
@@ -220,13 +250,12 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
                 onChange={(e) => {
                   const val = e.target.value as 'psicologia' | 'odontologia';
                   setCurso(val);
-                  if (val === 'psicologia') {
-                    setSalaOuCadeira('Consultório SPA-02');
-                    setEstagiarioNome('Rikelme Roma Santos');
-                  } else {
-                    setSalaOuCadeira('Cadeira Odonto 03');
-                    setEstagiarioNome('Augusto Cesar Farias');
-                  }
+                  setEstagiarioMatricula('');
+                  setAuxiliarMatricula('');
+                  setEscolheuEstagiario(false);
+                  setSalaOuCadeira(
+                    val === 'psicologia' ? 'Consultório SPA-02' : 'Cadeira Odonto 03'
+                  );
                 }}
                 className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none"
               >
@@ -301,64 +330,100 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Estagiário Responsável{ehPsico ? ' *' : ''}
+              Dupla de Estagiários *
             </label>
 
-            {ehPsico ? (
+            {carregandoEstagiarios ? (
+              <p className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-400">
+                Carregando estagiários…
+              </p>
+            ) : erroEstagiarios ? (
+              // Select vazio aqui pareceria "não existe estagiário na
+              // clínica", que é uma mentira — a clínica tem, a lista é que
+              // não chegou. A pessoa precisa saber qual dos dois é.
+              <p className="w-full text-xs p-2.5 rounded-xl border border-red-200 bg-red-50 text-red-700 leading-relaxed">
+                Não foi possível carregar os estagiários: {erroEstagiarios}{' '}
+                Feche e abra o modal para tentar de novo.
+              </p>
+            ) : (
               <>
-                {carregandoEstagiarios ? (
-                  <p className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-400">
-                    Carregando estagiários…
-                  </p>
-                ) : erroEstagiarios ? (
-                  // Select vazio aqui pareceria "não existe estagiário na
-                  // clínica", que é uma mentira — a clínica tem, a lista é que
-                  // não chegou. A pessoa precisa saber qual dos dois é.
-                  <p className="w-full text-xs p-2.5 rounded-xl border border-red-200 bg-red-50 text-red-700 leading-relaxed">
-                    Não foi possível carregar os estagiários: {erroEstagiarios}{' '}
-                    Feche e abra o modal para tentar de novo.
-                  </p>
-                ) : (
-                  <select
-                    value={matriculaEscolhida}
-                    onChange={(e) => {
-                      setEstagiarioMatricula(e.target.value);
-                      setEscolheuEstagiario(true);
-                    }}
-                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none"
-                  >
-                    <option value="">Selecione o estagiário responsável…</option>
-                    {estagiarios.map((e) => (
-                      <option key={e.matricula} value={e.matricula}>
-                        {e.nome} — {e.matricula}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                      {ehPsico ? 'Responsável *' : 'Operador *'}
+                    </label>
+                    <select
+                      value={matriculaOperador}
+                      onChange={(e) => {
+                        const valor = e.target.value;
+                        setEstagiarioMatricula(valor);
+                        if (ehPsico) setEscolheuEstagiario(true);
+                        if (valor === auxiliarMatricula) setAuxiliarMatricula('');
+                      }}
+                      className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none"
+                    >
+                      <option value="">
+                        {ehPsico
+                          ? 'Selecione o responsável…'
+                          : 'Selecione o operador…'}
                       </option>
-                    ))}
-                  </select>
-                )}
+                      {estagiarios.map((e) => (
+                        <option key={e.matricula} value={e.matricula}>
+                          {e.nome} — {e.matricula}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                {estagiarioSelecionado && responsavelAtual && matriculaDoResponsavel !== matriculaEscolhida && (
-                  <p className="mt-1.5 text-[11px] leading-relaxed text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
-                    Hoje este paciente é de <strong>{responsavelAtual.estagiarioNome}</strong>.
-                    Ao confirmar, o responsável passa a ser {estagiarioSelecionado.nome} — o
-                    vínculo anterior fica guardado no histórico.
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                      Auxiliar *
+                    </label>
+                    <select
+                      value={auxiliarMatricula}
+                      onChange={(e) => setAuxiliarMatricula(e.target.value)}
+                      className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none"
+                    >
+                      <option value="">Selecione o auxiliar…</option>
+                      {estagiarios
+                        .filter((e) => e.matricula !== matriculaOperador)
+                        .map((e) => (
+                          <option key={e.matricula} value={e.matricula}>
+                            {e.nome} — {e.matricula}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
+
+                {ehPsico &&
+                  estagiarioSelecionado &&
+                  responsavelAtual &&
+                  matriculaDoResponsavel !== matriculaOperador && (
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                      Hoje este paciente é de{' '}
+                      <strong>{responsavelAtual.estagiarioNome}</strong>. Ao
+                      confirmar, o responsável passa a ser{' '}
+                      {estagiarioSelecionado.nome} — o vínculo anterior fica
+                      guardado no histórico.
+                    </p>
+                  )}
+
+                {ehPsico && estagiarioSelecionado && !responsavelAtual && (
+                  <p className="mt-1.5 text-[11px] leading-relaxed text-blue-800 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1.5">
+                    Este paciente ainda não tem responsável. Ao confirmar, passa
+                    a ser de {estagiarioSelecionado.nome} — e é isso que permite
+                    ao aluno abrir o prontuário dele.
                   </p>
                 )}
 
-                {estagiarioSelecionado && !responsavelAtual && (
-                  <p className="mt-1.5 text-[11px] leading-relaxed text-blue-800 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1.5">
-                    Este paciente ainda não tem responsável. Ao confirmar, passa a ser de{' '}
-                    {estagiarioSelecionado.nome} — e é isso que permite ao aluno abrir o
-                    prontuário dele.
+                {estagiarios.length < 2 && (
+                  <p className="mt-1.5 text-[11px] leading-relaxed text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                    A clínica precisa de dois estagiários ativos para montar a
+                    dupla. Cadastre o segundo aluno antes de agendar.
                   </p>
                 )}
               </>
-            ) : (
-              <input
-                type="text"
-                value={estagiarioNome}
-                onChange={(e) => setEstagiarioNome(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none"
-              />
             )}
           </div>
 
@@ -383,7 +448,7 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
             </button>
             <button
               type="submit"
-              disabled={isSaving || (ehPsico && !estagiarioSelecionado)}
+              disabled={isSaving || !duplaValida}
               className="px-5 py-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-xs disabled:opacity-50"
             >
               {isSaving ? 'Salvando...' : 'Confirmar Agendamento'}
