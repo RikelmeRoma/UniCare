@@ -110,6 +110,43 @@ trilha com `RECUPERACAO_SOLICITADA` e IP real.
   rota libera `estagiario`, `supervisor` e `rt`, e a RN-001 é normativa, com teste
   affirmando o 403. O módulo da recepção é a agenda e a triagem, não o prontuário.
 ```
+## Atualização — 2026-10-25 (agenda em dupla nas duas clínicas)
+
+**As duas clínicas passaram a ter a sessão pertencendo à dupla — não só ao
+responsável/operador.** Antes, o segundo aluno assinava o atendimento e não
+encontrava a sessão na própria agenda; o supervisor também não conseguia separar
+as duplas dos alunos dele.
+
+- **`agendamentos.auxiliar_matricula`** (nullable, indexada) guarda o segundo
+  estagiário. `estagiario_matricula` continua sendo o responsável/operador, e
+  `estagiario_nome` é montado pelo servidor com os dois cadastros. A migração é
+  `c2ba82f344bd` e serve às duas clínicas; sessões antigas ficam com auxiliar
+  nulo, porque o texto livre não permite inferir a dupla.
+- **Schema e servidor:** `AgendamentoCreate` exige dois estagiários distintos nas
+  duas clínicas. O `POST /agendamentos` resolve ambos contra o cadastro (nome do
+  corpo não é gravado) e, na psicologia, mantém o vínculo do paciente com o
+  responsável — o auxiliar participa da sessão, não do prontuário.
+- **Escopo no servidor:** estagiário filtra por responsável/operador **ou**
+  auxiliar; supervisor filtra pelas matrículas dos estagiários ativos vinculados
+  a ele; RT e recepção mantêm o recorte da clínica. O filtro do navegador é
+  segunda barreira, não a única.
+- **Seed:** Gabriela Prado (`16024404`, odontologia, supervisora `DOC-9122`) foi
+  acrescentada, e os agendamentos/fichas odontológicas de demonstração usam
+  Augusto (`16024402`) + Gabriela. Na psicologia, as sessões de demonstração usam
+  Rikelme (`16032935`) + Letícia (`16051234`). **Banco já semeado não ganha os
+  pares novos** — o seed é idempotente por tabela; para ver a dupla completa na
+  demonstração, é preciso reseed/truncar as tabelas ou cadastrar os alunos pela
+  RT.
+- **Frontend:** `/odonto/agendamentos` e `/psi/agendamentos` agrupam por paciente,
+  com pendentes primeiro. O modal da recepção carrega os estagiários da clínica e
+  exige dois selects distintos nas duas clínicas; a tabela mostra `Op.` e `Aux.`,
+  e a tela de psicologia inclui sessões em que o aluno é auxiliar.
+- **Testes:** 108 passed, 1 deselected; `alembic check` limpo; head
+  `c2ba82f344bd`; `npm run build` verde; `npm run lint` mantém os 12 problemas
+  preexistentes (11 erros, 1 warning), nenhum nos arquivos novos. Dois testes de
+  recuperação de senha restauram a senha do seed no `finally` — era vazamento de
+  estado que derrubava qualquer teste posterior que logasse com `16024402`.
+
 ## Atualização — 2026-10-23 (CLI-FOR-45 na ficha odontológica, só frontend)
 
 **A aba "Anamnese" (formulário CLI-FOR-45) passou a ser a primeira da `/ficha-odonto`.**
@@ -212,6 +249,53 @@ o conteúdo dela está intacto.
   Folha; enquanto isso o botão de exportação é o único caminho para tirar os dados
   do navegador, e a supervisão não recebe as linhas locais.
 
+## Atualização — 2026-10-25 (ficha odontológica por domínio)
+
+**A ficha odontológica passou a ser organizada por domínio, com tipo automático
+por idade.** O seletor manual Adulto/Criança foi removido: `paciente.ehMenor`
+decide entre o workspace adulto e o infantil. As abas agora são **Anamnese,
+Alertas, Exame Clínico, Plano, Evolução e Exames**.
+
+- **Rascunho único por paciente.** `useDraft` centraliza carregamento, autosave,
+  salvar, exportar e limpar. As chaves antigas foram preservadas
+  (`unicare:anamnese-cli45:<pacienteId>`, versão 2, e
+  `unicare:anamnese-infantil:<pacienteId>`, versão 1), assim como as versões dos
+  dados. Trocar de aba não perde o estado em edição.
+- **Distribuição dos campos:**
+  - **Anamnese:** adulto = Página 1; infantil = Páginas 1 e 2 + diário alimentar
+    + termo de veracidade.
+  - **Exame Clínico:** adulto = Página 2 + Odontograma 2D + Periograma + ISG/IP +
+    termo de autorização; infantil = Página 3 + IP/IS + odontograma infantil
+    dinâmico, sem periograma.
+  - **Plano:** tratamento programado adulto; plano segundo KERR infantil.
+  - **Evolução:** folha de evolução adulta; evolução por sessão infantil.
+  - **Exames:** exames complementares + radiografias adultas; diagnóstico
+    radiográfico + radiografias infantis.
+  - **Alertas:** adulto usa as aferições do rascunho e os alertas do backend;
+    infantil usa alergias, medicação, doenças e hospitalização, sem sinais vitais.
+- **Cabeçalho global e abas estáveis.** `AnamneseHeader` vive no workspace, com
+  Salvar/Exportar/Limpar globais; o botão **Ocultar/Mostrar** só aparece na
+  Anamnese. `ClinicalTabNav` e `ClinicalChartCard` unificam o padrão visual.
+- **Componentes globais intactos.** `OdontogramaViewer` e `PeriogramaViewer` não
+  foram alterados; o cartão visual é apenas invólucro.
+- **Odontograma infantil acompanha a dentição.** A base tem 20 decíduos; a
+  exibição muda para 52 dentes na dentição mista e 32 na permanente. O visual
+  segue o padrão adulto (5 faces, numeração FDI e ausência com X), mas mantém as
+  condições infantis **azul/preto/vermelho**. Clicar na mesma face remove a
+  marcação; “Limpar tudo” age só nos dentes visíveis, e marcações de dentições
+  ocultas são preservadas. O
+  `MapaHigieneInfantil` continua fixo em 20 decíduos e 4 faces, agora com a
+  grade alinhada às caixas.
+- **Sem dados fictícios no topo.** `PatientHeader` não usa mais nome, CPF,
+  protocolo ou ASA inventados; mostra `—` quando falta o dado.
+- **Telas antigas preservadas.** `AnamneseCliFor45Tab` e `AnamneseInfantilTab`
+  continuam no repositório, mas a rota usa os novos workspaces.
+- **Validação:** `npm run build` verde; ESLint direcionado sem saída; `npm run
+  lint` mantém os 12 problemas preexistentes (11 erros, 1 warning). Teste manual
+  adulto/criança e das três dentições ainda pendente.
+- **Pendente:** persistência no backend, impressão/PDF e validação manual com um
+  paciente menor real.
+
 ## Atualização — 2026-10-23 (paridade da odontologia)
 
 **A ficha odontológica passou a ter o que o prontuário psicológico já tinha.**
@@ -239,11 +323,11 @@ O item 9 das pendências de paridade estava aberto desde o Bloco 8.
 - **Migração `a1d5e8f3c207`** (revises `c69c627004f8`): três colunas nullable.
   Fichas anteriores não têm como inferir autoria a partir do texto livre, então
   ficam sem matrícula e sem carimbo — não há backfill inventado.
-- **Seed:** o único estagiário de odontologia do seed (`16024402`) vira operador
+- **Seed:** o então único estagiário de odontologia do seed (`16024402`) vira operador
   das fichas de demonstração e `supervisor_nome` é preenchido na ficha validada.
-  `auxiliar_matricula` fica nula: não existe segundo aluno de odontologia no
-  seed e criar um só para a demonstração deslocaria contagens que a suíte
-  assume. A tela mostra a dupla pelo texto, sem inventar matrícula.
+  `auxiliar_matricula` ficou nula nesta etapa: não existia segundo aluno de
+  odontologia no seed. A atualização de 2026-10-25 acrescentou Gabriela
+  (`16024404`) e passou a preencher a dupla também nas fichas de demonstração.
 - **Relatório emendado** nos três lugares que descrevem `FICHAS_ODONTO` (bloco
   de schema, diagrama e lista compacta).
 
@@ -1702,7 +1786,7 @@ GET /demandas    → OK (RF-009, Bloco 1)
 imagem api       → 418 MB (era 1.06 GB; sem .env e sem .venv)
 container api    → healthy; token cruza com o dev local nos dois sentidos
 npm run build    → VERDE
-npm run lint     → 10 erros preexistentes (o "11" estava desatualizado desde d7716d5; nenhum novo)
+npm run lint     → 12 problemas preexistentes (11 erros + 1 warning; nenhum novo)
 SMTP real        → smtp.gmail.com:587, STARTTLS, login OK, e-mail de teste entregue
 scripts/verificar_smtp.py → conexão, banner, AUTH anunciados, TLS, login e envio
 pytest -m rede   → teste de SMTP real (pulado por padrão; exige UNICARE_TESTE_SMTP=1)
