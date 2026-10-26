@@ -62,6 +62,14 @@ flowchart TD
   *Emendado em 16/10/2026: o RF-001 descrevia recepcao e triagem sem qualquer vinculo
   de responsavel. A regra foi acrescentada aqui e a tabela `ATRIBUICOES_CLINICAS`
   entra no bloco de schema.*
+- **Agenda em dupla nas duas clinicas.** O agendamento guarda o
+  responsavel/operador em `estagiario_matricula` e o segundo estagiario em
+  `auxiliar_matricula`; o nome exibido e montado pelo servidor com os dois
+  cadastros. O schema exige dois estagiarios distintos, e o estagiario enxerga a
+  sessao em que e responsavel/operador **ou** auxiliar. O supervisor enxerga as
+  duplas dos alunos vinculados a ele e a RT enxerga a clinica do proprio curso.
+  Na odontologia a dupla segue o instrumento PDR-05; na psicologia o vinculo do
+  paciente continua com o responsavel, e o auxiliar participa da sessao.
 
 ### RF-002: Prontuário Eletrônico de Psicologia (SPA)
 - Em conformidade integral com a **Resolução CFP nº 06/2019**.
@@ -166,9 +174,11 @@ erDiagram
         int    id PK
         int    paciente_id FK "idx"
         string paciente_nome "desnormalizado"
-        string estagiario_nome
-        string estagiario_matricula "desnormalizado"
+        string estagiario_nome "responsavel/operador + auxiliar"
+        string estagiario_matricula "responsavel/operador, desnormalizado"
+        string auxiliar_matricula "segundo estagiario; nulo em registros antigos"
         string curso
+        date   data_sessao "obrigatoria na criacao"
         string horario
         string turno
         string sala_ou_cadeira
@@ -324,9 +334,9 @@ erDiagram
 │  FK paciente_id       │        │  FK paciente_id       │        │  FK paciente_id       │
 │     paciente_nome     │        │     paciente_nome     │        │     dupla_estagiarios │
 │     estagiario_nome   │        │     estagiario_nome   │        │     operador_matricula│
-│     estag._matricula  │        │     estag._matricula  │        │     auxiliar_matricula│
+│  estag./aux.matricula │        │     estag._matricula  │        │     auxiliar_matricula│
 │     curso             │        │     supervisor_nome   │        │     dente_regiao      │
-│     horario / turno   │        │     data_sessao       │        │     procedimento TEXT │
+│  data_sessao/horario  │        │     data_sessao       │        │     procedimento TEXT │
 │     sala_ou_cadeira   │        │     numero_sessao     │        │     materiais TEXT    │
 │     tipo_consulta     │        │     redacao  TEXT  │        │     anestesico        │
 │     status ▸ enum     │        │                   │        │     alerta_alergia    │
@@ -351,8 +361,9 @@ PACIENTES (id PK, nome, cpf_rg UQ, data_nascimento, telefone, eh_menor,
            criado_em)
 
 AGENDAMENTOS (id PK, paciente_id FK->PACIENTES, paciente_nome,
-              estagiario_nome, estagiario_matricula, curso, horario, turno,
-              sala_ou_cadeira, tipo_consulta, status, observacao_logistica)
+              estagiario_nome, estagiario_matricula, auxiliar_matricula,
+              curso, data_sessao, horario, turno, sala_ou_cadeira,
+              tipo_consulta, status, observacao_logistica)
 
 PRONTUARIOS_PSICO (id PK, paciente_id FK->PACIENTES, paciente_nome,
                    estagiario_nome, estagiario_matricula, supervisor_nome,
@@ -413,10 +424,11 @@ UQ = unique   FK = foreign key   idx = índice   -> = referencia
    schema impedindo aspas literais (RN-002, CFP 06/2019). Todas as demais colunas
    têm `max_length` explícito.
 
-5. **Pendências conhecidas do modelo:** `data_nascimento` e `data_sessao` são
-   `str` e não `DATE`, o que impede ordenação e comparação — corrigir exige
-   migração com reformatação dos dados existentes. CPF/RG e contatos de
-   paciente estão em claro, o que não passaria em LGPD para dado real de saúde.
+5. **Pendências conhecidas do modelo:** `data_nascimento` continua `str` e não
+   `DATE`, o que impede ordenação e comparação - corrigir exige migração com
+   reformatação dos dados existentes. `agendamentos.data_sessao` já é `date`.
+   CPF/RG e contatos de paciente estão em claro, o que não passaria em LGPD para
+   dado real de saúde.
 
 ---
 
@@ -437,10 +449,10 @@ UniCare/
 │   │   │                         #   auditoria, relatorios)
 │   │   └── services/             # auth_service, crypto_service, auditoria_service
 │   ├── migrations/               # Alembic: fonte autoritativa do schema
-│   │   └── versions/             #   4 revisões aplicadas até o head
+│   │   └── versions/             #   revisões aplicadas até o head
 │   ├── tests/
 │   │   ├── conftest.py           # Fixture de migração e seed no unicare_test
-│   │   └── test_compliance.py    # 32 testes de conformidade regulatória
+│   │   └── test_compliance.py    # testes de conformidade regulatória
 │   ├── docker/                   # entrypoint.sh e initdb do banco de testes
 │   ├── alembic.ini
 │   ├── docker-compose.yml
