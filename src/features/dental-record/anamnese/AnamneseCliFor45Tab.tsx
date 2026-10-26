@@ -1,12 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Paciente } from '../../clinic/context/ClinicContext';
-import {
-  DocumentTextIcon,
-  CheckCircleIcon,
-  ExclamationTriangleIcon,
-  InformationCircleIcon,
-  TrashIcon,
-} from '../../../components/icons/CorporateIcons';
+import { ExclamationTriangleIcon } from '../../../components/icons/CorporateIcons';
+import { AnamneseHeader } from './AnamneseHeader';
 import {
   criarAnamneseVazia,
   carregarRascunho,
@@ -33,6 +28,7 @@ export function AnamneseCliFor45Tab({ paciente }: AnamneseCliFor45TabProps) {
     null
   );
   const [confirmandoLimpeza, setConfirmandoLimpeza] = useState(false);
+  const [conteudoOculto, setConteudoOculto] = useState(false);
   const pularAutosave = useRef(false);
   const dadosIniciais = useRef(dados);
 
@@ -97,129 +93,60 @@ export function AnamneseCliFor45Tab({ paciente }: AnamneseCliFor45TabProps) {
 
   return (
     <div className="space-y-4 font-sans">
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white">
-                <DocumentTextIcon className="h-4 w-4" />
-              </span>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-sm font-bold tracking-tight text-slate-900">
-                    Anamnese e Exame Físico — Adulto e Idoso
-                  </h2>
-                  <span className="rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-slate-900">
-                    CLI-FOR-45
-                  </span>
-                </div>
-                <p className="mt-0.5 text-[11px] text-slate-500">
-                  {paciente.nome} • CPF {paciente.cpf} •{' '}
-                  {idadeCalculada ? `${idadeCalculada} anos` : 'idade não informada'}
-                </p>
-              </div>
-            </div>
-
-            <p className="mt-3 max-w-2xl text-[11px] leading-relaxed text-slate-500">
-              Ficha completa conforme o instrumento físico. Nesta fase o preenchimento fica
-              <strong className="text-slate-700"> apenas neste navegador</strong> (sessionStorage)
-              e pode ser exportado em JSON; nada é enviado ao servidor.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={salvar}
-              className="flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2 text-[11px] font-bold text-white transition-colors hover:bg-slate-800"
-            >
-              <CheckCircleIcon className="h-3.5 w-3.5" />
-              Salvar rascunho
-            </button>
-            <button
-              type="button"
-              onClick={exportar}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-[11px] font-bold text-slate-700 transition-colors hover:border-slate-300 hover:text-slate-900"
-            >
-              <DocumentTextIcon className="h-3.5 w-3.5" />
-              Exportar JSON
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmandoLimpeza(true)}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-[11px] font-bold text-slate-500 transition-colors hover:border-rose-300 hover:text-rose-900"
-            >
-              <TrashIcon className="h-3.5 w-3.5" />
-              Limpar
-            </button>
-          </div>
-        </div>
-
-        {confirmandoLimpeza && (
-          <div className="mt-3 flex flex-col gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-[11px] font-semibold text-rose-900">
-              Limpar todos os campos deste rascunho? Esta ação não pode ser desfeita.
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmandoLimpeza(false)}
-                className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-[11px] font-bold text-rose-900"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={limpar}
-                className="rounded-lg bg-rose-900 px-3 py-1.5 text-[11px] font-bold text-white"
-              >
-                Sim, limpar
-              </button>
-            </div>
-          </div>
-        )}
-
-        {mensagem && (
-          <div
-            role="status"
-            aria-live="polite"
-            className={`mt-3 flex items-center gap-2 rounded-xl border px-3 py-2 text-[11px] font-semibold ${
-              mensagem.tipo === 'ok'
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                : 'border-amber-200 bg-amber-50 text-amber-900'
-            }`}
-          >
-            <InformationCircleIcon className="h-3.5 w-3.5 shrink-0" />
-            <span>{mensagem.texto}</span>
-          </div>
-        )}
-      </div>
-
-      <Pagina1IdentificacaoHistoria
-        identificacao={dados.identificacao}
-        historiaMedica={dados.historiaMedica}
-        historiaOdontologica={dados.historiaOdontologica}
-        habitos={dados.habitos}
-        declaracao={dados.declaracao}
-        setDados={setDados}
+      <AnamneseHeader
+        titulo="Anamnese e Exame Físico — Adulto e Idoso"
+        selo="CLI-FOR-45"
+        paciente={paciente}
+        idade={idadeCalculada}
+        idConteudo="anamnese-cli-for-45-conteudo"
+        conteudoOculto={conteudoOculto}
+        onAlternarConteudo={() => setConteudoOculto((oculto) => !oculto)}
+        onSalvar={salvar}
+        onExportar={exportar}
+        onLimpar={() => setConfirmandoLimpeza(true)}
+        confirmandoLimpeza={confirmandoLimpeza}
+        onCancelarLimpeza={() => setConfirmandoLimpeza(false)}
+        onConfirmarLimpeza={limpar}
+        mensagem={mensagem}
+        descricao={
+          <>
+            Ficha completa conforme o instrumento físico. Nesta fase o preenchimento fica
+            <strong className="text-slate-700"> apenas neste navegador</strong>{' '}
+            (sessionStorage) e pode ser exportado em JSON; nada é enviado ao servidor.
+          </>
+        }
       />
 
-      <Pagina2ExameFisico exameFisico={dados.exameFisico} setDados={setDados} />
+      <div
+        id="anamnese-cli-for-45-conteudo"
+        className={conteudoOculto ? 'hidden' : 'space-y-4'}
+      >
+        <Pagina1IdentificacaoHistoria
+          identificacao={dados.identificacao}
+          historiaMedica={dados.historiaMedica}
+          historiaOdontologica={dados.historiaOdontologica}
+          habitos={dados.habitos}
+          declaracao={dados.declaracao}
+          setDados={setDados}
+        />
 
-      <Pagina3DentesPlano exameDental={dados.exameDental} setDados={setDados} />
+        <Pagina2ExameFisico exameFisico={dados.exameFisico} setDados={setDados} />
 
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-4 text-[10px] leading-relaxed text-slate-500">
-        <p className="font-bold text-slate-700">Sobre esta ficha</p>
-        <p className="mt-1">
-          A CLI-FOR-45 convive com os registros já existentes no prontuário. As aferições
-          de sinais vitais ficam neste navegador e aparecem tanto na Página 2 quanto na aba{' '}
-          <strong>Alertas Clínicos & Alergias</strong>. O botão{' '}
-          <strong>Atualizar anamnese</strong>, nessa aba, continua gravando alergias,
-          condições crônicas e medicações no servidor. As linhas da Folha de Evolução também
-          são rascunho local. As fichas PDR-05 existentes permanecem no servidor para a
-          supervisão e a homologação; esta ficha inteira só vai ao servidor quando o modelo
-          de dados do backend for definido.
-        </p>
+        <Pagina3DentesPlano exameDental={dados.exameDental} setDados={setDados} />
+
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-4 text-[10px] leading-relaxed text-slate-500">
+          <p className="font-bold text-slate-700">Sobre esta ficha</p>
+          <p className="mt-1">
+            A CLI-FOR-45 convive com os registros já existentes no prontuário. As aferições
+            de sinais vitais ficam neste navegador e aparecem tanto na Página 2 quanto na aba{' '}
+            <strong>Alertas Clínicos & Alergias</strong>. O botão{' '}
+            <strong>Atualizar anamnese</strong>, nessa aba, continua gravando alergias,
+            condições crônicas e medicações no servidor. As linhas da Folha de Evolução também
+            são rascunho local. As fichas PDR-05 existentes permanecem no servidor para a
+            supervisão e a homologação; esta ficha inteira só vai ao servidor quando o modelo
+            de dados do backend for definido.
+          </p>
+        </div>
       </div>
     </div>
   );

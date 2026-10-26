@@ -6,7 +6,7 @@ import type { Opcao, SimNao } from './tipos';
 import { alternarValor } from './estado';
 
 interface SectionCardProps {
-  numero: number;
+  numero: number | string;
   titulo: string;
   pagina?: string;
   descricao?: string;
@@ -29,7 +29,7 @@ export function SectionCard({
     >
       <header className="mb-4 flex items-start gap-3">
         <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
-          {String(numero).padStart(2, '0')}
+          {typeof numero === 'number' ? String(numero).padStart(2, '0') : numero}
         </span>
         <div>
           {pagina && (

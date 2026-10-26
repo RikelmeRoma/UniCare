@@ -1,39 +1,28 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { AppLayout } from '../../../components/layout/AppLayout';
 import { PatientHeader } from '../components/PatientHeader';
-import OdontogramApp from '../components/OdontogramaViewer';
-import Periograma from '../components/PeriogramaViewer';
-import { DentalEvolutionTab } from '../components/DentalEvolutionTab';
-import { TreatmentPlanTab } from '../components/TreatmentPlanTab';
-import { DentalRadiologyTab } from '../components/DentalRadiologyTab';
-import { AnamneseCliFor45Tab } from '../anamnese/AnamneseCliFor45Tab';
-import { IndicesGengivaisCard } from '../indices/IndicesGengivaisCard';
-import { DentalAlertsTab } from '../components/DentalAlertsTab';
 import { useClinic } from '../../clinic/context/ClinicContext';
-import {
-  DocumentTextIcon,
-  ClipboardDocumentCheckIcon,
-  ExclamationTriangleIcon,
-  PhotoIcon,
-} from '../../../components/icons/CorporateIcons';
+import { AdultRecordWorkspace } from '../workspaces/AdultRecordWorkspace';
+import { ChildRecordWorkspace } from '../workspaces/ChildRecordWorkspace';
 
 export function DentalRecordPage() {
   const { pacientes, anamnesesPorPaciente, carregarAnamneses } = useClinic();
+  const location = useLocation();
   const pacientesOdonto = pacientes.filter(
     (p) => p.curso === 'odontologia' || p.curso === 'ambos'
   );
 
-  // Mesmo caso do prontuário psicológico: `|| 2` era id fixo e o <select> ficava
-  // sem opção correspondente até a lista real chegar.
+  // A agenda abre a ficha do paciente do card clicado. Sem ler o state, o
+  // seletor caía sempre no primeiro paciente da clínica e o estagiário tinha
+  // que procurar de novo o paciente que acabou de clicar.
+  const pacienteDaAgenda = (location.state as { pacienteId?: number } | null)
+    ?.pacienteId;
   const [selectedPatientId, setSelectedPatientId] = useState<number | undefined>(
-    undefined
+    pacienteDaAgenda
   );
   const pacienteSelecionado =
     pacientesOdonto.find((p) => p.id === selectedPatientId) || pacientesOdonto[0];
-
-  const [activeTab, setActiveTab] = useState<
-    'anamnese' | 'alertas' | 'odontograma' | 'evolucao' | 'tratamento' | 'exames'
-  >('anamnese');
 
   // A anamnese é por paciente: troca de paciente precisa recarregar o histórico.
   useEffect(() => {
@@ -42,14 +31,16 @@ export function DentalRecordPage() {
     }
   }, [pacienteSelecionado?.id, carregarAnamneses]);
 
-  const anamneses = pacienteSelecionado?.id ? (anamnesesPorPaciente[pacienteSelecionado.id] ?? []) : [];
+  const anamneses = pacienteSelecionado?.id
+    ? (anamnesesPorPaciente[pacienteSelecionado.id] ?? [])
+    : [];
   // O backend devolve do mais recente para o mais antigo.
   const ultima = anamneses[0];
 
   return (
     <AppLayout
       title="Ficha Clínica Odontológica"
-      subtitle="Prontuário odontológico, mapeamento anatômico 2D, periograma, evolução clínica e plano de tratamento"
+      subtitle="Prontuário odontológico por domínio clínico: anamnese, exame, plano, evolução e exames"
       badge="Supervisão Clínica CFO"
       badgeType="emerald"
       actions={
@@ -74,129 +65,24 @@ export function DentalRecordPage() {
       <div className="max-w-6xl mx-auto space-y-6">
         <PatientHeader paciente={pacienteSelecionado} />
 
-        {/* Menu de Abas Segmentadas */}
-        <div className="bg-white p-1 rounded-2xl border border-slate-200/80 shadow-xs flex overflow-x-auto">
-          <button
-            onClick={() => setActiveTab('anamnese')}
-            className={`flex-1 whitespace-nowrap py-2.5 px-4 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'anamnese'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <ClipboardDocumentCheckIcon className="w-4 h-4" />
-            <span>Anamnese</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('alertas')}
-            className={`flex-1 whitespace-nowrap py-2.5 px-4 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'alertas'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <ExclamationTriangleIcon className="w-4 h-4" />
-            <span>Alertas Clínicos & Alergias</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('odontograma')}
-            className={`flex-1 whitespace-nowrap py-2.5 px-4 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'odontograma'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <DocumentTextIcon className="w-4 h-4" />
-            <span>Odontograma 2D & Periograma</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('evolucao')}
-            className={`flex-1 whitespace-nowrap py-2.5 px-4 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'evolucao'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <DocumentTextIcon className="w-4 h-4" />
-            <span>Evolução Clínica Diária</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('tratamento')}
-            className={`flex-1 whitespace-nowrap py-2.5 px-4 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'tratamento'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <ClipboardDocumentCheckIcon className="w-4 h-4" />
-            <span>Plano de Tratamento</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('exames')}
-            className={`flex-1 whitespace-nowrap py-2.5 px-4 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'exames'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <PhotoIcon className="w-4 h-4" />
-            <span>Radiografias & Exames</span>
-          </button>
-        </div>
-
-        {/* Conteúdo Renderizado Condicionalmente */}
-        {activeTab === 'anamnese' && (
-          <AnamneseCliFor45Tab
-            key={pacienteSelecionado?.id ?? 'sem-paciente'}
-            paciente={pacienteSelecionado}
-          />
-        )}
-
-        {activeTab === 'alertas' && (
-          <DentalAlertsTab
-            key={pacienteSelecionado?.id ?? 'sem-paciente'}
-            paciente={pacienteSelecionado}
-            ultima={ultima}
-          />
-        )}
-
-        {activeTab === 'odontograma' && (
-          <div className="space-y-6">
-            <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-              <OdontogramApp />
-            </div>
-            <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-              <Periograma />
-            </div>
-            <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-              <IndicesGengivaisCard
-                key={pacienteSelecionado?.id ?? 'sem-paciente'}
-                pacienteId={pacienteSelecionado?.id}
-              />
-            </div>
+        {pacienteSelecionado ? (
+          pacienteSelecionado.ehMenor ? (
+            <ChildRecordWorkspace
+              key={`infantil-${pacienteSelecionado.id}`}
+              paciente={pacienteSelecionado}
+            />
+          ) : (
+            <AdultRecordWorkspace
+              key={`adulto-${pacienteSelecionado.id}`}
+              paciente={pacienteSelecionado}
+              ultima={ultima}
+            />
+          )
+        ) : (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-xs font-semibold text-amber-900">
+            Nenhum paciente odontológico selecionado.
           </div>
         )}
-
-        {activeTab === 'evolucao' && (
-          <DentalEvolutionTab
-            key={pacienteSelecionado?.id ?? 'sem-paciente'}
-            paciente={pacienteSelecionado}
-          />
-        )}
-
-        {activeTab === 'tratamento' && (
-          <TreatmentPlanTab
-            key={pacienteSelecionado?.id ?? 'sem-paciente'}
-            paciente={pacienteSelecionado}
-          />
-        )}
-
-{activeTab === 'exames' && <DentalRadiologyTab />}
       </div>
     </AppLayout>
   );
