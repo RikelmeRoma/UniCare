@@ -2718,7 +2718,6 @@ def test_estagiario_so_enxerga_a_propria_agenda():
             "paciente_nome": nome,
             "estagiario_nome": _nome_a(),
             "estagiario_matricula": "VINCU001",
-            "auxiliar_matricula": "16051234",
             "curso": "psicologia",
             "data_sessao": DATA_SESSAO_TESTE,
             "horario": "09:00",
@@ -2755,7 +2754,6 @@ def test_recepcao_continua_vendo_a_agenda_inteira_da_clinica():
             "paciente_nome": f"Paciente Vinculo {_SEQ[0]}",
             "estagiario_nome": _nome_a(),
             "estagiario_matricula": "VINCU001",
-            "auxiliar_matricula": "16051234",
             "curso": "psicologia",
             "data_sessao": DATA_SESSAO_TESTE,
             "horario": "10:30",
@@ -2855,7 +2853,6 @@ def _agendar_psicologia(
     paciente_id: int,
     nome_estagiario: str,
     matricula: str,
-    auxiliar: str = "16051234",
     hora: str = "11:00",
 ):
     return client.post(
@@ -2866,7 +2863,6 @@ def _agendar_psicologia(
             "paciente_nome": "NOME QUE NAO EXISTE",
             "estagiario_nome": nome_estagiario,
             "estagiario_matricula": matricula,
-            "auxiliar_matricula": auxiliar,
             "curso": "psicologia",
             "data_sessao": DATA_SESSAO_TESTE,
             "horario": hora,
@@ -2955,6 +2951,10 @@ def test_estagiario_nao_agenda_sessao_psicologica():
 
     Sem esta trava o aluno criaria o próprio vínculo — o `POST /atribuicoes` já
     barra isso, e o agendamento não podia virar a porta dos fundos.
+
+    O `auxiliar_matricula` fica de propósito: a recusa do auxiliar é 422, mas o
+    guard de perfil vem antes. Se a ordem inverter, o estagiário recebe 422 no
+    lugar do 403 do RN-001 e o teste acusa.
     """
     _token_a()
     res = client.post(
@@ -3070,31 +3070,31 @@ def test_dupla_odontologica_ve_a_sessao_nos_dois_lados():
     assert not any(a["id"] == corpo["id"] for a in psico)
 
 
-def test_dupla_psicologica_ve_a_sessao_nos_dois_lados():
-    """A sessão é da dupla também na psicologia.
+def test_sessao_psicologica_e_de_um_estagiario_so():
+    """A sessão psicológica é de um estagiário, não de uma dupla.
 
-    O auxiliar participa do atendimento e precisa encontrá-lo na própria
-    agenda. O supervisor vê as duplas dos alunos dele; a RT vê a clínica; o
-    estagiário de odontologia não vê nada de psicologia.
+    O colega da clínica não vê a sessão. O supervisor vê as sessões dos alunos
+    dele; a RT vê a clínica; o estagiário de odontologia não vê nada de
+    psicologia.
     """
     paciente_id = _paciente_novo()
-    criado = _agendar_psicologia(
-        paciente_id, "Rikelme Roma Santos", "16032935", auxiliar="16051234"
-    )
+    criado = _agendar_psicologia(paciente_id, "Rikelme Roma Santos", "16032935")
     assert criado.status_code == 201, criado.text
 
     corpo = criado.json()
     assert corpo["estagiario_matricula"] == "16032935"
-    assert corpo["auxiliar_matricula"] == "16051234"
-    assert corpo["estagiario_nome"] == (
-        "Rikelme Roma Santos & Letícia Barbosa Monteiro"
-    )
+    assert corpo["auxiliar_matricula"] is None
+    assert corpo["estagiario_nome"] == "Rikelme Roma Santos"
 
-    for matricula in ("16032935", "16051234"):
-        agenda = client.get(
-            "/api/v1/agendamentos", headers=_psi(get_auth_token(matricula))
-        ).json()
-        assert any(a["id"] == corpo["id"] for a in agenda), matricula
+    agenda = client.get(
+        "/api/v1/agendamentos", headers=_psi(get_auth_token("16032935"))
+    ).json()
+    assert any(a["id"] == corpo["id"] for a in agenda)
+
+    colega = client.get(
+        "/api/v1/agendamentos", headers=_psi(get_auth_token("16051234"))
+    ).json()
+    assert not any(a["id"] == corpo["id"] for a in colega)
 
     supervisor = client.get(
         "/api/v1/agendamentos", headers=_psi(get_auth_token("DOC-8821"))
@@ -3133,9 +3133,9 @@ def test_supervisor_nao_ve_dupla_de_outro_supervisor():
     assert any(a["id"] == agendamento_id for a in da_rt)
 
 
-def test_agendamento_exige_dois_estagiarios_diferentes():
-    """A dupla é regra do schema nas duas clínicas: sem auxiliar, ou com o
-    mesmo aluno, não grava."""
+def test_agendamento_odontologico_exige_dois_estagiarios_diferentes():
+    """A dupla é regra da cadeira odontológica: sem auxiliar, ou com o mesmo
+    aluno, não grava."""
     paciente_id = _paciente_novo("odontologia")
     base = {
         "paciente_id": paciente_id,
@@ -3164,46 +3164,55 @@ def test_agendamento_exige_dois_estagiarios_diferentes():
     assert mesma_pessoa.status_code == 422, mesma_pessoa.text
     assert "diferentes" in mesma_pessoa.text
 
-    base_psico = {
-        "paciente_id": _paciente_novo(),
-        "paciente_nome": "Paciente Psicologia",
-        "estagiario_nome": "Rikelme Roma Santos",
-        "estagiario_matricula": "16032935",
-        "curso": "psicologia",
-        "data_sessao": DATA_SESSAO_TESTE,
-        "horario": "10:30",
-        "turno": "manha",
-        "sala_ou_cadeira": "Consultório SPA-06",
-        "tipo_consulta": "Psicoterapia Individual",
-    }
-
-    psico_sem_auxiliar = client.post(
+    # A comparação é da matrícula normalizada: espaço não pode transformar o
+    # mesmo aluno em uma dupla válida.
+    mesma_pessoa_disfarcada = client.post(
         "/api/v1/agendamentos",
-        json=base_psico,
+        json={**base, "auxiliar_matricula": " 16024402 "},
+        headers=_psi(get_auth_token("REC-001")),
+    )
+    assert mesma_pessoa_disfarcada.status_code == 422, (
+        mesma_pessoa_disfarcada.text
+    )
+    assert "diferentes" in mesma_pessoa_disfarcada.text
+
+
+def test_agendamento_psicologico_recusa_auxiliar():
+    """A sessão psicológica é de um estagiário só: mandar auxiliar é 422.
+
+    Recusar em vez de ignorar mantém o contrato explícito: quem mandou auxiliar
+    pediu uma dupla que a clínica não tem, e gravar sem avisar esconderia o
+    engano.
+    """
+    paciente_id = _paciente_novo()
+    res = client.post(
+        "/api/v1/agendamentos",
+        json={
+            "paciente_id": paciente_id,
+            "paciente_nome": "Paciente Psicologia",
+            "estagiario_nome": "Rikelme Roma Santos",
+            "estagiario_matricula": "16032935",
+            "auxiliar_matricula": "16051234",
+            "curso": "psicologia",
+            "data_sessao": DATA_SESSAO_TESTE,
+            "horario": "10:30",
+            "turno": "manha",
+            "sala_ou_cadeira": "Consultório SPA-06",
+            "tipo_consulta": "Psicoterapia Individual",
+        },
         headers=_psi(get_auth_token("REC-002")),
     )
-    assert psico_sem_auxiliar.status_code == 422, psico_sem_auxiliar.text
-    assert "auxiliar" in psico_sem_auxiliar.text.lower()
+    assert res.status_code == 422, res.text
+    assert "auxiliar" in res.text.lower()
 
-    psico_mesma_pessoa = client.post(
-        "/api/v1/agendamentos",
-        json={**base_psico, "auxiliar_matricula": "16032935"},
-        headers=_psi(get_auth_token("REC-002")),
+    # Recusa não grava: a agenda não pode ficar com uma sessão que o servidor
+    # disse não ter aceitado.
+    assert not any(
+        a["paciente_id"] == paciente_id
+        for a in client.get(
+            "/api/v1/agendamentos", headers=_psi(get_auth_token("REC-002"))
+        ).json()
     )
-    assert psico_mesma_pessoa.status_code == 422, psico_mesma_pessoa.text
-    assert "diferentes" in psico_mesma_pessoa.text
-
-    # A comparação é da matrícula normalizada: espaço e caixa não podem
-    # transformar o mesmo aluno em uma dupla válida.
-    psico_mesma_pessoa_disfarcada = client.post(
-        "/api/v1/agendamentos",
-        json={**base_psico, "auxiliar_matricula": " 16032935 "},
-        headers=_psi(get_auth_token("REC-002")),
-    )
-    assert psico_mesma_pessoa_disfarcada.status_code == 422, (
-        psico_mesma_pessoa_disfarcada.text
-    )
-    assert "diferentes" in psico_mesma_pessoa_disfarcada.text
 
 
 def test_sessao_sem_data_e_recusada():
@@ -3220,7 +3229,6 @@ def test_sessao_sem_data_e_recusada():
             "paciente_nome": "Paciente Sem Data",
             "estagiario_nome": _nome_a(),
             "estagiario_matricula": "VINCU001",
-            "auxiliar_matricula": "16051234",
             "curso": "psicologia",
             "horario": "11:00",
             "turno": "manha",

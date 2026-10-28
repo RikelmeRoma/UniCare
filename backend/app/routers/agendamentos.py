@@ -56,9 +56,10 @@ def listar_agendamentos(
     # agenda, não a dos colegas. Filtrar por curso não faz isso — ele continua
     # dentro da clínica, mas a agenda é da clínica inteira.
     #
-    # A sessão é da dupla nas duas clínicas: o auxiliar também precisa enxergar
-    # o atendimento que assinou junto, e não só quem está em
-    # `estagiario_matricula` (o responsável/operador).
+    # Na odontologia a sessão é da dupla: o auxiliar também precisa enxergar o
+    # atendimento que assinou junto, e não só quem está em
+    # `estagiario_matricula` (o operador). Na psicologia o auxiliar é sempre
+    # nulo, então o `or_` cai no ramo do responsável.
     if current_user.perfil == PerfilUsuario.ESTAGIARIO:
         query = query.where(
             or_(
@@ -101,10 +102,11 @@ def criar_agendamento(
     # fixos, então o curso tem que ser o da clínica do usuário, sem "ambos".
     validar_curso_do_registro(current_user, dados.curso, permitir_compartilhado=False)
 
-    # A dupla é resolvida contra o cadastro nas duas clínicas: nome digitado à
-    # mão gravava uma pessoa com a matrícula de outra, o mesmo furo que a ficha
-    # odontológica já corrigiu. A psicologia continua criando o vínculo do
-    # paciente com o responsável, não com o auxiliar.
+    # A dupla e regra da cadeira odontologica (PDR-05). A psicologia atende com
+    # um estagiario por sessao, e o vinculo do paciente nasce com esse unico
+    # responsavel. O nome sai do cadastro em vez do que foi digitado: nome a
+    # mao gravava uma pessoa com a matricula de outra, o mesmo furo que a ficha
+    # odontologica ja corrigiu.
     nome_paciente = dados.paciente_nome
     estagiario_nome = dados.estagiario_nome
     estagiario_matricula = dados.estagiario_matricula
@@ -119,6 +121,18 @@ def criar_agendamento(
         # vínculo num passo à parte deixaria agenda e prontuário divergentes.
         exigir_perfil(current_user, AUTORIZADO_AGENDAR_PSICO)
 
+        # A sessão psicológica é de um estagiário só. Recusar em vez de ignorar
+        # mantém o contrato explícito: quem mandou auxiliar pediu uma dupla que
+        # a clínica não tem, e gravar sem avisar esconderia o engano.
+        if dados.auxiliar_matricula:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    "A sessão psicológica é atendida por um único estagiário: "
+                    "não informe matrícula de auxiliar."
+                ),
+            )
+
         # Confere antes de gravar: `paciente_id` inexistente virava 500 por
         # IntegrityError, e `paciente_nome` era aceito como viesse no corpo.
         paciente = paciente_da_clinica(session, dados.paciente_id, CLINICA_PSICO)
@@ -127,14 +141,9 @@ def criar_agendamento(
         estagiario = exigir_estagiario_da_clinica(
             session, dados.estagiario_matricula, dados.estagiario_nome, CLINICA_PSICO
         )
-        auxiliar = exigir_estagiario_da_clinica(
-            session, dados.auxiliar_matricula or "", dados.estagiario_nome, CLINICA_PSICO
-        )
-        # Nome e matrícula saem do cadastro, não do que a recepção digitou: duas
-        # fontes de verdade para o mesmo campo é como nasce dado divergente.
-        estagiario_nome = f"{estagiario.nome} & {auxiliar.nome}"
+        estagiario_nome = estagiario.nome
         estagiario_matricula = estagiario.matricula
-        auxiliar_matricula = auxiliar.matricula
+        auxiliar_matricula = None
 
         vinculo, vinculo_acao = vincular_ou_transferir(
             session, current_user, dados.paciente_id, estagiario, CLINICA_PSICO

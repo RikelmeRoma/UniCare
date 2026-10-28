@@ -18,8 +18,9 @@ class Agendamento(SQLModel, table=True):
     paciente_id: int = Field(foreign_key="pacientes.id", index=True)
     paciente_nome: str = Field(max_length=200)
     estagiario_nome: str = Field(max_length=200)
-    # Nas duas clinicas, `estagiario_matricula` e o responsavel/operador da
-    # dupla e `auxiliar_matricula` e o segundo estagiario. Nullable porque as
+    # Na odontologia, `estagiario_matricula` e o operador da dupla e
+    # `auxiliar_matricula` e o segundo estagiario (PDR-05). Na psicologia a
+    # sessao e de um estagiario so e o auxiliar fica nulo. Nullable porque as
     # sessoes anteriores a esta coluna nao tem como inferir a dupla a partir do
     # texto livre.
     estagiario_matricula: str = Field(max_length=32)

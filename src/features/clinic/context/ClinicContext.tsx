@@ -27,7 +27,8 @@ export interface Agendamento {
   pacienteNome: string;
   estagiarioNome: string;
   estagiarioMatricula: string;
-  /** Segundo estagiário da dupla; nulo nas sessões anteriores à coluna. */
+  /** Segundo estagiário da dupla odontológica; nulo na psicologia e nas
+   * sessões anteriores à coluna. */
   auxiliarMatricula?: string | null;
   curso: 'psicologia' | 'odontologia';
   /** ISO `YYYY-MM-DD`, ou `undefined` nas sessões anteriores à coluna. */
@@ -276,9 +277,8 @@ const INITIAL_AGENDAMENTOS: Agendamento[] = [
     id: 1,
     pacienteId: 1,
     pacienteNome: 'Marcos Aurélio Silveira',
-    estagiarioNome: 'Rikelme Roma Santos & Letícia Barbosa Monteiro',
+    estagiarioNome: 'Rikelme Roma Santos',
     estagiarioMatricula: '16032935',
-    auxiliarMatricula: '16051234',
     curso: 'psicologia',
     horario: '14:00',
     turno: 'tarde',
@@ -291,9 +291,8 @@ const INITIAL_AGENDAMENTOS: Agendamento[] = [
     id: 2,
     pacienteId: 3,
     pacienteNome: 'Juliana Ferreira Oliveira',
-    estagiarioNome: 'Letícia Barbosa Monteiro & Rikelme Roma Santos',
+    estagiarioNome: 'Letícia Barbosa Monteiro',
     estagiarioMatricula: '16051234',
-    auxiliarMatricula: '16032935',
     curso: 'psicologia',
     horario: '15:00',
     turno: 'tarde',
@@ -336,9 +335,8 @@ const INITIAL_AGENDAMENTOS: Agendamento[] = [
     id: 5,
     pacienteId: 1,
     pacienteNome: 'Beatriz Almeida Costa',
-    estagiarioNome: 'Rikelme Roma Santos & Letícia Barbosa Monteiro',
+    estagiarioNome: 'Rikelme Roma Santos',
     estagiarioMatricula: '16032935',
-    auxiliarMatricula: '16051234',
     curso: 'psicologia',
     horario: '16:00',
     turno: 'tarde',

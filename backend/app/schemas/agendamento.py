@@ -7,8 +7,9 @@ class AgendamentoCreate(BaseModel):
     paciente_id: int
     paciente_nome: str
     estagiario_nome: str
-    # Nas duas clinicas esta matricula e a do responsavel/operador da dupla; o
-    # segundo estagiario vai em `auxiliar_matricula`.
+    # Matricula do estagiario que atende a sessao. Na odontologia a cadeira e
+    # sempre de dupla (PDR-05) e o segundo aluno vai em `auxiliar_matricula`;
+    # na psicologia a sessao e de um estagiario so e o campo e recusado.
     estagiario_matricula: str
     auxiliar_matricula: Optional[str] = None
     curso: str
@@ -41,10 +42,15 @@ class AgendamentoCreate(BaseModel):
 
     @model_validator(mode="after")
     def validar_dupla_de_estagiarios(self):
+        # A dupla e regra da cadeira odontologica (PDR-05). A psicologia atende
+        # com um estagiario por sessao: a recusa do auxiliar fica no router,
+        # depois do guard de perfil, para nao mascarar o 403 do RN-001.
+        if self.curso != "odontologia":
+            return self
         if not self.auxiliar_matricula:
             raise ValueError(
-                "Toda sessao e atendida em dupla: informe a matricula do "
-                "estagiario auxiliar."
+                "A cadeira odontologica e atendida em dupla: informe a matricula "
+                "do estagiario auxiliar."
             )
         if self.auxiliar_matricula == self.estagiario_matricula:
             raise ValueError(

@@ -62,15 +62,20 @@ flowchart TD
   *Emendado em 16/10/2026: o RF-001 descrevia recepcao e triagem sem qualquer vinculo
   de responsavel. A regra foi acrescentada aqui e a tabela `ATRIBUICOES_CLINICAS`
   entra no bloco de schema.*
-- **Agenda em dupla nas duas clinicas.** O agendamento guarda o
-  responsavel/operador em `estagiario_matricula` e o segundo estagiario em
-  `auxiliar_matricula`; o nome exibido e montado pelo servidor com os dois
-  cadastros. O schema exige dois estagiarios distintos, e o estagiario enxerga a
-  sessao em que e responsavel/operador **ou** auxiliar. O supervisor enxerga as
-  duplas dos alunos vinculados a ele e a RT enxerga as duas clinicas, com filtro
-  opcional por curso nos relatorios e na auditoria.
-  Na odontologia a dupla segue o instrumento PDR-05; na psicologia o vinculo do
-  paciente continua com o responsavel, e o auxiliar participa da sessao.
+- **Dupla de estagiarios na odontologia; um estagiario na psicologia.** O
+  agendamento guarda o responsavel/operador em `estagiario_matricula` e, na
+  odontologia, o segundo estagiario em `auxiliar_matricula`; o nome exibido e
+  montado pelo servidor com os cadastros reais, nao com o texto digitado. A
+  dupla da cadeira odontologica segue o instrumento PDR-05 e o schema exige dois
+  estagiarios distintos. A sessao psicologica e atendida por um estagiario so: o
+  envio de `auxiliar_matricula` e recusado com 422, e o vinculo do paciente
+  nasce com esse unico responsavel. O estagiario enxerga a sessao em que e
+  responsavel/operador **ou** auxiliar — na psicologia, apenas a propria. O
+  supervisor enxerga as duplas dos alunos vinculados a ele e a RT enxerga as
+  duas clinicas, com filtro opcional por curso nos relatorios e na auditoria.
+  *Emendado em 28/10/2026: o RF-001 descrevia agenda em dupla nas duas clinicas.
+  A psicologia passou a ter um estagiario por sessao; a dupla ficou restrita a
+  cadeira odontologica.*
 
 ### RF-002: Prontuário Eletrônico de Psicologia (SPA)
 - Em conformidade integral com a **Resolução CFP nº 06/2019**.
@@ -182,9 +187,9 @@ erDiagram
         int    id PK
         int    paciente_id FK "idx"
         string paciente_nome "desnormalizado"
-        string estagiario_nome "responsavel/operador + auxiliar"
+        string estagiario_nome "responsavel/operador (+ auxiliar na odontologia)"
         string estagiario_matricula "responsavel/operador, desnormalizado"
-        string auxiliar_matricula "segundo estagiario; nulo em registros antigos"
+        string auxiliar_matricula "so odontologia; nulo na psicologia"
         string curso
         date   data_sessao "obrigatoria na criacao"
         string horario

@@ -84,8 +84,7 @@ export function PsyAppointmentsPage() {
       agendamentos.filter(
         (a) =>
           a.curso === 'psicologia' &&
-          (a.estagiarioMatricula === user?.matricula ||
-            a.auxiliarMatricula === user?.matricula)
+          a.estagiarioMatricula === user?.matricula
       ),
     [agendamentos, user?.matricula]
   );
@@ -139,15 +138,12 @@ export function PsyAppointmentsPage() {
     [atribuicoes]
   );
 
-  const ehAuxiliarNoGrupo = (grupo: Grupo) =>
-    grupo.sessoes.some((s) => s.auxiliarMatricula === user?.matricula);
-
   const mostrarLista = !carregando && !agendamentosFalharam;
 
   return (
     <AppLayout
       title="Meus Agendamentos"
-      info="Sessões que a recepção do Serviço de Psicologia Aplicada atribuiu a você ou em que você atua como auxiliar. O registro clínico da sessão é feito no prontuário do responsável."
+      info="Sessões que a recepção do Serviço de Psicologia Aplicada atribuiu a você. Cada sessão tem um único estagiário responsável, e é no prontuário desse paciente que você registra o atendimento."
       badge="Agenda do Estagiário"
       badgeType="blue"
       actions={
@@ -217,8 +213,7 @@ export function PsyAppointmentsPage() {
             </h2>
             <p className="text-xs text-slate-500 mt-1.5 leading-relaxed max-w-md mx-auto">
               A recepção do SPA é quem monta a agenda. Assim que uma sessão for
-              atribuída a você — como responsável ou auxiliar —, ela aparece
-              nesta tela.
+              atribuída a você, ela aparece nesta tela.
             </p>
           </div>
         )}
@@ -261,11 +256,6 @@ export function PsyAppointmentsPage() {
                     Abrir prontuário
                     <ChevronRightIcon className="w-3.5 h-3.5" />
                   </button>
-                ) : ehAuxiliarNoGrupo(grupo) ? (
-                  <p className="self-start sm:self-auto text-[11px] text-blue-800 bg-blue-50 border border-blue-200 rounded-xl px-3 py-2 leading-relaxed max-w-xs">
-                    Você participa desta sessão como auxiliar. O prontuário
-                    continua com o estagiário responsável.
-                  </p>
                 ) : (
                   <p
                     className="self-start sm:self-auto text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 leading-relaxed max-w-xs"
@@ -306,11 +296,8 @@ export function PsyAppointmentsPage() {
                         {s.tipoConsulta ? ` · ${s.tipoConsulta}` : ''}
                       </p>
                       <p className="text-[11px] text-slate-500 mt-1">
-                        {s.auxiliarMatricula ? 'Dupla' : 'Responsável'}:{' '}
-                        {s.estagiarioNome}
-                        {s.auxiliarMatricula
-                          ? ` · Resp. ${s.estagiarioMatricula} · Aux. ${s.auxiliarMatricula}`
-                          : ` · Matrícula ${s.estagiarioMatricula}`}
+                        Responsável: {s.estagiarioNome} · Matrícula{' '}
+                        {s.estagiarioMatricula}
                       </p>
                       </div>
                       <StatusBadge status={s.status} />

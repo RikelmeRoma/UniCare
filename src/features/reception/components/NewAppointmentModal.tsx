@@ -24,9 +24,10 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
   const { pacientes, adicionarAgendamento, atribuicoes, recarregarAtribuicoes } =
     useClinic();
 
-  // Só psicologia tem vínculo paciente-estagiário, e é por ele que o primeiro
-  // select acompanha o responsável do paciente. As duas clínicas, porém, usam
-  // dois estagiários por sessão.
+  // Só psicologia tem vínculo paciente-estagiário, e é por ele que o select
+  // acompanha o responsável do paciente. A sessão psicológica é de um
+  // estagiário só; a dupla (operador + auxiliar) é regra da cadeira
+  // odontológica.
   const ehPsico = defaultCurso === 'psicologia';
 
   const [pacienteId, setPacienteId] = useState<number>(pacientes[0]?.id || 1);
@@ -74,9 +75,8 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
   // vem do servidor — o `GET /usuarios` é gestão de usuário e devolve 403 para a
   // recepção, por isso existe `GET /usuarios/estagiarios`.
   //
-  // As duas clínicas também usam a lista: a sessão é de dupla, então
-  // responsável/operador e auxiliar precisam sair do cadastro, não de texto
-  // digitado.
+  // As duas clínicas usam a lista: na psicologia o único responsável e na
+  // odontologia os dois da dupla saem do cadastro, não de texto digitado.
   useEffect(() => {
     let cancelado = false;
     api
@@ -124,11 +124,15 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
     () => estagiarios.find((e) => e.matricula === auxiliarMatricula),
     [estagiarios, auxiliarMatricula]
   );
-  const duplaValida = Boolean(
-    estagiarioSelecionado &&
-      auxiliarSelecionado &&
-      estagiarioSelecionado.matricula !== auxiliarSelecionado.matricula
-  );
+  // Psicologia: basta o responsável. Odontologia: a dupla só fecha com dois
+  // estagiários diferentes — o backend recusa o mesmo aluno duas vezes.
+  const duplaValida = ehPsico
+    ? Boolean(estagiarioSelecionado)
+    : Boolean(
+        estagiarioSelecionado &&
+          auxiliarSelecionado &&
+          estagiarioSelecionado.matricula !== auxiliarSelecionado.matricula
+      );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,13 +148,15 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
       );
       return;
     }
-    if (!auxiliarSelecionado) {
-      setErrorMsg('Escolha o segundo estagiário da dupla.');
-      return;
-    }
-    if (auxiliarSelecionado.matricula === estagiarioSelecionado.matricula) {
-      setErrorMsg('Os dois estagiários da dupla precisam ser diferentes.');
-      return;
+    if (!ehPsico) {
+      if (!auxiliarSelecionado) {
+        setErrorMsg('Escolha o segundo estagiário da dupla.');
+        return;
+      }
+      if (auxiliarSelecionado.matricula === estagiarioSelecionado.matricula) {
+        setErrorMsg('Os dois estagiários da dupla precisam ser diferentes.');
+        return;
+      }
     }
 
     // Lido do DOM, e não de um estado do React: o que está escrito no campo é o
@@ -168,7 +174,9 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
       pacienteNome: paciente.nome,
       estagiarioNome: estagiarioSelecionado.nome,
       estagiarioMatricula: estagiarioSelecionado.matricula,
-      auxiliarMatricula: auxiliarSelecionado.matricula,
+      // Psicologia não manda auxiliar: o backend recusa o campo com 422 em vez
+      // de ignorar, para não gravar uma dupla que a clínica não tem.
+      auxiliarMatricula: ehPsico ? undefined : auxiliarSelecionado?.matricula,
       curso,
       dataSessao,
       horario,
@@ -330,7 +338,7 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Dupla de Estagiários *
+              {ehPsico ? 'Estagiário Responsável *' : 'Dupla de Estagiários *'}
             </label>
 
             {carregandoEstagiarios ? (
@@ -347,7 +355,7 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
               </p>
             ) : (
               <>
-                <div className="grid grid-cols-2 gap-3">
+                <div className={ehPsico ? '' : 'grid grid-cols-2 gap-3'}>
                   <div>
                     <label className="block text-[11px] font-medium text-slate-500 mb-1">
                       {ehPsico ? 'Responsável *' : 'Operador *'}
@@ -375,25 +383,27 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-medium text-slate-500 mb-1">
-                      Auxiliar *
-                    </label>
-                    <select
-                      value={auxiliarMatricula}
-                      onChange={(e) => setAuxiliarMatricula(e.target.value)}
-                      className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none"
-                    >
-                      <option value="">Selecione o auxiliar…</option>
-                      {estagiarios
-                        .filter((e) => e.matricula !== matriculaOperador)
-                        .map((e) => (
-                          <option key={e.matricula} value={e.matricula}>
-                            {e.nome} — {e.matricula}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
+                  {!ehPsico && (
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                        Auxiliar *
+                      </label>
+                      <select
+                        value={auxiliarMatricula}
+                        onChange={(e) => setAuxiliarMatricula(e.target.value)}
+                        className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none"
+                      >
+                        <option value="">Selecione o auxiliar…</option>
+                        {estagiarios
+                          .filter((e) => e.matricula !== matriculaOperador)
+                          .map((e) => (
+                            <option key={e.matricula} value={e.matricula}>
+                              {e.nome} — {e.matricula}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
 
                 {ehPsico &&
@@ -417,7 +427,7 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
                   </p>
                 )}
 
-                {estagiarios.length < 2 && (
+                {!ehPsico && estagiarios.length < 2 && (
                   <p className="mt-1.5 text-[11px] leading-relaxed text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
                     A clínica precisa de dois estagiários ativos para montar a
                     dupla. Cadastre o segundo aluno antes de agendar.

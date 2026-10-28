@@ -282,9 +282,8 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
         Agendamento(
             paciente_id=p1.id,
             paciente_nome=p1.nome,
-            estagiario_nome="Rikelme Roma Santos & Letícia Barbosa Monteiro",
+            estagiario_nome="Rikelme Roma Santos",
             estagiario_matricula="16032935",
-            auxiliar_matricula="16051234",
             curso="psicologia",
             data_sessao=hoje,
             horario="14:00",
@@ -305,9 +304,8 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
             # paciente a ela, e as duas telas que o vínculo alimenta discordam
             # quando a sessão aponta para outro — o aluno via a sessão sem ter a
             # paciente na lista, e a paciente aparecia sem nenhuma sessão.
-            estagiario_nome="Letícia Barbosa Monteiro & Rikelme Roma Santos",
+            estagiario_nome="Letícia Barbosa Monteiro",
             estagiario_matricula="16051234",
-            auxiliar_matricula="16032935",
             curso="psicologia",
             data_sessao=hoje + timedelta(days=2),
             horario="15:00",
@@ -354,9 +352,8 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
         Agendamento(
             paciente_id=p3.id,
             paciente_nome=p3.nome,
-            estagiario_nome="Letícia Barbosa Monteiro & Rikelme Roma Santos",
+            estagiario_nome="Letícia Barbosa Monteiro",
             estagiario_matricula="16051234",
-            auxiliar_matricula="16032935",
             curso="psicologia",
             data_sessao=hoje - timedelta(days=3),
             horario="16:00",
@@ -369,9 +366,8 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
         Agendamento(
             paciente_id=p1.id,
             paciente_nome=p1.nome,
-            estagiario_nome="Rikelme Roma Santos & Letícia Barbosa Monteiro",
+            estagiario_nome="Rikelme Roma Santos",
             estagiario_matricula="16032935",
-            auxiliar_matricula="16051234",
             curso="psicologia",
             data_sessao=hoje - timedelta(days=7),
             horario="10:00",
@@ -402,9 +398,8 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
         Agendamento(
             paciente_id=p1.id,
             paciente_nome=p1.nome,
-            estagiario_nome="Rikelme Roma Santos & Letícia Barbosa Monteiro",
+            estagiario_nome="Rikelme Roma Santos",
             estagiario_matricula="16032935",
-            auxiliar_matricula="16051234",
             curso="psicologia",
             data_sessao=hoje - timedelta(days=2),
             horario="11:00",

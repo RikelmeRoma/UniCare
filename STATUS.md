@@ -1,5 +1,34 @@
 # STATUS — UniCare
 
+## Atualização — 2026-10-28 (psicologia com um estagiário por sessão)
+
+**A sessão de psicologia deixou de ser dupla: cada paciente é atendido por um
+único estagiário. A dupla continua sendo regra da cadeira odontológica
+(PDR-05).** A mudança passou pelo contrato da API, pelas duas telas, pelo seed e
+pelos testes; a odontologia não mudou de comportamento.
+
+- **Schema:** `AgendamentoCreate` só exige `auxiliar_matricula` — e matrículas
+  distintas — quando `curso == "odontologia"`.
+- **Router:** no ramo `psicologia`, enviar `auxiliar_matricula` responde **422**.
+  A recusa fica **depois** de `exigir_perfil` para o 403 do RN-001 não ser
+  mascarado; `test_estagiario_nao_agenda_sessao_psicologica` mantém o campo de
+  propósito para travar essa precedência. O nome gravado sai do cadastro
+  (`estagiario.nome`), sem o `"A & B"` da dupla.
+- **Sem migração:** `agendamentos.auxiliar_matricula` já era nullable e continua
+  em uso pela odontologia. `alembic check` limpo.
+- **Telas:** o `NewAppointmentModal` mostra um select ("Estagiário Responsável")
+  na psicologia e dois na odontologia; `PsyAppointmentsPage` perdeu o filtro por
+  auxiliar, o aviso de "participa como auxiliar" e o texto "Resp./Aux.".
+  `INITIAL_AGENDAMENTOS` também deixou de descrever dupla em psicologia.
+- **Seed:** os cinco agendamentos de psicologia perderam o auxiliar e o `" & "`
+  no nome. **O banco de desenvolvimento já tem as linhas antigas** e o seed é
+  idempotente por tabela: a tela só mostra o formato novo depois de truncar
+  `agendamentos` e reiniciar a API (ou reseedar). Não foi feito — apaga
+  agendamentos criados à mão.
+- **Verificado:** `pytest` **136 passed**, 1 deselected; `npm run build` verde;
+  `npm run lint` com os mesmos 7 problemas preexistentes; `alembic check` sem
+  operações novas.
+
 ## Atualização — 2026-10-28 (merge das linhas de psicologia e odontologia)
 
 **A branch `teste` une `rikelme` (psicologia) e `origin/augusto` (odontologia) num
