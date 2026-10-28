@@ -45,8 +45,6 @@ interface Pagina1Props {
   setDados: Dispatch<SetStateAction<AnamneseCliFor45>>;
 }
 
-const PAGINA = 'Página 1';
-
 export const Pagina1IdentificacaoHistoria = memo(function Pagina1IdentificacaoHistoria({
   identificacao,
   historiaMedica,
@@ -87,7 +85,7 @@ export const Pagina1IdentificacaoHistoria = memo(function Pagina1IdentificacaoHi
 
   return (
     <>
-      <SectionCard id="cli45-p1-secao-1" pagina={PAGINA} numero={1} titulo="Identificação">
+      <SectionCard id="cli45-p1-secao-1" numero={1} titulo="Identificação">
         <div className={GRADE}>
           <Field
             className="sm:col-span-2"
@@ -182,7 +180,7 @@ export const Pagina1IdentificacaoHistoria = memo(function Pagina1IdentificacaoHi
         </div>
       </SectionCard>
 
-      <SectionCard id="cli45-p1-secao-2" pagina={PAGINA} numero={2} titulo="História Médica">
+      <SectionCard id="cli45-p1-secao-2" numero={2} titulo="História Médica">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <YesNoGroup
             label="Tratamento Médico Atual"
@@ -260,7 +258,7 @@ export const Pagina1IdentificacaoHistoria = memo(function Pagina1IdentificacaoHi
         />
       </SectionCard>
 
-      <SectionCard id="cli45-p1-secao-3" pagina={PAGINA} numero={3} titulo="História Odontológica">
+      <SectionCard id="cli45-p1-secao-3" numero={3} titulo="História Odontológica">
         <TextAreaField
           label="História da doença"
           rows={3}
@@ -316,7 +314,7 @@ export const Pagina1IdentificacaoHistoria = memo(function Pagina1IdentificacaoHi
         />
       </SectionCard>
 
-      <SectionCard id="cli45-p1-secao-4" pagina={PAGINA} numero={4} titulo="Hábitos">
+      <SectionCard id="cli45-p1-secao-4" numero={4} titulo="Hábitos">
         <RadioGroup
           label="Higiene Bucal — Frequência"
           valor={habitos.higieneFrequencia}
@@ -368,7 +366,6 @@ export const Pagina1IdentificacaoHistoria = memo(function Pagina1IdentificacaoHi
 
       <SectionCard
         id="cli45-p1-secao-5"
-        pagina={PAGINA}
         numero={5}
         titulo="Declaração e Assinatura"
       >

@@ -197,12 +197,12 @@ export function AppSidebar() {
                 Clínica Odontológica
               </h2>
               <ul className="space-y-1">
-                {/* Ficha Clínica & Odontograma: Estagiário, Supervisor e RT */}
+                {/* Ficha Clínica Odontológica: Estagiário, Supervisor e RT */}
                 {(user?.perfil === 'estagiario' || user?.perfil === 'supervisor' || isRT) && (
                   <li>
                     <NavLink to="/ficha-odonto" className={getLinkStyle}>
                       <DocumentTextIcon className="w-4 h-4 shrink-0 text-slate-500" />
-                      <span>Ficha Clínica & Odontograma</span>
+                      <span>Ficha Clínica Odontológica</span>
                     </NavLink>
                   </li>
                 )}

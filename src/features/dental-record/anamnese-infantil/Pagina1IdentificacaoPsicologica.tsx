@@ -31,8 +31,6 @@ interface Pagina1Props {
   setDados: Dispatch<SetStateAction<AnamneseInfantil>>;
 }
 
-const PAGINA = 'Página 1';
-
 export function Pagina1IdentificacaoPsicologica({
   identificacao,
   avaliacaoPsicologica,
@@ -54,7 +52,6 @@ export function Pagina1IdentificacaoPsicologica({
     <>
       <SectionCard
         id="anamnese-infantil-p1-secao-1"
-        pagina={PAGINA}
         numero={1}
         titulo="Identificação do Paciente"
       >
@@ -162,7 +159,6 @@ export function Pagina1IdentificacaoPsicologica({
 
       <SectionCard
         id="anamnese-infantil-p1-secao-2"
-        pagina={PAGINA}
         numero={2}
         titulo="Anamnese"
       >

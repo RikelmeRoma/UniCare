@@ -32,8 +32,6 @@ interface Pagina2Props {
   setDados: Dispatch<SetStateAction<AnamneseInfantil>>;
 }
 
-const PAGINA = 'Página 2';
-
 export function Pagina2AntecedentesHabitos({
   antecedentesHereditarios,
   preNatal,
@@ -81,8 +79,7 @@ export function Pagina2AntecedentesHabitos({
     <>
       <SectionCard
         id="anamnese-infantil-p2-secao-2-2"
-        pagina={PAGINA}
-        numero="2.2"
+        numero={3}
         titulo="Antecedentes Hereditários"
       >
         <TextAreaField
@@ -95,8 +92,7 @@ export function Pagina2AntecedentesHabitos({
 
       <SectionCard
         id="anamnese-infantil-p2-secao-2-3"
-        pagina={PAGINA}
-        numero="2.3"
+        numero={4}
         titulo="Pré-Natal"
       >
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -145,8 +141,7 @@ export function Pagina2AntecedentesHabitos({
 
       <SectionCard
         id="anamnese-infantil-p2-secao-2-4"
-        pagina={PAGINA}
-        numero="2.4"
+        numero={5}
         titulo="Natal"
       >
         <div className={GRADE}>
@@ -211,8 +206,7 @@ export function Pagina2AntecedentesHabitos({
 
       <SectionCard
         id="anamnese-infantil-p2-secao-2-5"
-        pagina={PAGINA}
-        numero="2.5"
+        numero={6}
         titulo="Pós-Natal e Saúde Geral"
       >
         <div className={GRADE}>
@@ -306,8 +300,7 @@ export function Pagina2AntecedentesHabitos({
 
       <SectionCard
         id="anamnese-infantil-p2-secao-2-6"
-        pagina={PAGINA}
-        numero="2.6"
+        numero={7}
         titulo="Hábitos e Higiene Bucal Infantil"
       >
         <CheckboxGroup

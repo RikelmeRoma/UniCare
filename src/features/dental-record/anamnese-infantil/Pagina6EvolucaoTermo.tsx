@@ -24,8 +24,6 @@ interface TermoProps {
 
 interface Pagina6Props extends EvolucaoProps, TermoProps {}
 
-const PAGINA_EVOLUCAO = 'Página 6';
-const PAGINA_TERMO = 'Página 6';
 const CABECALHO_CELULA =
   'border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500';
 const CELULA = 'border border-slate-200 px-1.5 py-1';
@@ -65,8 +63,7 @@ export function EvolucaoInfantilSection({
   return (
     <SectionCard
       id="anamnese-infantil-p6-secao-2"
-      pagina={PAGINA_EVOLUCAO}
-      numero={2}
+      numero={1}
       titulo="Sequência Favorável do Plano de Tratamento (Evolução por Sessão)"
       descricao="Registre a data, o procedimento ou segmento realizado e a assinatura do professor responsável."
     >
@@ -170,8 +167,7 @@ export function TermoInfantilSection({ termo, setDados }: TermoProps) {
   return (
     <SectionCard
       id="anamnese-infantil-p6-secao-3"
-      pagina={PAGINA_TERMO}
-      numero={3}
+      numero={9}
       titulo="Termo de Veracidade e Assinaturas"
     >
       <p className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-xs leading-relaxed text-slate-600">

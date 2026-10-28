@@ -30,7 +30,6 @@ interface Pagina2Props {
   setDados: Dispatch<SetStateAction<AnamneseCliFor45>>;
 }
 
-const PAGINA = 'Página 2';
 const CABECALHO_CELULA =
   'border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500';
 const CELULA = 'border border-slate-200 px-1.5 py-1';
@@ -155,7 +154,7 @@ export const Pagina2ExameFisico = memo(function Pagina2ExameFisico({
 
   return (
     <>
-      <SectionCard id="cli45-p2-secao-1" pagina={PAGINA} numero={1} titulo="Exame Físico">
+      <SectionCard id="cli45-p2-secao-1" numero={1} titulo="Exame Físico">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[600px] border-collapse">
             <thead>
@@ -273,7 +272,7 @@ export const Pagina2ExameFisico = memo(function Pagina2ExameFisico({
         </button>
       </SectionCard>
 
-      <SectionCard id="cli45-p2-secao-2" pagina={PAGINA} numero={2} titulo="Extrabucal">
+      <SectionCard id="cli45-p2-secao-2" numero={2} titulo="Extrabucal">
         <YesNoGroup
           label="Assimetrias"
           valor={exameFisico.assimetrias}
@@ -287,7 +286,7 @@ export const Pagina2ExameFisico = memo(function Pagina2ExameFisico({
         />
       </SectionCard>
 
-      <SectionCard id="cli45-p2-secao-3" pagina={PAGINA} numero={3} titulo="Intrabucal — Estomatograma">
+      <SectionCard id="cli45-p2-secao-3" numero={3} titulo="Intrabucal — Estomatograma">
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(260px,340px)]">
           <div className="space-y-4">
             <div>
@@ -338,7 +337,7 @@ export const Pagina2ExameFisico = memo(function Pagina2ExameFisico({
         </div>
       </SectionCard>
 
-      <SectionCard id="cli45-p2-secao-4" pagina={PAGINA} numero={4} titulo="Periodonto">
+      <SectionCard id="cli45-p2-secao-4" numero={4} titulo="Periodonto">
         <RadioGroup
           label="Cor"
           valor={exameFisico.periodonto.cor}

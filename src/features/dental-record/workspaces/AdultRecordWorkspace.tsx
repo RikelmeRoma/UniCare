@@ -53,7 +53,7 @@ interface AdultRecordWorkspaceProps {
 }
 
 const TABS: ClinicalTab[] = [
-  { key: 'anamnese', label: 'Anamnese', icon: ClipboardDocumentCheckIcon },
+  { key: 'anamnese', label: 'Ficha Clínica Odontológica', icon: ClipboardDocumentCheckIcon },
   { key: 'alertas', label: 'Alertas', icon: ExclamationTriangleIcon },
   { key: 'exame', label: 'Exame Clínico', icon: DocumentTextIcon },
   { key: 'plano', label: 'Plano', icon: ClipboardDocumentCheckIcon },

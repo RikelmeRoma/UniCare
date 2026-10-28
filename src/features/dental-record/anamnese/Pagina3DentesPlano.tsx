@@ -17,8 +17,6 @@ interface SecaoProps {
   setDados: Dispatch<SetStateAction<AnamneseCliFor45>>;
 }
 
-const PAGINA_EXAMES = 'Página 3';
-const PAGINA_EVOLUCAO = 'Página 4';
 const CABECALHO_CELULA =
   'border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500';
 const CELULA = 'border border-slate-200 px-1.5 py-1';
@@ -44,7 +42,6 @@ export function ExamesComplementaresSection({
   return (
     <SectionCard
       id="cli45-p3-secao-1"
-      pagina={PAGINA_EXAMES}
       numero={1}
       titulo="Exames Complementares"
     >
@@ -115,8 +112,7 @@ export function TratamentoProgramadoSection({
   return (
     <SectionCard
       id="cli45-p3-secao-2"
-      pagina={PAGINA_EXAMES}
-      numero={2}
+      numero={1}
       titulo="Tratamento Programado"
     >
       {exameDental.planejamento.length === 0 && (
@@ -172,8 +168,6 @@ export function TermoAutorizacaoSection({
   return (
     <SectionCard
       id="cli45-p3-secao-3"
-      pagina={PAGINA_EXAMES}
-      numero={3}
       titulo="Termo de Autorização"
     >
       <p className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-xs leading-relaxed text-slate-600">
@@ -242,8 +236,7 @@ export function EvolucaoAdultoSection({
   return (
     <SectionCard
       id="cli45-p3-secao-4"
-      pagina={PAGINA_EVOLUCAO}
-      numero={4}
+      numero={1}
       titulo="Folha de Evolução"
       descricao="Registre as intervenções realizadas, a data e a assinatura do docente responsável."
     >

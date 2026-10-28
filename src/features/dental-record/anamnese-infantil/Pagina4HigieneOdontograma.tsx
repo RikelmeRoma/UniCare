@@ -31,7 +31,6 @@ interface OdontogramaProps {
 
 interface Pagina4Props extends MapaProps, DiarioProps, OdontogramaProps {}
 
-const PAGINA = 'Página 4';
 const CABECALHO_CELULA =
   'border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500';
 const CELULA = 'border border-slate-200 px-2 py-1';
@@ -96,7 +95,6 @@ export function MapaHigieneSection({ mapaHigiene, setDados }: MapaProps) {
   return (
     <SectionCard
       id="anamnese-infantil-p4-secao-1"
-      pagina={PAGINA}
       numero={1}
       titulo="Mapa de Higiene, IP e IS"
       descricao="Marque as faces com placa ou sangramento nos 20 dentes decíduos. O índice é calculado sobre as faces dos dentes presentes."
@@ -143,8 +141,7 @@ export function DiarioAlimentarSection({
   return (
     <SectionCard
       id="anamnese-infantil-p4-secao-2"
-      pagina={PAGINA}
-      numero={2}
+      numero={8}
       titulo="Análise do Diário Alimentar"
     >
       <TabelaDiario
@@ -177,7 +174,6 @@ export function OdontogramaInfantilSection({
   return (
     <SectionCard
       id="anamnese-infantil-p4-secao-3"
-      pagina={PAGINA}
       numero={3}
       titulo="Exame Físico Intrabucal — Odontograma Infantil"
       descricao="Pinte as faces conforme a legenda e clique no número para marcar o dente como presente ou ausente."
@@ -207,8 +203,7 @@ export function DiagnosticoRadiograficoField({
   return (
     <SectionCard
       id="anamnese-infantil-p4-secao-4"
-      pagina="Exames"
-      numero={4}
+      numero={1}
       titulo="Diagnóstico Radiográfico"
     >
       <TextAreaField

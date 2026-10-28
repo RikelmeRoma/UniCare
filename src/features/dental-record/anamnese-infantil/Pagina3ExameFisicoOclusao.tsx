@@ -43,8 +43,6 @@ interface Pagina3Props {
   setDados: Dispatch<SetStateAction<AnamneseInfantil>>;
 }
 
-const PAGINA = 'Página 3';
-
 export function Pagina3ExameFisicoOclusao({
   exameExtrabucal,
   exameIntrabucal,
@@ -90,8 +88,7 @@ export function Pagina3ExameFisicoOclusao({
     <>
       <SectionCard
         id="anamnese-infantil-p3-secao-3-1"
-        pagina={PAGINA}
-        numero="3.1"
+        numero={1}
         titulo="Extrabucal"
       >
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -139,8 +136,7 @@ export function Pagina3ExameFisicoOclusao({
 
       <SectionCard
         id="anamnese-infantil-p3-secao-3-2"
-        pagina={PAGINA}
-        numero="3.2"
+        numero={2}
         titulo="Intrabucal"
       >
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -222,8 +218,7 @@ export function Pagina3ExameFisicoOclusao({
 
       <SectionCard
         id="anamnese-infantil-p3-secao-3-3"
-        pagina={PAGINA}
-        numero="3.3"
+        numero={3}
         titulo="Análise da Oclusão"
       >
         <SubTitulo>Dentição decídua</SubTitulo>

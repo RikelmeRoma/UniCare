@@ -16,8 +16,6 @@ interface Pagina5Props {
   setDados: Dispatch<SetStateAction<AnamneseInfantil>>;
 }
 
-const PAGINA = 'Páginas 5–6';
-
 export function Pagina5PlanoTratamento({
   planoTratamento,
   setDados,
@@ -31,7 +29,6 @@ export function Pagina5PlanoTratamento({
   return (
     <SectionCard
       id="anamnese-infantil-p5-secao-1"
-      pagina={PAGINA}
       numero={1}
       titulo="Plano de Tratamento (Segundo KERR)"
     >

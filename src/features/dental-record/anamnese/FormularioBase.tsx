@@ -6,9 +6,8 @@ import type { Opcao, SimNao } from './tipos';
 import { alternarValor } from './estado';
 
 interface SectionCardProps {
-  numero: number | string;
+  numero?: number | string;
   titulo: string;
-  pagina?: string;
   descricao?: string;
   id?: string;
   children: ReactNode;
@@ -17,7 +16,6 @@ interface SectionCardProps {
 export function SectionCard({
   numero,
   titulo,
-  pagina,
   descricao,
   id,
   children,
@@ -28,15 +26,12 @@ export function SectionCard({
       className="scroll-mt-28 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs"
     >
       <header className="mb-4 flex items-start gap-3">
-        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
-          {typeof numero === 'number' ? String(numero).padStart(2, '0') : numero}
-        </span>
+        {numero !== undefined && (
+          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
+            {typeof numero === 'number' ? String(numero).padStart(2, '0') : numero}
+          </span>
+        )}
         <div>
-          {pagina && (
-            <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
-              {pagina}
-            </p>
-          )}
           <h3 className={TITULO_SECAO}>{titulo}</h3>
           {descricao && (
             <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{descricao}</p>
