@@ -58,8 +58,8 @@ export function AppSidebar() {
   // As rotas de recepção são segregadas por curso no ProtectedRoute
   // (allowedCourses). O menu offering os dois links para qualquer recepção
   // fazia um deles cair sempre em /nao-autorizado: REC-001 via 403 em
-  // /psi/recepcao e REC-002 via 403 em /recepcao. O mesmo valia para a RT na
-  // visão Global, que enxerga as duas seções de clínica.
+  // /psi/recepcao e REC-002 via 403 em /recepcao. A RT segue a mesma regra:
+  // cada uma vê só a seção da própria clínica.
   const mostrarRecepcaoPsi = user?.curso === 'psicologia';
   const mostrarRecepcaoOdonto = user?.curso === 'odontologia';
 
@@ -266,12 +266,29 @@ export function AppSidebar() {
                 Clínica Odontológica
               </h2>
               <ul className="space-y-1">
-                {/* Ficha Clínica & Odontograma: Estagiário, Supervisor e RT */}
+                {/* Ficha Clínica Odontológica: Estagiário, Supervisor e RT */}
                 {(user?.perfil === 'estagiario' || user?.perfil === 'supervisor' || isRT) && (
                   <li>
                     <NavLink to="/ficha-odonto" className={getLinkStyle}>
                       <DocumentTextIcon className="w-4 h-4 shrink-0 text-slate-500" />
-                      <span>Ficha Clínica & Odontograma</span>
+                      <span>Ficha Clínica Odontológica</span>
+                    </NavLink>
+                  </li>
+                )}
+
+                {/* Agenda odontológica: o estagiário vê a própria dupla;
+                    supervisor e RT veem o escopo que o servidor devolve. */}
+                {(user?.perfil === 'estagiario' ||
+                  user?.perfil === 'supervisor' ||
+                  isRT) && (
+                  <li>
+                    <NavLink to="/odonto/agendamentos" className={getLinkStyle}>
+                      <CalendarIcon className="w-4 h-4 shrink-0 text-slate-500" />
+                      <span>
+                        {user?.perfil === 'estagiario'
+                          ? 'Meus Agendamentos'
+                          : 'Agendamentos Odonto'}
+                      </span>
                     </NavLink>
                   </li>
                 )}
@@ -287,7 +304,9 @@ export function AppSidebar() {
                 )}
 
                 {/* Recepção Odontológica: Apenas Recepção e RT (Não aparece para Estagiário/Supervisor) */}
-                {((isRecepcao && mostrarRecepcaoOdonto) || isRT) && (
+                {((isRecepcao && mostrarRecepcaoOdonto) ||
+                  isRT ||
+                  (user?.perfil === 'supervisor' && user?.curso === 'odontologia')) && (
                   <li>
                     <NavLink to="/recepcao" className={getLinkStyle}>
                       <CalendarIcon className="w-4 h-4 shrink-0 text-slate-500" />

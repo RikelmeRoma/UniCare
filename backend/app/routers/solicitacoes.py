@@ -28,7 +28,7 @@ from app.schemas.solicitacao import (
     AprovacaoSolicitacao,
     RecusaSolicitacao,
 )
-from app.services.auth_service import get_current_user
+from app.services.auth_service import get_current_user, validar_curso_solicitado
 from app.services.auditoria_service import registrar_log, ip_do_cliente
 from app.services import email_service
 from app.services.crypto_service import gerar_senha_inicial
@@ -113,11 +113,13 @@ def solicitar_credencial(
 @router.get("/", response_model=List[SolicitacaoRead], include_in_schema=False)
 def listar_solicitacoes(
     situacao: Optional[SituacaoSolicitacao] = SituacaoSolicitacao.PENDENTE,
+    curso: Optional[CursoUsuario] = None,
     session: Session = Depends(get_session),
     current_user: Usuario = Depends(_exigir_gestao),
 ):
     """Fila da gestão. Cada RT/coordenação vê só a própria clínica — a
     segregação por curso vale aqui tanto quanto no resto do sistema."""
+    validar_curso_solicitado(current_user, curso.value if curso is not None else None)
     query = select(SolicitacaoCadastro).where(
         SolicitacaoCadastro.curso_declarado == current_user.curso.value
     )
@@ -279,6 +281,7 @@ def aprovar_solicitacao(
         perfil=dados.perfil,
         senha=senha_inicial,
         registro_profissional=dados.registro_profissional,
+        curso=CursoUsuario(solicitacao.curso_declarado),
     )
 
     solicitacao.situacao = SituacaoSolicitacao.APROVADA

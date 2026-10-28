@@ -18,7 +18,12 @@ class Agendamento(SQLModel, table=True):
     paciente_id: int = Field(foreign_key="pacientes.id", index=True)
     paciente_nome: str = Field(max_length=200)
     estagiario_nome: str = Field(max_length=200)
+    # Nas duas clinicas, `estagiario_matricula` e o responsavel/operador da
+    # dupla e `auxiliar_matricula` e o segundo estagiario. Nullable porque as
+    # sessoes anteriores a esta coluna nao tem como inferir a dupla a partir do
+    # texto livre.
     estagiario_matricula: str = Field(max_length=32)
+    auxiliar_matricula: Optional[str] = Field(default=None, max_length=32, index=True)
     curso: str = Field(max_length=20)
     # `Date` e nao `str`: texto nao ordena nem compara, e `STATUS.md` registra
     # `data_sessao` de prontuario como str justamente por isso. `Date` e nao

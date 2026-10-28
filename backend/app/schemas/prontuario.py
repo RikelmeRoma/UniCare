@@ -1,6 +1,6 @@
 import re
-from pydantic import BaseModel, field_validator
-from typing import Optional
+from pydantic import BaseModel, field_validator, model_validator
+from typing import Any, Optional
 from datetime import datetime
 from app.models.prontuario import StatusProntuario
 
@@ -73,22 +73,200 @@ class ProntuarioPsicoRead(BaseModel):
 
 class FichaOdontoCreate(BaseModel):
     paciente_id: int
-    dupla_estagiarios: str
+    # A dupla vem por matrícula, não por nome digitado: o servidor resolve os
+    # dois estagiários e monta `dupla_estagiarios` com os nomes do cadastro.
+    operador_matricula: str
+    auxiliar_matricula: str
     dente_regiao: str
     procedimento_realizado: str
     materiais_utilizados: str
     anestesico: Optional[str] = None
     alerta_alergia: Optional[str] = None
 
+    @field_validator("operador_matricula", "auxiliar_matricula")
+    @classmethod
+    def validar_matricula_obrigatoria(cls, v: str) -> str:
+        texto = v.strip()
+        if not texto:
+            raise ValueError(
+                "A dupla de estagiários é obrigatória (PDR-05): informe a "
+                "matrícula do operador e a do auxiliar."
+            )
+        return texto
+
+    @field_validator("dente_regiao", "procedimento_realizado", "materiais_utilizados")
+    @classmethod
+    def validar_conteudo_clinico(cls, v: str) -> str:
+        # O formulário já marca os campos como obrigatórios, mas a regra vale
+        # no servidor: qualquer cliente pode chamar a rota direto e mandar
+        # ficha em branco para a fila de homologação.
+        if not v.strip():
+            raise ValueError(
+                "Registro clínico incompleto: dente/região, procedimento e "
+                "materiais utilizados não podem ficar em branco."
+            )
+        return v
+
+    @model_validator(mode="after")
+    def validar_dupla_distinta(self):
+        if self.operador_matricula == self.auxiliar_matricula:
+            raise ValueError(
+                "Operador e auxiliar precisam ser estagiários diferentes: a "
+                "ficha odontológica é de atendimento em dupla (PDR-05)."
+            )
+        return self
+
 class FichaOdontoRead(BaseModel):
     id: int
     paciente_id: int
     dupla_estagiarios: str
+    operador_matricula: Optional[str] = None
+    auxiliar_matricula: Optional[str] = None
     dente_regiao: str
     procedimento_realizado: str
     materiais_utilizados: str
     anestesico: Optional[str] = None
     alerta_alergia: Optional[str] = None
+    supervisor_nome: Optional[str] = None
     parecer_supervisor: Optional[str] = None
     status: StatusProntuario
+    criado_em: datetime
+
+class DocumentoFichaOdontoCreate(BaseModel):
+    paciente_id: int
+    operador_matricula: str
+    auxiliar_matricula: str
+    tipo: str
+    conteudo: dict[str, Any]
+
+    @field_validator("operador_matricula", "auxiliar_matricula")
+    @classmethod
+    def validar_matricula_obrigatoria(cls, v: str) -> str:
+        texto = v.strip()
+        if not texto:
+            raise ValueError("A dupla de estagiários é obrigatória (PDR-05).")
+        return texto
+
+    @field_validator("tipo")
+    @classmethod
+    def validar_tipo(cls, v: str) -> str:
+        if v not in ("adulto", "infantil"):
+            raise ValueError("Tipo de ficha inválido: use adulto ou infantil.")
+        return v
+
+    @field_validator("conteudo")
+    @classmethod
+    def validar_conteudo(cls, v: dict[str, Any]) -> dict[str, Any]:
+        if not v:
+            raise ValueError("A ficha clínica não pode ser enviada vazia.")
+        return v
+
+    @model_validator(mode="after")
+    def validar_dupla_distinta(self):
+        if self.operador_matricula == self.auxiliar_matricula:
+            raise ValueError(
+                "Operador e auxiliar precisam ser estagiários diferentes: a "
+                "ficha odontológica é de atendimento em dupla (PDR-05)."
+            )
+        return self
+
+
+class DocumentoFichaOdontoUpdate(BaseModel):
+    conteudo: dict[str, Any]
+
+    @field_validator("conteudo")
+    @classmethod
+    def validar_conteudo(cls, v: dict[str, Any]) -> dict[str, Any]:
+        if not v:
+            raise ValueError("A ficha clínica não pode ser enviada vazia.")
+        return v
+
+
+class DocumentoFichaOdontoRead(BaseModel):
+    id: int
+    paciente_id: int
+    tipo: str
+    dupla_estagiarios: str
+    operador_matricula: str
+    auxiliar_matricula: str
+    status: StatusProntuario
+    parecer_supervisor: Optional[str] = None
+    supervisor_nome: Optional[str] = None
+    versao: int
+    criado_em: datetime
+    atualizado_em: datetime
+    submetido_em: Optional[datetime] = None
+
+
+class DocumentoFichaOdontoDetalhe(DocumentoFichaOdontoRead):
+    conteudo: dict[str, Any]
+
+
+MAX_IMAGEM_DATA_URL = 8_000_000
+
+
+class RadiografiaOdontoCreate(BaseModel):
+    paciente_id: int
+    dupla_id: int
+    tipo: str
+    laudo: str
+    imagem_nome: Optional[str] = None
+    imagem_mime: Optional[str] = None
+    imagem_data: Optional[str] = None
+
+    @field_validator("tipo", "laudo")
+    @classmethod
+    def validar_campos_obrigatorios(cls, v: str) -> str:
+        texto = v.strip()
+        if not texto:
+            raise ValueError(
+                "Modalidade e laudo do exame são obrigatórios: o anexo precisa "
+                "ter interpretação clínica no prontuário."
+            )
+        return texto
+
+    @field_validator("imagem_nome", "imagem_mime")
+    @classmethod
+    def validar_texto_opcional(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        texto = v.strip()
+        return texto or None
+
+    @field_validator("imagem_data")
+    @classmethod
+    def validar_imagem_data(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        texto = v.strip()
+        if not texto:
+            return None
+        if len(texto) > MAX_IMAGEM_DATA_URL:
+            raise ValueError(
+                "Arquivo do exame acima do limite de 5 MB. Reduza a imagem "
+                "antes de anexar."
+            )
+        if not (
+            texto.startswith("data:image/")
+            or texto.startswith("data:application/pdf")
+        ):
+            raise ValueError(
+                "Formato de arquivo inválido: anexe uma imagem ou um PDF."
+            )
+        return texto
+
+
+class RadiografiaOdontoRead(BaseModel):
+    id: int
+    paciente_id: int
+    dupla_id: int
+    dupla_estagiarios: str
+    operador_matricula: str
+    auxiliar_matricula: str
+    tipo: str
+    laudo: str
+    imagem_nome: Optional[str] = None
+    imagem_mime: Optional[str] = None
+    imagem_data: Optional[str] = None
+    status: str
     criado_em: datetime

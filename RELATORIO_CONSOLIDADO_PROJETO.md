@@ -62,6 +62,15 @@ flowchart TD
   *Emendado em 16/10/2026: o RF-001 descrevia recepcao e triagem sem qualquer vinculo
   de responsavel. A regra foi acrescentada aqui e a tabela `ATRIBUICOES_CLINICAS`
   entra no bloco de schema.*
+- **Agenda em dupla nas duas clinicas.** O agendamento guarda o
+  responsavel/operador em `estagiario_matricula` e o segundo estagiario em
+  `auxiliar_matricula`; o nome exibido e montado pelo servidor com os dois
+  cadastros. O schema exige dois estagiarios distintos, e o estagiario enxerga a
+  sessao em que e responsavel/operador **ou** auxiliar. O supervisor enxerga as
+  duplas dos alunos vinculados a ele e a RT enxerga as duas clinicas, com filtro
+  opcional por curso nos relatorios e na auditoria.
+  Na odontologia a dupla segue o instrumento PDR-05; na psicologia o vinculo do
+  paciente continua com o responsavel, e o auxiliar participa da sessao.
 
 ### RF-002: Prontuário Eletrônico de Psicologia (SPA)
 - Em conformidade integral com a **Resolução CFP nº 06/2019**.
@@ -72,6 +81,7 @@ flowchart TD
 - Mapeamento anatômico dos 32 dentes da dentição permanente (adulto) e faces dentárias (vestibular, lingual, mesial, distal, oclusal).
 - Marcação de patologias (cárie, restauração, endodontia, prótese, extração indicada) com codificação por cores padrão CFO.
 - Periodograma para mensuração de profundidade de sondagem, sangramento gengival e recessão.
+- A ficha clínica completa (anamnese, odontograma, periograma e índices) é persistida no servidor, submetida pela dupla e homologada ou devolvida pelo supervisor da dupla.
 
 ### RF-004: Fila de Homologação Docente & Devolutiva Pedagógica
 - Segregação de estagiários por turma e orientação docente.
@@ -80,11 +90,11 @@ flowchart TD
   - **Solicitar Correção com Devolutiva Formativa** (notificação para o estagiário com orientações pedagógicas).
 
 ### RF-005: Gestão de Duplas Clínicas e Carga Horária
-- Mapeamento das duplas da Clínica Integrada de Odontologia por Cadeira Clínica.
+- Duplas da Clínica Integrada de Odontologia persistidas por matrícula: o supervisor monta a dupla com dois estagiários já vinculados a ele, e cada aluno só pode ter uma dupla ativa. A RT de odontologia enxerga todas e pode encerrar; a RT de psicologia recebe 403. A linha encerrada é preservada para auditoria.
 - Contabilização de procedimentos homologados vs. meta acadêmica de procedimentos mínimos por semestre.
 
 ### RF-006: Painel Executivo da RT Master & Custódia Legal
-- Indicadores gerenciais de saúde da UNINASSAU Aracaju (taxa de comparecimento, volume de prontuários arquivados, procedimentos por especialidade).
+- Indicadores gerenciais de saúde da própria clínica da RT (taxa de comparecimento, volume de prontuários arquivados, procedimentos por especialidade). A RT não recebe o painel da clínica alheia; paciente `ambos` aparece nos indicadores das duas.
 - Busca e visualização de prontuários para fins de fiscalização sanitária, ética e emissão de laudos oficiais sob custódia de 20 anos (LGPD e Resoluções de Saúde).
 
 ### RF-007: Trilha de Auditoria Imutável (Audit Log)
@@ -96,7 +106,7 @@ flowchart TD
 - Salvaguarda mandatória: para alternar ou logar em qualquer conta, o operador deve confirmar a senha institucional (`Unicare123`).
 
 ### RF-009: Gerenciamento RBAC com Ciclo de Vida Completo
-- A RT Master pode cadastrar, editar e excluir qualquer usuário (Supervisores, Estagiários e Operadores de Recepção).
+- A RT pode cadastrar, editar e excluir usuários apenas na própria clínica (Supervisores, Estagiários e Operadores de Recepção). Pedir a clínica alheia na API é 403.
 - A Coordenação de Psicologia pode cadastrar, editar e excluir supervisores, estagiários e operadores de recepção da própria clínica. Criar ou alterar RT ou outra coordenação continua sendo ato exclusivo da RT.
 - Supervisores de Psicologia podem gerenciar acadêmicos vinculados à sua turma de SPA.
 - Supervisores de Odontologia podem gerenciar acadêmicos vinculados à Clínica Integrada.
@@ -123,9 +133,10 @@ flowchart TD
 
 ### Modelo de Dados (PostgreSQL 16)
 
-O schema é versionado por Alembic e possui **8 entidades de negócio** mais a tabela
+O schema é versionado por Alembic e possui **9 entidades de negócio** mais a tabela
 técnica `alembic_version`. Existem apenas **4 foreign keys** no banco, três de
-`paciente_id` para `pacientes.id` e uma da anamnese.
+`paciente_id` para `pacientes.id` e uma da anamnese; as matrículas de
+`duplas_odonto` são referências lógicas, como as demais autorias.
 
 #### Diagrama Entidade-Relacionamento
 
@@ -135,6 +146,7 @@ erDiagram
     PACIENTES ||--o{ ANAMNESES : "paciente_id"
     PACIENTES ||--o{ PRONTUARIOS_PSICO : "paciente_id"
     PACIENTES ||--o{ FICHAS_ODONTO : "paciente_id"
+    USUARIOS ||..o{ DUPLAS_ODONTO : "matriculas (logico, sem FK)"
     USUARIOS ||..o{ LOGS_AUDITORIA : "usuario_id (logico, sem FK)"
 
     USUARIOS {
@@ -170,9 +182,11 @@ erDiagram
         int    id PK
         int    paciente_id FK "idx"
         string paciente_nome "desnormalizado"
-        string estagiario_nome
-        string estagiario_matricula "desnormalizado"
+        string estagiario_nome "responsavel/operador + auxiliar"
+        string estagiario_matricula "responsavel/operador, desnormalizado"
+        string auxiliar_matricula "segundo estagiario; nulo em registros antigos"
         string curso
+        date   data_sessao "obrigatoria na criacao"
         string horario
         string turno
         string sala_ou_cadeira
@@ -220,16 +234,31 @@ erDiagram
     FICHAS_ODONTO {
         int    id PK
         int    paciente_id FK "idx"
-        string dupla_estagiarios
+        string dupla_estagiarios "texto montado pelo servidor"
+        string operador_matricula "opcional, autoria da dupla"
+        string auxiliar_matricula "opcional, autoria da dupla"
         string dente_regiao
         text   procedimento_realizado
         text   materiais_utilizados
         string anestesico "opcional"
         string alerta_alergia "opcional"
         text   parecer_supervisor "do supervisor"
+        string supervisor_nome "carimbo docente, opcional"
         string status "ENUM 4 estados"
         datetime criado_em
     }
+
+    DUPLAS_ODONTO {
+        int    id PK
+        string operador_matricula "idx, aluno 1"
+        string auxiliar_matricula "idx, aluno 2"
+        string supervisor_matricula "idx, responsavel"
+        bool   ativo "desativacao logica"
+        string criado_por_matricula
+        datetime criado_em
+        datetime desativado_em "opcional"
+    }
+        ^ regra de aplicacao: um aluno so pode estar em uma dupla ativa.
 
     ANAMNESES {
         int    id PK
@@ -327,19 +356,18 @@ erDiagram
 │  PK id                │        │  PK id                │        │  PK id                │
 │  FK paciente_id       │        │  FK paciente_id       │        │  FK paciente_id       │
 │     paciente_nome     │        │     paciente_nome     │        │     dupla_estagiarios │
-│     estagiario_nome   │        │     estagiario_nome   │        │     dente_regiao      │
-│     estag._matricula  │        │     estag._matricula  │        │     procedimento TEXT │
-│     curso             │        │     supervisor_nome   │        │     materiais TEXT    │
-│     horario / turno   │        │     data_sessao       │        │     anestesico        │
-│     sala_ou_cadeira   │        │     numero_sessao     │        │     alerta_alergia    │
-│     tipo_consulta     │        │     redacao  TEXT  │        │     parecer_sup. TEXT │
-│     status ▸ enum     │        │                   │        │     status    ▸ enum  │
-│     observacao_log.   │        │                   │        │     criado_em         │
-│     motivo_falta      │        │                   │        │                       │
-└───────────────────────┘        │     parecer_sup.  TXT │        └───────────────────────┘
-                                 │     status    ▸ enum  │
-                                 │     criado_em         │
-                                 └───────────────────────┘
+│     estagiario_nome   │        │     estagiario_nome   │        │     operador_matricula│
+│  estag./aux.matricula │        │     estag._matricula  │        │     auxiliar_matricula│
+│     curso             │        │     supervisor_nome   │        │     dente_regiao      │
+│  data_sessao/horario  │        │     data_sessao       │        │     procedimento TEXT │
+│     sala_ou_cadeira   │        │     numero_sessao     │        │     materiais TEXT    │
+│     tipo_consulta     │        │     redacao  TEXT     │        │     anestesico        │
+│     status ▸ enum     │        │     parecer_sup. TXT  │        │     alerta_alergia    │
+│     observacao_log.   │        │     status ▸ enum     │        │     parecer_sup. TEXT │
+│     motivo_falta      │        │     criado_em         │        │     supervisor_nome   │
+└───────────────────────┘        └───────────────────────┘        │     status ▸ enum     │
+                                                                 │     criado_em         │
+                                                                 └───────────────────────┘
 
 ┌───────────────────────────┐
   *Emendado em 16/10/2026: a tabela DEMANDAS_ESTAGIO foi removida.*
@@ -356,9 +384,9 @@ PACIENTES (id PK, nome, cpf_rg UQ, data_nascimento, telefone, endereco,
            contato_responsavel, curso, prontuario_ativo, criado_em)
 
 AGENDAMENTOS (id PK, paciente_id FK->PACIENTES, paciente_nome,
-              estagiario_nome, estagiario_matricula, curso, horario, turno,
-              sala_ou_cadeira, tipo_consulta, status, observacao_logistica,
-              motivo_falta)
+              estagiario_nome, estagiario_matricula, auxiliar_matricula,
+              curso, data_sessao, horario, turno, sala_ou_cadeira,
+              tipo_consulta, status, observacao_logistica, motivo_falta)
 
 PRONTUARIOS_PSICO (id PK, paciente_id FK->PACIENTES, paciente_nome,
                    estagiario_nome, estagiario_matricula, supervisor_nome,
@@ -367,9 +395,14 @@ PRONTUARIOS_PSICO (id PK, paciente_id FK->PACIENTES, paciente_nome,
                    status, criado_em)
 
 FICHAS_ODONTO (id PK, paciente_id FK->PACIENTES, dupla_estagiarios,
-               dente_regiao, procedimento_realizado, materiais_utilizados,
-               anestesico, alerta_alergia, parecer_supervisor, status,
+               operador_matricula, auxiliar_matricula, dente_regiao,
+               procedimento_realizado, materiais_utilizados, anestesico,
+               alerta_alergia, parecer_supervisor, supervisor_nome, status,
                criado_em)
+
+DUPLAS_ODONTO (id PK, operador_matricula, auxiliar_matricula,
+               supervisor_matricula, ativo, criado_por_matricula, criado_em,
+               desativado_em)
 
 ANAMNESES (id PK, paciente_id FK->PACIENTES, afetido_em, pressao_arterial,
           glicemia_capilar, frequencia_cardiaca, temperatura, alergias,
@@ -418,10 +451,11 @@ UQ = unique   FK = foreign key   idx = índice   -> = referencia
    schema impedindo aspas literais (RN-002, CFP 06/2019). Todas as demais colunas
    têm `max_length` explícito.
 
-5. **Pendências conhecidas do modelo:** `data_nascimento` e `data_sessao` são
-   `str` e não `DATE`, o que impede ordenação e comparação — corrigir exige
-   migração com reformatação dos dados existentes. CPF/RG, endereço e contatos
-   de paciente estão em claro, o que não passaria em LGPD para dado real de saúde.
+5. **Pendências conhecidas do modelo:** `data_nascimento` e
+   `prontuarios_psico.data_sessao` são `str` e não `DATE`, o que impede ordenação
+   e comparação — corrigir exige migração com reformatação dos dados existentes.
+   `agendamentos.data_sessao` já é `date`. CPF/RG, endereço e contatos de paciente
+   estão em claro, o que não passaria em LGPD para dado real de saúde.
 
 ---
 
@@ -442,10 +476,10 @@ UniCare/
 │   │   │                         #   auditoria, relatorios)
 │   │   └── services/             # auth_service, crypto_service, auditoria_service
 │   ├── migrations/               # Alembic: fonte autoritativa do schema
-│   │   └── versions/             #   4 revisões aplicadas até o head
+│   │   └── versions/             #   revisões aplicadas até o head
 │   ├── tests/
 │   │   ├── conftest.py           # Fixture de migração e seed no unicare_test
-│   │   └── test_compliance.py    # 32 testes de conformidade regulatória
+│   │   └── test_compliance.py    # testes de conformidade regulatória
 │   ├── docker/                   # entrypoint.sh e initdb do banco de testes
 │   ├── alembic.ini
 │   ├── docker-compose.yml
@@ -474,7 +508,7 @@ UniCare/
 │   │   └── supervision/              # Fila de Homologação, Duplas e RT Master
 │   │       └── components/
 │   │           ├── RTStatsDashboard.tsx  # Dashboard RT com CRUD de usuários
-│   │           └── ClinicalPairs.tsx     # Gestão de estagiários de Odontologia
+│   │           └── ClinicalPairs.tsx     # Duplas e vínculos de estagiários de Odontologia
 │   ├── services/
 │   │   └── api.ts                 # Cliente REST: fronteira snake_case ↔ camelCase
 │   ├── App.tsx                     # Rotas com ProtectedRoute por papel e curso

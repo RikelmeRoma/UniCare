@@ -27,7 +27,10 @@ interface AuthContextType {
   user: User | null;
   allUsers: Record<string, User>;
   solicitacoes: SolicitacaoCadastro[];
-  carregarSolicitacoes: (situacao?: 'PENDENTE' | 'APROVADA' | 'RECUSADA') => Promise<void>;
+  carregarSolicitacoes: (
+    situacao?: 'PENDENTE' | 'APROVADA' | 'RECUSADA',
+    curso?: 'psicologia' | 'odontologia'
+  ) => Promise<void>;
   aprovarSolicitacao: (
     id: number,
     dados: { perfil: RoleType; registro_profissional?: string; senha?: string }
@@ -134,10 +137,13 @@ useEffect(() => {
   }
 }, [user?.perfil, carregarUsuarios]);
 
-const carregarSolicitacoes = useCallback(
-    async (situacao?: 'PENDENTE' | 'APROVADA' | 'RECUSADA') => {
+  const carregarSolicitacoes = useCallback(
+    async (
+      situacao?: 'PENDENTE' | 'APROVADA' | 'RECUSADA',
+      curso?: 'psicologia' | 'odontologia'
+    ) => {
       try {
-        setSolicitacoes(await api.getSolicitacoes(situacao));
+        setSolicitacoes(await api.getSolicitacoes(situacao, curso));
       } catch (err) {
         // 403 é o esperado para quem não é da gestão (RT/coordenação). A lista
         // vazia é o estado correto nesses casos, e não um erro de sistema.
@@ -190,7 +196,10 @@ const carregarSolicitacoes = useCallback(
   };
 
   const createUser = async (
-  userData: Omit<User, 'id' | 'registro_profissional' | 'ativo' | 'curso'> & { registro_profissional?: string; senha: string }
+  userData: Omit<User, 'id' | 'registro_profissional' | 'ativo' | 'curso'> & {
+    registro_profissional?: string;
+    senha: string;
+  }
 ): Promise<{ success: boolean; message: string }> => {
   try {
     const criado = await api.createUsuario({

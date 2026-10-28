@@ -5,14 +5,16 @@ from sqlmodel import Session, select
 from app.database import get_session
 from app.models.paciente import Paciente
 from app.models.anamnese import Anamnese
-from app.models.usuario import Usuario, PerfilUsuario
+from app.models.usuario import Usuario, PerfilUsuario, CursoUsuario
 from app.schemas.paciente import PacienteCreate, PacienteRead
 from app.schemas.anamnese import AnamneseCreate, AnamneseRead
 from app.services.auth_service import (
     get_current_user,
     cursos_visiveis,
     validar_curso_do_registro,
+    validar_curso_solicitado,
     autorizado_clinico,
+    exigir_perfil,
 )
 from app.services.auditoria_service import registrar_log, ip_do_cliente
 
@@ -27,13 +29,17 @@ def listar_pacientes(
 ):
     # Vertical slice: a listagem NUNCA depende do parametro do cliente. Sem
     # isso, basta omitir ?curso= para ver a agenda da outra clinica.
+    validar_curso_solicitado(current_user, curso)
     visiveis = cursos_visiveis(current_user)
     query = select(Paciente)
     if visiveis is not None:
         query = query.where(Paciente.curso.in_(visiveis))
-        # O parametro ainda serve para afinar dentro da propria clinica.
+        # O parametro afina dentro da propria clinica, mas nunca esconde o
+        # paciente compartilhado: `ambos` atende nas duas.
         if curso and curso in visiveis and curso != "ambos":
-            query = query.where(Paciente.curso == curso)
+            query = query.where(Paciente.curso.in_([curso, "ambos"]))
+    elif curso in ("psicologia", "odontologia"):
+        query = query.where(Paciente.curso == curso)
     return session.exec(query).all()
 
 @router.post("", response_model=PacienteRead, status_code=status.HTTP_201_CREATED)
@@ -44,6 +50,21 @@ def cadastrar_paciente(
     session: Session = Depends(get_session),
     current_user: Usuario = Depends(get_current_user)
 ):
+    # Recepção, supervisor odontológico e RT cadastram paciente; a RT só na
+    # própria clínica.
+    exigir_perfil(
+        current_user,
+        [PerfilUsuario.RECEPCAO, PerfilUsuario.SUPERVISOR, PerfilUsuario.RT],
+    )
+    if (
+        current_user.perfil == PerfilUsuario.SUPERVISOR
+        and current_user.curso != CursoUsuario.ODONTOLOGIA
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso negado: o supervisor só cadastra pacientes na clínica de odontologia.",
+        )
+
     # A recepção cadastra paciente da própria clínica. "ambos" é legítimo:
     # paciente compartilhado atende nas duas. Qualquer outro curso é 403.
     validar_curso_do_registro(current_user, dados.curso)

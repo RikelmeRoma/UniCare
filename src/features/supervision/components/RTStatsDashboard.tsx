@@ -1,12 +1,22 @@
 import { useState, useEffect } from 'react';
-import { api, type RelatorioEstatisticas, type ApiLogAuditoria } from '../../../services/api';
-import { useClinic } from '../../clinic/context/ClinicContext';
+import { createPortal } from 'react-dom';
+import {
+  api,
+  ApiError,
+  type ApiDocumentoFichaOdonto,
+  type ApiRadiografiaOdonto,
+  type RelatorioEstatisticas,
+  type ApiLogAuditoria,
+} from '../../../services/api';
+import { useClinic, type DocumentoFichaOdonto } from '../../clinic/context/ClinicContext';
 import { useAuth, type RoleType, type CourseType } from '../../auth/context/AuthContext';
 import { SolicitacoesCadastro } from './SolicitacoesCadastro';
 import { RelatorioImpressao } from '../report/RelatorioImpressao';
 import { RelatorioExecutivo } from '../report/RelatorioExecutivo';
 import { DossieCustodia } from '../report/DossieCustodia';
 import { InfoTooltip } from '../../../components/ui/InfoTooltip';
+import { IndicadoresPrint } from '../print/IndicadoresPrint';
+import { DossiePacientePrint } from '../print/DossiePacientePrint';
 import {
   ChartBarIcon,
   ShieldCheckIcon,
@@ -30,6 +40,26 @@ interface RTStatsDashboardProps {
   modo?: 'rt' | 'coordenacao';
 }
 
+const mapearDocumentoOdonto = (
+  doc: ApiDocumentoFichaOdonto,
+  pacienteNome: string
+): DocumentoFichaOdonto => ({
+  id: doc.id,
+  pacienteId: doc.paciente_id,
+  pacienteNome,
+  tipo: doc.tipo,
+  duplaEstagiarios: doc.dupla_estagiarios,
+  operadorMatricula: doc.operador_matricula,
+  auxiliarMatricula: doc.auxiliar_matricula,
+  status: doc.status,
+  parecerSupervisor: doc.parecer_supervisor,
+  supervisorNome: doc.supervisor_nome,
+  versao: doc.versao,
+  submetidoEm: doc.submetido_em ?? '',
+  atualizadoEm: doc.atualizado_em,
+  conteudo: doc.conteudo,
+});
+
 export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
   const { pacientes, agendamentos, evolucoesPsico, planosTratamento } = useClinic();
   const { allUsers, createUser, updateUser, deleteUser, user } = useAuth();
@@ -38,6 +68,8 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
   const [loading, setLoading] = useState<boolean>(true);
   const [filtroLog, setFiltroLog] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'indicadores' | 'custodia' | 'auditoria' | 'usuarios'>('indicadores');
+  const filtroCurso: 'psicologia' | 'odontologia' =
+    user?.curso === 'odontologia' ? 'odontologia' : 'psicologia';
 
   // Documento impresso aberto. `null` = fechado. O relatório não é impresso
   // direto: primeiro abre em prévia A4, para a pessoa conferir antes de salvar
@@ -50,9 +82,6 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
   const [formMatricula, setFormMatricula] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formPerfil, setFormPerfil] = useState<RoleType>('supervisor');
-  // O curso não tem estado: o servidor define pela clínica da RT, e a tela
-  // mostra isso travado. Antes havia um `formCurso` com default 'psicologia'
-  // que não era usado em lugar nenhum do fluxo.
   const [formRegistro, setFormRegistro] = useState('');
   // O backend exige senha no cadastro: antes a tela prometia "unicare123" sem
   // pedir nada e o banco nunca recebia hash nenhum.
@@ -76,14 +105,20 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
   const [buscaPaciente, setBuscaPaciente] = useState<string>('');
   const [pacienteCustodiaId, setPacienteCustodiaId] = useState<number>(pacientes[0]?.id || 1);
 
+  const [printTarget, setPrintTarget] = useState<'indicadores' | 'custodia' | null>(null);
+  const [dossieLoading, setDossieLoading] = useState(false);
+  const [dossieErro, setDossieErro] = useState('');
+  const [dossieDocumento, setDossieDocumento] = useState<DocumentoFichaOdonto | null>(null);
+  const [dossieRadiografias, setDossieRadiografias] = useState<ApiRadiografiaOdonto[]>([]);
+
   useEffect(() => {
     let isMounted = true;
     async function carregarDados() {
       try {
         setLoading(true);
         const [statsData, logsData] = await Promise.allSettled([
-          api.getEstatisticas(),
-          api.getAuditoria(100),
+          api.getEstatisticas(filtroCurso),
+          api.getAuditoria(100, filtroCurso),
         ]);
 
         if (!isMounted) return;
@@ -105,7 +140,7 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [filtroCurso]);
 
   // Métricas calculadas
   const totalPacientesLocal = pacientes.length;
@@ -122,7 +157,7 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
   // Vertical slice: o backend devolve distribuicao_cursos apenas com a chave da
   // clínica do solicitante. Ler .psicologia e .odontologia fixos mostraria
   // números de outro curso — ou cairia nos fallbacks inventados (?? 1, ?? 2).
-  const cursoPainel = user?.curso === 'odontologia' ? 'odontologia' : 'psicologia';
+  const cursoPainel = filtroCurso;
   const isCoordenacao = user?.perfil === 'coordenacao';
   const isPainelPsicologia =
     modo === 'coordenacao' ||
@@ -187,6 +222,71 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
   const evolucoesDoPaciente = evolucoesPsico.filter(
     (e) => e.pacienteId === pacienteSelecionadoCustodia?.id
   );
+
+  const planosDoPaciente = planosTratamento.filter(
+    (p) => p.pacienteId === pacienteSelecionadoCustodia?.id
+  );
+
+  const handleExportarDossie = async () => {
+    const paciente = pacienteSelecionadoCustodia;
+    if (!paciente) return;
+
+    setDossieErro('');
+    setDossieLoading(true);
+    try {
+      if (cursoPainel === 'odontologia') {
+        let documento: DocumentoFichaOdonto | null = null;
+        try {
+          const apiDoc = await api.getDocumentoOdontoPaciente(paciente.id);
+          documento = mapearDocumentoOdonto(apiDoc, paciente.nome);
+        } catch (error) {
+          if (!(error instanceof ApiError) || error.status !== 404) throw error;
+        }
+        const radiografias = await api.getRadiografiasOdonto(paciente.id);
+        setDossieDocumento(documento);
+        setDossieRadiografias(radiografias);
+      } else {
+        setDossieDocumento(null);
+        setDossieRadiografias([]);
+      }
+      setPrintTarget('custodia');
+    } catch (error) {
+      setDossieErro(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar o prontuário completo para o dossiê.'
+      );
+    } finally {
+      setDossieLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!printTarget) return;
+
+    const tituloAnterior = document.title;
+    document.body.classList.add('rt-print-mode');
+    document.title =
+      printTarget === 'indicadores'
+        ? 'Indicadores RT - UniCare'
+        : `Dossiê - ${pacienteSelecionadoCustodia?.nome ?? 'Paciente'}`;
+
+    const encerrar = () => {
+      document.body.classList.remove('rt-print-mode');
+      document.title = tituloAnterior;
+      setPrintTarget(null);
+    };
+
+    window.addEventListener('afterprint', encerrar);
+    const timer = window.setTimeout(() => window.print(), 250);
+
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('afterprint', encerrar);
+      document.body.classList.remove('rt-print-mode');
+      document.title = tituloAnterior;
+    };
+  }, [printTarget, pacienteSelecionadoCustodia?.nome]);
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -340,13 +440,15 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
             Painel Executivo de Gestão, Indicadores & Custódia Legal
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            {isPainelPsicologia
-              ? 'UNINASSAU Aracaju • Sistema Integrado de Saúde Hospitalar (Psicologia)'
-              : 'UNINASSAU Aracaju • Sistema Integrado de Saúde Hospitalar (Psicologia e Odontologia)'}
+            UNINASSAU Aracaju • Sistema Integrado de Saúde Hospitalar —{' '}
+            {cursoPainel === 'psicologia' ? 'Psicologia (SPA)' : 'Odontologia Integrada'}
           </p>
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Dois caminhos de PDF coexistem: este abre o relatório executivo
+              completo (report/RelatorioExecutivo); o botão da aba Indicadores
+              exporta o resumo (print/IndicadoresPrint). */}
           <button
             onClick={() => setRelatorioAberto('executivo')}
             className="flex items-center gap-2 px-3.5 py-2 border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 rounded-lg text-xs font-semibold transition-colors shadow-xs"
@@ -406,6 +508,17 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
 
       {activeTab === 'indicadores' && (
         <>
+          <div className="flex justify-end">
+            <button
+              onClick={() => setPrintTarget('indicadores')}
+              disabled={!stats}
+              className="flex items-center gap-2 px-3.5 py-2 border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 rounded-lg text-xs font-semibold transition-colors shadow-xs disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <PrinterIcon className="w-4 h-4 text-slate-500" />
+              <span>Exportar Indicadores em PDF</span>
+            </button>
+          </div>
+
           {/* Grade de KPIs Principais */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
@@ -478,7 +591,8 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
           </div>
 
           {/* Comparativo Estrutural dos Módulos Clínicos */}
-          <div className={`grid grid-cols-1 gap-6 ${isPainelPsicologia ? '' : 'lg:grid-cols-2'}`}>
+          <div className="grid grid-cols-1 gap-6">
+            {cursoPainel === 'psicologia' && (
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
@@ -531,8 +645,9 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
                 </div>
               </div>
             </div>
+            )}
 
-            {!isPainelPsicologia && (
+            {cursoPainel === 'odontologia' && (
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
@@ -741,7 +856,7 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-slate-700">
-                      {planosTratamento.map((item) => (
+                      {planosDoPaciente.map((item) => (
                         <tr key={item.id} className="hover:bg-slate-50">
                           <td className="p-2.5 font-semibold">{item.prioridade}</td>
                           <td className="p-2.5 font-mono">{item.denteRegiao}</td>
@@ -771,13 +886,32 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
                     <InfoTooltip texto={`Certificamos a integridade deste prontuário para guarda legal pelo prazo mínimo de 20 anos sob responsabilidade da ${gestaoLabel}.`} />
                   </p>
                 </div>
-                <button
-                  onClick={() => setRelatorioAberto('dossie')}
-                  className="px-4 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg font-bold text-xs shadow-xs transition-colors shrink-0"
-                >
-                  Exportar Dossiê Oficial em PDF
-                </button>
+                {/* Duas gerações de dossiê coexistem no merge: o completo
+                    (busca a ficha odonto, anamnese e radiografias na API) e o
+                    de custódia da psicologia (monta a partir dos dados já
+                    carregados). Consolidar é decisão de produto. */}
+                <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+                  <button
+                    onClick={handleExportarDossie}
+                    disabled={dossieLoading}
+                    className="px-4 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg font-bold text-xs shadow-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {dossieLoading ? 'Carregando prontuário...' : 'Exportar Dossiê do Paciente em PDF'}
+                  </button>
+                  <button
+                    onClick={() => setRelatorioAberto('dossie')}
+                    className="px-4 py-2 bg-white border border-indigo-300 text-indigo-800 hover:bg-indigo-50 rounded-lg font-bold text-xs shadow-xs transition-colors"
+                  >
+                    Dossiê de Custódia (A4)
+                  </button>
+                </div>
               </div>
+
+              {dossieErro && (
+                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-800">
+                  {dossieErro}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -1415,7 +1549,7 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
       {/* Documentos impressos.
           O portal vive em `document.body`, fora do `#root` — é isso que faz o
           navegador imprimir o papel A4 e não a tela do painel (ver
-          `report/relatorio.css`). */}
+          `report/relatorio.css` e `print/print.css`). */}
       {relatorioAberto === 'executivo' && (
         <RelatorioImpressao
           titulo="Relatório Executivo de Gestão"
@@ -1453,13 +1587,43 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
           <DossieCustodia
             paciente={pacienteSelecionadoCustodia}
             evolucoes={evolucoesDoPaciente}
-            planos={planosTratamento}
+            planos={planosDoPaciente}
             cursoPainel={cursoPainel}
             gestaoLabel={gestaoLabel}
             usuario={user}
           />
         </RelatorioImpressao>
       )}
+
+      {printTarget === 'indicadores' &&
+        createPortal(
+          <IndicadoresPrint
+            curso={cursoPainel}
+            stats={stats}
+            pacientes={pacientes}
+            planosTratamento={planosTratamento}
+            totalPacientes={totalPacientes}
+            totalAgendamentos={totalAgendamentos}
+            taxaComparecimento={taxaComparecimento}
+            taxaAbsenteismo={taxaAbsenteismo}
+            geradoEm={new Date().toLocaleString('pt-BR')}
+          />,
+          document.body
+        )}
+
+      {printTarget === 'custodia' &&
+        pacienteSelecionadoCustodia &&
+        createPortal(
+          <DossiePacientePrint
+            paciente={pacienteSelecionadoCustodia}
+            curso={cursoPainel}
+            evolucoes={evolucoesDoPaciente}
+            planos={planosDoPaciente}
+            documento={dossieDocumento}
+            radiografias={dossieRadiografias}
+          />,
+          document.body
+        )}
     </div>
   );
 }

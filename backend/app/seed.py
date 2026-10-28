@@ -19,6 +19,7 @@ from app.models.prontuario import ProntuarioPsico, FichaOdonto, StatusProntuario
 from app.models.anamnese import Anamnese
 from app.models.solicitacao import SolicitacaoCadastro, SituacaoSolicitacao
 from app.models.atribuicao import AtribuicaoClinica, SituacaoAtribuicao
+from app.models.dupla import DuplaOdonto
 from app.services.crypto_service import get_password_hash
 
 SENHA_DEMO = "unicare123"
@@ -68,6 +69,23 @@ def seed_usuarios(session: Session) -> None:
             perfil=PerfilUsuario.ESTAGIARIO,
             curso=CursoUsuario.ODONTOLOGIA,
             matricula="16024402",
+            supervisor_matricula="DOC-9122",
+        ),
+        Usuario(
+            # A odontologia atende em dupla (PDR-05). Sem a segunda aluna, o
+            # auxiliar dos agendamentos seria um nome sem conta e nao conseguiria
+            # entrar em "Meus Agendamentos". A supervisora e a mesma do Augusto,
+            # entao a dupla inteira aparece na agenda de DOC-9122.
+            #
+            # Matricula 16024404 e nao 16024403: o numero anterior ja aparece
+            # como conta de psicologia em bancos de desenvolvimento, e a
+            # unicidade derrubaria uma carga manual da dupla.
+            nome="Gabriela Prado",
+            email="gabriela.prado@uninassau.edu.br",
+            senha_hash=get_password_hash(SENHA_DEMO),
+            perfil=PerfilUsuario.ESTAGIARIO,
+            curso=CursoUsuario.ODONTOLOGIA,
+            matricula="16024404",
             supervisor_matricula="DOC-9122",
         ),
         Usuario(
@@ -139,6 +157,39 @@ def seed_usuarios(session: Session) -> None:
             matricula="COORD-001",
         ),
     ])
+    session.commit()
+
+
+def seed_duplas_odonto(session: Session) -> None:
+    """Dupla de demonstração já montada para a supervisão odontológica.
+
+    Os documentos e agendamentos do seed usam Augusto + Gabriela. Sem a linha
+    em `duplas_odonto`, a tela de supervisão mostraria a dupla apenas depois de
+    uma ficha existir — que é exatamente o vazio que a tabela resolve.
+    """
+    if not _tabela_vazia(session, DuplaOdonto):
+        return
+
+    operador = session.exec(
+        select(Usuario).where(Usuario.matricula == "16024402")
+    ).first()
+    auxiliar = session.exec(
+        select(Usuario).where(Usuario.matricula == "16024404")
+    ).first()
+    if not operador or not auxiliar:
+        return
+    if (
+        not operador.supervisor_matricula
+        or operador.supervisor_matricula != auxiliar.supervisor_matricula
+    ):
+        return
+
+    session.add(DuplaOdonto(
+        operador_matricula=operador.matricula,
+        auxiliar_matricula=auxiliar.matricula,
+        supervisor_matricula=operador.supervisor_matricula,
+        criado_por_matricula=operador.supervisor_matricula,
+    ))
     session.commit()
 
 
@@ -231,8 +282,9 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
         Agendamento(
             paciente_id=p1.id,
             paciente_nome=p1.nome,
-            estagiario_nome="Rikelme Roma Santos",
+            estagiario_nome="Rikelme Roma Santos & Letícia Barbosa Monteiro",
             estagiario_matricula="16032935",
+            auxiliar_matricula="16051234",
             curso="psicologia",
             data_sessao=hoje,
             horario="14:00",
@@ -253,8 +305,9 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
             # paciente a ela, e as duas telas que o vínculo alimenta discordam
             # quando a sessão aponta para outro — o aluno via a sessão sem ter a
             # paciente na lista, e a paciente aparecia sem nenhuma sessão.
-            estagiario_nome="Letícia Barbosa Monteiro",
+            estagiario_nome="Letícia Barbosa Monteiro & Rikelme Roma Santos",
             estagiario_matricula="16051234",
+            auxiliar_matricula="16032935",
             curso="psicologia",
             data_sessao=hoje + timedelta(days=2),
             horario="15:00",
@@ -267,8 +320,9 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
         Agendamento(
             paciente_id=p2.id,
             paciente_nome=p2.nome,
-            estagiario_nome="Augusto Cesar Farias & Gabriela Prado",
+            estagiario_nome="Augusto Cesar Farias Carvalho & Gabriela Prado",
             estagiario_matricula="16024402",
+            auxiliar_matricula="16024404",
             curso="odontologia",
             data_sessao=hoje,
             horario="14:00",
@@ -282,8 +336,9 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
             paciente_id=p4.id,
             paciente_nome=p4.nome,
             # "Marlon Bruno dos Santos / 16032601" também não existe no seed.
-            estagiario_nome="Augusto Cesar Farias & Gabriela Prado",
+            estagiario_nome="Augusto Cesar Farias Carvalho & Gabriela Prado",
             estagiario_matricula="16024402",
+            auxiliar_matricula="16024404",
             curso="odontologia",
             data_sessao=hoje + timedelta(days=2),
             horario="15:30",
@@ -299,8 +354,9 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
         Agendamento(
             paciente_id=p3.id,
             paciente_nome=p3.nome,
-            estagiario_nome="Letícia Barbosa Monteiro",
+            estagiario_nome="Letícia Barbosa Monteiro & Rikelme Roma Santos",
             estagiario_matricula="16051234",
+            auxiliar_matricula="16032935",
             curso="psicologia",
             data_sessao=hoje - timedelta(days=3),
             horario="16:00",
@@ -313,8 +369,9 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
         Agendamento(
             paciente_id=p1.id,
             paciente_nome=p1.nome,
-            estagiario_nome="Rikelme Roma Santos",
+            estagiario_nome="Rikelme Roma Santos & Letícia Barbosa Monteiro",
             estagiario_matricula="16032935",
+            auxiliar_matricula="16051234",
             curso="psicologia",
             data_sessao=hoje - timedelta(days=7),
             horario="10:00",
@@ -327,8 +384,9 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
         Agendamento(
             paciente_id=p2.id,
             paciente_nome=p2.nome,
-            estagiario_nome="Augusto Cesar Farias & Gabriela Prado",
+            estagiario_nome="Augusto Cesar Farias Carvalho & Gabriela Prado",
             estagiario_matricula="16024402",
+            auxiliar_matricula="16024404",
             curso="odontologia",
             data_sessao=hoje - timedelta(days=7),
             horario="09:00",
@@ -344,8 +402,9 @@ def seed_agendamentos(session: Session, pacientes: List[Paciente]) -> None:
         Agendamento(
             paciente_id=p1.id,
             paciente_nome=p1.nome,
-            estagiario_nome="Rikelme Roma Santos",
+            estagiario_nome="Rikelme Roma Santos & Letícia Barbosa Monteiro",
             estagiario_matricula="16032935",
+            auxiliar_matricula="16051234",
             curso="psicologia",
             data_sessao=hoje - timedelta(days=2),
             horario="11:00",
@@ -432,12 +491,20 @@ def seed_fichas_odonto(session: Session, pacientes: List[Paciente]) -> None:
         return
 
     _p1, p2, p3, _p4 = pacientes[:4]
-    dupla = "Lucas Vasconcelos & Gabriela Prado"
+    # A dupla de demonstracao usa as duas contas reais de odontologia. O texto
+    # e montado com os nomes do cadastro, e nao com nomes digitados: a ficha
+    # nasce com operador e auxiliar que conseguem abrir o registro depois.
+    dupla = "Augusto Cesar Farias Carvalho & Gabriela Prado"
+    operador = "16024402"
+    auxiliar = "16024404"
+    supervisora = "Profa. Dra. Bianca Nubia"
 
     session.add_all([
         FichaOdonto(
             paciente_id=p2.id,
             dupla_estagiarios=dupla,
+            operador_matricula=operador,
+            auxiliar_matricula=auxiliar,
             dente_regiao="Dente 36 - primeiro molar inferior esquerdo",
             procedimento_realizado="Restauracao direta em resina composta classe I, com preparo conservador e isolamento absoluto por dique de borracha.",
             materiais_utilizados="Resina composta A2, adesivo universal, matriz deinkgo e dique de borracha.",
@@ -448,20 +515,27 @@ def seed_fichas_odonto(session: Session, pacientes: List[Paciente]) -> None:
         FichaOdonto(
             paciente_id=p2.id,
             dupla_estagiarios=dupla,
+            operador_matricula=operador,
+            auxiliar_matricula=auxiliar,
             dente_regiao="Dente 16 - primeiro molar superior direito",
             procedimento_realizado="Restauracao direta classe II, com matriz metalica e polimento final.",
             materiais_utilizados="Resina composta A3, matriz metalica, oxidador de estiramento.",
             anestesico="Lidocaina 2% 1:80.000 (infiltrativa)",
             alerta_alergia=None,
             parecer_supervisor="Preparo dentro dos limites do tecido saudo. Homologado com visto digital.",
+            supervisor_nome=supervisora,
             status=StatusProntuario.VALIDADO
         ),
         FichaOdonto(
             paciente_id=p2.id,
             dupla_estagiarios=dupla,
+            operador_matricula=operador,
+            auxiliar_matricula=auxiliar,
             dente_regiao="Dente 46 - primeiro molar inferior direito",
             procedimento_realizado="Preparo cavitario classe I. Devolvido para ajuste da documentacao clinica.",
             materiais_utilizados="Resina composta A3.",
+            parecer_supervisor="Documentacao clinica incompleta: refazer o registro do procedimento.",
+            supervisor_nome=supervisora,
             status=StatusProntuario.DEVOLVIDO_PARA_AJUSTE
         ),
         # Paciente de curso "ambos": a ficha aparece nas DUAS clinicas, e por
@@ -469,6 +543,8 @@ def seed_fichas_odonto(session: Session, pacientes: List[Paciente]) -> None:
         FichaOdonto(
             paciente_id=p3.id,
             dupla_estagiarios=dupla,
+            operador_matricula=operador,
+            auxiliar_matricula=auxiliar,
             dente_regiao="Dente 26 - primeiro molar superior esquerdo",
             procedimento_realizado="Selante de fossas oclusais e mamelares, sem necessidade de restauracao.",
             materiais_utilizados="Selante hidrofílico, ácido grabador, microbrush.",
@@ -618,6 +694,7 @@ def run_seed(session: Session) -> None:
     roda se a tabela correspondente estiver vazia.
     """
     seed_usuarios(session)
+    seed_duplas_odonto(session)
     pacientes = seed_pacientes(session)
     seed_agendamentos(session, pacientes)
     seed_prontuarios(session, pacientes)

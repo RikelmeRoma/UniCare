@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { api, ApiError, type ApiPaciente, type ApiAgendamento, type ApiProntuarioPsico, type ApiFichaOdonto, type ApiAnamnese, type ApiAtribuicao } from '../../../services/api';
+import { api, ApiError, type ApiPaciente, type ApiAgendamento, type ApiProntuarioPsico, type ApiFichaOdonto, type ApiDocumentoFichaOdonto, type ApiAnamnese, type ApiAtribuicao } from '../../../services/api';
 import { useAuth } from '../../auth/context/AuthContext';
 
 export type StatusAgendamento = 'AGENDADO' | 'PRESENTE' | 'EM_ATENDIMENTO' | 'CONCLUIDO' | 'FALTOU' | 'CANCELADO';
@@ -27,6 +27,8 @@ export interface Agendamento {
   pacienteNome: string;
   estagiarioNome: string;
   estagiarioMatricula: string;
+  /** Segundo estagiário da dupla; nulo nas sessões anteriores à coluna. */
+  auxiliarMatricula?: string | null;
   curso: 'psicologia' | 'odontologia';
   /** ISO `YYYY-MM-DD`, ou `undefined` nas sessões anteriores à coluna. */
   dataSessao?: string | null;
@@ -75,14 +77,59 @@ export interface FichaOdonto {
   pacienteId: number;
   pacienteNome: string;
   duplaEstagiarios: string;
+  /** Matrículas da dupla (PDR-05). Nulas nas fichas anteriores à coluna. */
+  operadorMatricula?: string | null;
+  auxiliarMatricula?: string | null;
   denteRegiao: string;
   procedimentoRealizado: string;
   materiaisUtilizados: string;
   anestesico?: string;
   alertaAlergia?: string;
+  /** Carimbo de quem homologou, vindo do servidor. */
+  supervisorNome?: string | null;
   parecerSupervisor?: string;
   status: StatusProntuario;
   submetidoEm: string;
+}
+
+export interface DocumentoFichaOdonto {
+  id: number;
+  pacienteId: number;
+  pacienteNome: string;
+  tipo: 'adulto' | 'infantil' | string;
+  duplaEstagiarios: string;
+  operadorMatricula: string;
+  auxiliarMatricula: string;
+  status: StatusProntuario;
+  parecerSupervisor?: string | null;
+  supervisorNome?: string | null;
+  versao: number;
+  submetidoEm: string;
+  atualizadoEm: string;
+  conteudo?: Record<string, unknown>;
+}
+
+export interface NovoDocumentoFichaOdonto {
+  pacienteId: number;
+  pacienteNome: string;
+  operadorMatricula: string;
+  auxiliarMatricula: string;
+  tipo: 'adulto' | 'infantil';
+  conteudo: Record<string, unknown>;
+}
+
+/** Dados aceitos na criação da ficha: a dupla vai por matrícula, não por nome
+ *  digitado — o servidor resolve os cadastros e monta o texto da dupla. */
+export interface NovaFichaOdonto {
+  pacienteId: number;
+  pacienteNome: string;
+  operadorMatricula: string;
+  auxiliarMatricula: string;
+  denteRegiao: string;
+  procedimentoRealizado: string;
+  materiaisUtilizados: string;
+  anestesico?: string;
+  alertaAlergia?: string;
 }
 
 export interface Anamnese {
@@ -102,6 +149,7 @@ export interface Anamnese {
 
 export interface ItemPlanoTratamento {
   id: number;
+  pacienteId: number;
   prioridade: 'Urgência' | 'Fase 1 - Restauradora' | 'Fase 2 - Periodontal' | 'Fase 3 - Manutenção';
   denteRegiao: string;
   procedimento: string;
@@ -136,6 +184,20 @@ interface ClinicContextType {
   recarregarAtribuicoes: () => Promise<void>;
   evolucoesPsico: EvolucaoPsico[];
   fichasOdonto: FichaOdonto[];
+  documentosOdonto: DocumentoFichaOdonto[];
+  carregarDocumentoOdontoPaciente: (pacienteId: number) => Promise<DocumentoFichaOdonto | null>;
+  salvarDocumentoOdonto: (
+    dados: NovoDocumentoFichaOdonto
+  ) => Promise<{ success: boolean; message: string; documento?: DocumentoFichaOdonto }>;
+  reenviarDocumentoOdonto: (
+    id: number,
+    conteudo: Record<string, unknown>
+  ) => Promise<{ success: boolean; message: string; documento?: DocumentoFichaOdonto }>;
+  homologarDocumentoOdonto: (
+    id: number,
+    decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE',
+    parecer: string
+  ) => Promise<{ success: boolean; message: string }>;
   /** Anamneses por id de paciente. Carregadas sob demanda pela ficha. */
   anamnesesPorPaciente: Record<number, Anamnese[]>;
   registrarAnamnese: (
@@ -158,7 +220,7 @@ interface ClinicContextType {
   ) => Promise<{ success: boolean; message: string }>;
   homologarEvolucaoPsico: (id: number, decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE', parecer: string) => Promise<{ success: boolean; message: string }>;
   adicionarEvolucaoPsico: (e: Omit<EvolucaoPsico, 'id' | 'status' | 'submetidoEm'>) => Promise<{ success: boolean; message: string; evolucao?: EvolucaoPsico }>;
-  adicionarFichaOdonto: (f: Omit<FichaOdonto, 'id' | 'status' | 'submetidoEm'>) => Promise<{ success: boolean; message: string; ficha?: FichaOdonto }>;
+  adicionarFichaOdonto: (f: NovaFichaOdonto) => Promise<{ success: boolean; message: string; ficha?: FichaOdonto }>;
   homologarFichaOdonto: (id: number, decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE', parecer: string) => Promise<{ success: boolean; message: string }>;
 }
 
@@ -214,8 +276,9 @@ const INITIAL_AGENDAMENTOS: Agendamento[] = [
     id: 1,
     pacienteId: 1,
     pacienteNome: 'Marcos Aurélio Silveira',
-    estagiarioNome: 'Rikelme Roma Santos',
+    estagiarioNome: 'Rikelme Roma Santos & Letícia Barbosa Monteiro',
     estagiarioMatricula: '16032935',
+    auxiliarMatricula: '16051234',
     curso: 'psicologia',
     horario: '14:00',
     turno: 'tarde',
@@ -228,8 +291,9 @@ const INITIAL_AGENDAMENTOS: Agendamento[] = [
     id: 2,
     pacienteId: 3,
     pacienteNome: 'Juliana Ferreira Oliveira',
-    estagiarioNome: 'Rikelme Roma Santos',
-    estagiarioMatricula: '16032935',
+    estagiarioNome: 'Letícia Barbosa Monteiro & Rikelme Roma Santos',
+    estagiarioMatricula: '16051234',
+    auxiliarMatricula: '16032935',
     curso: 'psicologia',
     horario: '15:00',
     turno: 'tarde',
@@ -242,8 +306,9 @@ const INITIAL_AGENDAMENTOS: Agendamento[] = [
     id: 3,
     pacienteId: 2,
     pacienteNome: 'Carlos Silva e Santos',
-    estagiarioNome: 'Augusto Cesar Farias & Gabriela Prado',
+    estagiarioNome: 'Augusto Cesar Farias Carvalho & Gabriela Prado',
     estagiarioMatricula: '16024402',
+    auxiliarMatricula: '16024404',
     curso: 'odontologia',
     horario: '14:00',
     turno: 'tarde',
@@ -256,8 +321,9 @@ const INITIAL_AGENDAMENTOS: Agendamento[] = [
     id: 4,
     pacienteId: 4,
     pacienteNome: 'Lucas Gabriel Menezes (Menor)',
-    estagiarioNome: 'Marlon Bruno dos Santos',
-    estagiarioMatricula: '16032601',
+    estagiarioNome: 'Augusto Cesar Farias Carvalho & Gabriela Prado',
+    estagiarioMatricula: '16024402',
+    auxiliarMatricula: '16024404',
     curso: 'odontologia',
     horario: '15:30',
     turno: 'tarde',
@@ -270,8 +336,9 @@ const INITIAL_AGENDAMENTOS: Agendamento[] = [
     id: 5,
     pacienteId: 1,
     pacienteNome: 'Beatriz Almeida Costa',
-    estagiarioNome: 'Rikelme Roma Santos',
+    estagiarioNome: 'Rikelme Roma Santos & Letícia Barbosa Monteiro',
     estagiarioMatricula: '16032935',
+    auxiliarMatricula: '16051234',
     curso: 'psicologia',
     horario: '16:00',
     turno: 'tarde',
@@ -338,6 +405,7 @@ const mapearAnamnese = (a: ApiAnamnese): Anamnese => ({
 const planosDasFichas = (fichas: FichaOdonto[]): ItemPlanoTratamento[] =>
   fichas.map((f) => ({
     id: f.id,
+    pacienteId: f.pacienteId,
     // `prioridade` é a fase de planejamento e `status` é o estado do fluxo:
     // são eixos diferentes, então o status do banco alimenta os dois campos.
     prioridade:
@@ -382,6 +450,7 @@ const mapearAgendamento = (a: ApiAgendamento): Agendamento => ({
   pacienteNome: a.paciente_nome,
   estagiarioNome: a.estagiario_nome,
   estagiarioMatricula: a.estagiario_matricula,
+  auxiliarMatricula: a.auxiliar_matricula,
   curso: a.curso,
   dataSessao: a.data_sessao,
   horario: a.horario,
@@ -415,16 +484,43 @@ const mapearFichaOdonto = (f: ApiFichaOdonto, nomePorPaciente: Map<number, strin
   pacienteId: f.paciente_id,
   pacienteNome: nomePorPaciente.get(f.paciente_id) || `Paciente #${f.paciente_id}`,
   duplaEstagiarios: f.dupla_estagiarios,
+  operadorMatricula: f.operador_matricula,
+  auxiliarMatricula: f.auxiliar_matricula,
   denteRegiao: f.dente_regiao,
   procedimentoRealizado: f.procedimento_realizado,
   materiaisUtilizados: f.materiais_utilizados,
   anestesico: f.anestesico,
   alertaAlergia: f.alerta_alergia,
+  supervisorNome: f.supervisor_nome,
   parecerSupervisor: f.parecer_supervisor,
   status: f.status,
   submetidoEm: f.criado_em ? new Date(f.criado_em).toLocaleDateString('pt-BR') : 'Hoje',
 });
 
+
+const mapearDocumentoOdonto = (
+  d: ApiDocumentoFichaOdonto,
+  nomePorPaciente: Map<number, string>
+): DocumentoFichaOdonto => ({
+  id: d.id,
+  pacienteId: d.paciente_id,
+  pacienteNome: nomePorPaciente.get(d.paciente_id) || `Paciente #${d.paciente_id}`,
+  tipo: d.tipo,
+  duplaEstagiarios: d.dupla_estagiarios,
+  operadorMatricula: d.operador_matricula,
+  auxiliarMatricula: d.auxiliar_matricula,
+  status: d.status,
+  parecerSupervisor: d.parecer_supervisor,
+  supervisorNome: d.supervisor_nome,
+  versao: d.versao,
+  submetidoEm: d.submetido_em
+    ? new Date(d.submetido_em).toLocaleDateString('pt-BR')
+    : 'Hoje',
+  atualizadoEm: d.atualizado_em
+    ? new Date(d.atualizado_em).toLocaleDateString('pt-BR')
+    : 'Hoje',
+  conteudo: d.conteudo,
+});
 
 const mapearAtribuicao = (a: ApiAtribuicao): Atribuicao => ({
   id: a.id,
@@ -515,6 +611,7 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // supervisão ficava sem o que mostrar. Antes de o seed criar fichas, este
   // estado já refletia o banco.
   const [fichasOdonto, setFichasOdonto] = useState<FichaOdonto[]>([]);
+  const [documentosOdonto, setDocumentosOdonto] = useState<DocumentoFichaOdonto[]>([]);
 
   // Derivado das fichas reais, sem mock.
 const planosTratamento = useMemo(() => planosDasFichas(fichasOdonto), [fichasOdonto]);
@@ -552,13 +649,18 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
 
     setSync((prev) => ({ ...prev, estado: 'sincronizando', falhas: [] }));
 
-    // 403 em prontuarios e o comportamento esperado para o perfil de recepcao
-    // (RN-001), nao uma falha de infraestrutura. Demais rejeicoes sao registradas.
-      const [apiPacientes, apiAgendamentos, apiProntuarios, apiFichasOdonto, apiVinculos] = await Promise.allSettled([
+    // Nao chame a rota clinica da outra clinica: a RT e o supervisor agora
+    // recebem 403 nela, e isso nao e falha de sincronizacao. Recepcao tambem
+    // nao acessa dado clinico (RN-001); o 403 dela continua classificado.
+    const isPsico = user?.curso === 'psicologia';
+    const isOdonto = user?.curso === 'odontologia';
+
+    const [apiPacientes, apiAgendamentos, apiProntuarios, apiFichasOdonto, apiDocumentosOdonto, apiVinculos] = await Promise.allSettled([
       api.getPacientes(),
       api.getAgendamentos(),
-      api.getProntuariosPsico(),
-      api.getFichasOdonto(),
+      isPsico ? api.getProntuariosPsico() : Promise.resolve([]),
+      isOdonto ? api.getFichasOdonto() : Promise.resolve([]),
+      isOdonto ? api.getDocumentosOdonto() : Promise.resolve([]),
       // `/minha` é a rota do próprio aluno; os demais perfis montam o painel de
       // atribuição e precisam da clínica inteira. Chamar `/minha` para todo
       // mundo devolvia `[]` para recepção e RT — 200 com lista vazia, sem
@@ -625,6 +727,20 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
     }
 
 
+    if (apiDocumentosOdonto.status === 'fulfilled') {
+      const nomePorPaciente = new Map<number, string>(
+        (apiPacientes.status === 'fulfilled' ? apiPacientes.value : []).map((p) => [p.id, p.nome])
+      );
+      setDocumentosOdonto(
+        apiDocumentosOdonto.value.map((d) => mapearDocumentoOdonto(d, nomePorPaciente))
+      );
+    } else {
+      const msg = apiDocumentosOdonto.reason?.message ?? 'falhou';
+      if (!e403Esperado(apiDocumentosOdonto.reason, user?.perfil)) {
+        falhas.push(`fichas clínicas odonto: ${msg}`);
+      }
+    }
+
     if (apiVinculos.status === 'fulfilled') {
       setAtribuicoes(apiVinculos.value.map(mapearAtribuicao));
     } else {
@@ -642,9 +758,10 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
       falhas,
       ultimoEm: new Date().toISOString(),
     });
-  // `user?.perfil` entra porque a escolha entre `/minha` e a rota da clínica
-  // depende dele. Sem esta dependência, um logout que troque o perfil mantendo a
-  // matrícula não recarregaria os vínculos da clínica certa.
+  // `user?.perfil` decide entre `/minha` e a rota da clínica, e também se a
+  // sessão restaurada deve recarregar a lista de usuários; `user?.curso` decide
+  // quais rotas clínicas chamar. Sem a segunda, trocar de clínica manteria a
+  // chamada da clínica anterior.
   }, [isAuthenticated, matriculaAutenticada, user?.perfil, user?.curso]);
 
   // Sincroniza quando a matrícula autenticada muda (login e logout). Não cita
@@ -668,6 +785,7 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
       // `planosTratamento` é derivado de `fichasOdonto` por useMemo, então
       // limpar as fichas limpa os planos junto.
       setFichasOdonto([]);
+      setDocumentosOdonto([]);
       setAnamnesesPorPaciente({});
       localStorage.removeItem(STORAGE_PREFIX + 'pacientes');
       localStorage.removeItem(STORAGE_PREFIX + 'agendamentos');
@@ -752,6 +870,7 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
         paciente_nome: novo.pacienteNome,
         estagiario_nome: novo.estagiarioNome,
         estagiario_matricula: novo.estagiarioMatricula,
+        auxiliar_matricula: novo.auxiliarMatricula,
         curso: novo.curso,
         data_sessao: novo.dataSessao,
         horario: novo.horario,
@@ -932,12 +1051,13 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
   };
 
   const adicionarFichaOdonto = async (
-    f: Omit<FichaOdonto, 'id' | 'status' | 'submetidoEm'>
+    f: NovaFichaOdonto
   ): Promise<{ success: boolean; message: string; ficha?: FichaOdonto }> => {
     try {
       const created = await api.createFichaOdonto({
         paciente_id: f.pacienteId,
-        dupla_estagiarios: f.duplaEstagiarios,
+        operador_matricula: f.operadorMatricula,
+        auxiliar_matricula: f.auxiliarMatricula,
         dente_regiao: f.denteRegiao,
         procedimento_realizado: f.procedimentoRealizado,
         materiais_utilizados: f.materiaisUtilizados,
@@ -953,6 +1073,116 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
     } catch (err) {
       const msg = mensagemDeErro(err, 'Falha ao submeter a ficha no servidor.');
       console.error('[UniCare] submissão de ficha odonto falhou:', err);
+      return { success: false, message: msg };
+    }
+  };
+
+  const carregarDocumentoOdontoPaciente = async (
+    pacienteId: number
+  ): Promise<DocumentoFichaOdonto | null> => {
+    try {
+      const documento = await api.getDocumentoOdontoPaciente(pacienteId);
+      const nomePorPaciente = new Map(pacientes.map((p) => [p.id, p.nome]));
+      const mapeado = mapearDocumentoOdonto(documento, nomePorPaciente);
+      setDocumentosOdonto((prev) => [
+        mapeado,
+        ...prev.filter((d) => d.id !== mapeado.id),
+      ]);
+      return mapeado;
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) return null;
+      console.error('[UniCare] carga da ficha clínica odonto falhou:', err);
+      return null;
+    }
+  };
+
+  const salvarDocumentoOdonto = async (
+    dados: NovoDocumentoFichaOdonto
+  ): Promise<{ success: boolean; message: string; documento?: DocumentoFichaOdonto }> => {
+    try {
+      const criado = await api.createDocumentoOdonto({
+        paciente_id: dados.pacienteId,
+        operador_matricula: dados.operadorMatricula,
+        auxiliar_matricula: dados.auxiliarMatricula,
+        tipo: dados.tipo,
+        conteudo: dados.conteudo,
+      });
+      const mapeado = mapearDocumentoOdonto(
+        criado,
+        new Map([[criado.paciente_id, dados.pacienteNome]])
+      );
+      setDocumentosOdonto((prev) => [mapeado, ...prev.filter((d) => d.id !== mapeado.id)]);
+      return { success: true, message: 'Ficha enviada para a supervisão.', documento: mapeado };
+    } catch (err) {
+      const msg = mensagemDeErro(err, 'Falha ao enviar a ficha clínica.');
+      console.error('[UniCare] envio da ficha clínica odonto falhou:', err);
+      return { success: false, message: msg };
+    }
+  };
+
+  const reenviarDocumentoOdonto = async (
+    id: number,
+    conteudo: Record<string, unknown>
+  ): Promise<{ success: boolean; message: string; documento?: DocumentoFichaOdonto }> => {
+    try {
+      const atualizado = await api.updateDocumentoOdonto(id, conteudo);
+      const nomePorPaciente = new Map(pacientes.map((p) => [p.id, p.nome]));
+      const mapeado = mapearDocumentoOdonto(atualizado, nomePorPaciente);
+      setDocumentosOdonto((prev) =>
+        prev.map((d) => (d.id === mapeado.id ? mapeado : d))
+      );
+      return { success: true, message: 'Ficha reenviada para a supervisão.', documento: mapeado };
+    } catch (err) {
+      const msg = mensagemDeErro(err, 'Falha ao reenviar a ficha clínica.');
+      console.error('[UniCare] reenvio da ficha clínica odonto falhou:', err);
+      return { success: false, message: msg };
+    }
+  };
+
+  const homologarDocumentoOdonto = async (
+    id: number,
+    decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE',
+    parecer: string
+  ): Promise<{ success: boolean; message: string }> => {
+    const anterior = documentosOdonto.find((d) => d.id === id);
+    if (!anterior) {
+      return { success: false, message: 'Ficha clínica não está na fila.' };
+    }
+
+    setDocumentosOdonto((prev) =>
+      prev.map((d) =>
+        d.id === id ? { ...d, status: decisao, parecerSupervisor: parecer } : d
+      )
+    );
+
+    try {
+      const atualizado = await api.homologarDocumentoOdonto(id, decisao, parecer);
+      const nomePorPaciente = new Map(pacientes.map((p) => [p.id, p.nome]));
+      const mapeado = mapearDocumentoOdonto(atualizado, nomePorPaciente);
+      setDocumentosOdonto((prev) =>
+        prev.map((d) => (d.id === mapeado.id ? mapeado : d))
+      );
+      return {
+        success: true,
+        message:
+          decisao === 'VALIDADO'
+            ? 'Ficha clínica homologada com visto digital.'
+            : 'Ficha clínica devolvida para ajuste.',
+      };
+    } catch (err) {
+      setDocumentosOdonto((prev) =>
+        prev.map((d) =>
+          d.id === id
+            ? {
+                ...d,
+                status: anterior.status,
+                parecerSupervisor: anterior.parecerSupervisor,
+              }
+            : d
+        )
+      );
+      const msg = mensagemDeErro(err, 'Falha ao homologar a ficha clínica.');
+      console.error('[UniCare] homologação da ficha clínica odonto falhou:', err);
       return { success: false, message: msg };
     }
   };
@@ -1089,6 +1319,11 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
         atribuicoes,
         evolucoesPsico,
         fichasOdonto,
+        documentosOdonto,
+        carregarDocumentoOdontoPaciente,
+        salvarDocumentoOdonto,
+        reenviarDocumentoOdonto,
+        homologarDocumentoOdonto,
         anamnesesPorPaciente,
         registrarAnamnese,
         carregarAnamneses,

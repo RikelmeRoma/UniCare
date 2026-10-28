@@ -84,7 +84,8 @@ export function PsyAppointmentsPage() {
       agendamentos.filter(
         (a) =>
           a.curso === 'psicologia' &&
-          a.estagiarioMatricula === user?.matricula
+          (a.estagiarioMatricula === user?.matricula ||
+            a.auxiliarMatricula === user?.matricula)
       ),
     [agendamentos, user?.matricula]
   );
@@ -138,12 +139,15 @@ export function PsyAppointmentsPage() {
     [atribuicoes]
   );
 
+  const ehAuxiliarNoGrupo = (grupo: Grupo) =>
+    grupo.sessoes.some((s) => s.auxiliarMatricula === user?.matricula);
+
   const mostrarLista = !carregando && !agendamentosFalharam;
 
   return (
     <AppLayout
       title="Meus Agendamentos"
-      info="Sessões que a recepção do Serviço de Psicologia Aplicada atribuiu a você. O registro clínico da sessão é feito no prontuário."
+      info="Sessões que a recepção do Serviço de Psicologia Aplicada atribuiu a você ou em que você atua como auxiliar. O registro clínico da sessão é feito no prontuário do responsável."
       badge="Agenda do Estagiário"
       badgeType="blue"
       actions={
@@ -164,7 +168,7 @@ export function PsyAppointmentsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Sessões atribuídas a você
+                Sessões na sua agenda
               </p>
               <p className="text-2xl font-bold text-slate-900 mt-1">{total}</p>
             </div>
@@ -209,11 +213,12 @@ export function PsyAppointmentsPage() {
           <div className="bg-white p-10 rounded-2xl border border-slate-200/80 shadow-xs text-center">
             <CalendarIcon className="w-10 h-10 mx-auto text-slate-300" />
             <h2 className="text-sm font-bold text-slate-800 mt-3">
-              Nenhuma sessão atribuída a você no momento
+              Nenhuma sessão na sua agenda no momento
             </h2>
             <p className="text-xs text-slate-500 mt-1.5 leading-relaxed max-w-md mx-auto">
               A recepção do SPA é quem monta a agenda. Assim que uma sessão for
-              atribuída a você, ela aparece nesta tela.
+              atribuída a você — como responsável ou auxiliar —, ela aparece
+              nesta tela.
             </p>
           </div>
         )}
@@ -256,6 +261,11 @@ export function PsyAppointmentsPage() {
                     Abrir prontuário
                     <ChevronRightIcon className="w-3.5 h-3.5" />
                   </button>
+                ) : ehAuxiliarNoGrupo(grupo) ? (
+                  <p className="self-start sm:self-auto text-[11px] text-blue-800 bg-blue-50 border border-blue-200 rounded-xl px-3 py-2 leading-relaxed max-w-xs">
+                    Você participa desta sessão como auxiliar. O prontuário
+                    continua com o estagiário responsável.
+                  </p>
                 ) : (
                   <p
                     className="self-start sm:self-auto text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 leading-relaxed max-w-xs"
@@ -294,6 +304,13 @@ export function PsyAppointmentsPage() {
                         <MapPinIcon className="w-3.5 h-3.5 text-slate-400" />
                         {s.salaOuCadeira}
                         {s.tipoConsulta ? ` · ${s.tipoConsulta}` : ''}
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        {s.auxiliarMatricula ? 'Dupla' : 'Responsável'}:{' '}
+                        {s.estagiarioNome}
+                        {s.auxiliarMatricula
+                          ? ` · Resp. ${s.estagiarioMatricula} · Aux. ${s.auxiliarMatricula}`
+                          : ` · Matrícula ${s.estagiarioMatricula}`}
                       </p>
                       </div>
                       <StatusBadge status={s.status} />

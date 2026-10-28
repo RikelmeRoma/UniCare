@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 from datetime import date
 from typing import Optional
 from app.models.agendamento import StatusAgendamento
@@ -7,7 +7,10 @@ class AgendamentoCreate(BaseModel):
     paciente_id: int
     paciente_nome: str
     estagiario_nome: str
+    # Nas duas clinicas esta matricula e a do responsavel/operador da dupla; o
+    # segundo estagiario vai em `auxiliar_matricula`.
     estagiario_matricula: str
+    auxiliar_matricula: Optional[str] = None
     curso: str
     # Obrigatoria: sessao sem dia nao existe, e quem atende precisa saber
     # quando. O banco aceita nulo so para as linhas anteriores a coluna.
@@ -17,6 +20,37 @@ class AgendamentoCreate(BaseModel):
     sala_ou_cadeira: str
     tipo_consulta: str
     observacao_logistica: Optional[str] = None
+
+    @field_validator("estagiario_matricula")
+    @classmethod
+    def normalizar_estagiario(cls, v: str) -> str:
+        texto = v.strip().upper()
+        if not texto:
+            raise ValueError(
+                "Informe a matricula do estagiario responsavel/operador."
+            )
+        return texto
+
+    @field_validator("auxiliar_matricula")
+    @classmethod
+    def normalizar_auxiliar(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        texto = v.strip().upper()
+        return texto or None
+
+    @model_validator(mode="after")
+    def validar_dupla_de_estagiarios(self):
+        if not self.auxiliar_matricula:
+            raise ValueError(
+                "Toda sessao e atendida em dupla: informe a matricula do "
+                "estagiario auxiliar."
+            )
+        if self.auxiliar_matricula == self.estagiario_matricula:
+            raise ValueError(
+                "Os dois estagiarios da dupla precisam ser diferentes."
+            )
+        return self
 
 class AgendamentoUpdateStatus(BaseModel):
     status: StatusAgendamento
@@ -31,6 +65,7 @@ class AgendamentoRead(BaseModel):
     paciente_nome: str
     estagiario_nome: str
     estagiario_matricula: str
+    auxiliar_matricula: Optional[str] = None
     curso: str
     # Opcional na leitura porque as linhas antigas ficam sem dia. A tela mostra
     # "data nao registrada" em vez de inventar uma.

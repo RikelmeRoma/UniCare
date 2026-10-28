@@ -1,5 +1,54 @@
 # STATUS — UniCare
 
+## Atualização — 2026-10-28 (merge das linhas de psicologia e odontologia)
+
+**A branch `teste` une `rikelme` (psicologia) e `origin/augusto` (odontologia) num
+merge único (`--no-ff`), sem rebase nem cherry-pick.** A `rikelme` foi a base
+porque é a linha mais avançada; `main` ficou de fora por ter histórico próprio
+(merge com o protótipo em `a08d99b`).
+
+- **Banco:** as duas linhas tinham cabeças Alembic distintas (`e9750b3073ed` na
+  psicologia, `a3955e2873a6` na odontologia). A revisão de merge
+  `525d8633fd0e` une as duas; `alembic upgrade head` aplica as cinco migrações
+  de odontologia e depois o merge. `alembic check` limpo.
+- **Conflitos resolvidos à mão** (12 arquivos): `agendamentos`, `usuarios`,
+  `solicitacoes`, `schemas/agendamento`, `test_compliance`, `AuthContext`,
+  `ClinicContext`, `AppSidebar`, `PsyAppointmentsPage`, `RTStatsDashboard`,
+  `STATUS.md` e `RELATORIO_CONSOLIDADO_PROJETO.md`.
+- **Regra de resolução:** preservar o comportamento testado da psicologia e
+  incorporar as correções da odontologia. Onde as duas linhas divergiram por
+  decisão de produto, ficou o lado da psicologia e o ponto está sinalizado
+  abaixo.
+- **`agendamentos.py`:** o guard do RF-005 (supervisor só mexe em dupla
+  vinculada) vem **antes** da validação de `motivo_falta`, para um 403 de
+  alçada não virar 422 de conteúdo.
+- **`usuarios.py`:** estrutura da psicologia (coordenação, `_pode_gerenciar`,
+  `autorizado_gestao`) mais o `validar_curso_solicitado` da odontologia.
+- **`test_compliance.py`:** mantido o dublê `_EnvioAprovacao` da psicologia —
+  é dele que os testes leem a senha gerada no servidor. O helper
+  `_instalar_envio_falso` da odontologia continua no arquivo, patchando `auth`
+  **e** `solicitacoes`.
+- **`RTStatsDashboard.tsx`:** união das duas famílias de impressão —
+  `report/` (`RelatorioExecutivo`, `DossieCustodia`, portal A4) e `print/`
+  (`IndicadoresPrint`, `DossiePacientePrint`, `createPortal`). O comparativo de
+  módulos clínicos passou a mostrar **só** o card da clínica do painel.
+- **Correção de dado:** o dossiê de custódia recebia `planosTratamento` inteiro
+  (procedimentos de todos os pacientes) num PDF de guarda legal. Passou a
+  receber `planosDoPaciente`.
+- **Verificado:** `pytest` **135 passed**, 1 deselected; `npm run build` verde;
+  `npm run lint` com os mesmos 7 problemas preexistentes das duas linhas;
+  `alembic check` limpo; head `525d8633fd0e`.
+
+**Pendências de produto que o merge não decidiu:**
+
+- Há **dois botões de dossiê** no Termo de Guarda (o completo, que busca ficha
+  odontológica, anamnese e radiografias na API, e o de custódia A4 montado a
+  partir dos dados já carregados). Consolidar é decisão de quem usa.
+- O **seletor de visão da RT** (`rtCourseView`) foi removido de propósito na
+  odontologia e restaurado aqui pelo lado da psicologia. Se a remoção era
+  intencional, a psicologia perde a navegação entre clínicas — decidir antes de
+  promover a `teste`.
+
 ## Atualização — 2026-10-24 (incidente de credenciais e e-mail externo no cadastro)
 
 **O `backend/.env` estava versionado num repositório público.** O commit `37f0a38`
@@ -152,6 +201,126 @@ verde; `npm run lint` com os 12 problemas preexistentes (11 erros, 1 warning);
   `npm run lint` com os 12 problemas preexistentes; `alembic check` limpo; head
   `fed886164882`.
 
+## Atualização - 2026-10-28 (exames de imagem, dossiê e indicadores RT)
+
+**O prontuário odontológico passou a persistir exames de imagem e a RT passou a
+emitir dois PDFs próprios.** A recepção de odontologia não oferece mais
+"Clínicas Integradas (Ambos)"; a recepção de psicologia continua oferecendo.
+
+- **Radiografias:** tabela `radiografias_odonto` (migração `a3955e2873a6`), com
+  `GET/POST/DELETE /prontuarios/odonto/radiografias`. O exame é gravado assim que
+  a dupla clica em "Gravar Exame", com data URL (imagem/PDF), limite de 5 MB na
+  tela e status `REGISTRADO`; não há homologação de imagem. Listagem e remoção
+  são escopadas pela dupla/supervisão, e o registro entra na trilha de auditoria.
+- **Persistência completa:** o documento odontológico testado agora inclui
+  anamnese, odontograma, periograma e índices gengivais. A aba de imagens fica
+  fora do documento versionado e é carregada à parte.
+- **Dossiê da RT:** o botão "Exportar Dossiê do Paciente em PDF" aparece nas duas
+  clínicas e filtra procedimentos pelo paciente selecionado. Em odontologia ele
+  busca o documento completo e as radiografias antes de abrir a impressão; se a
+  busca falhar, não imprime dossiê parcial. Psicologia imprime as evoluções.
+- **Indicadores da RT:** "Exportar Indicadores em PDF" usa os mesmos dados da
+  tela, sem fallback numérico inventado. O antigo "Imprimir Relatório" foi
+  removido. Os dois PDFs usam `window.print()` e CSS `#rt-print`.
+- **Testes:** 2 novos casos de radiografia e round-trip das quatro abas do
+  documento.
+
+**Verificação:** `pytest -q` → **116 passed, 1 deselected**; `alembic check`
+limpo; `npm run build` verde; lint mantém os **8 problemas preexistentes**. A
+impressão visual dos PDFs ainda deve ser conferida no navegador.
+
+## Atualização - 2026-10-28 (ficha odontológica: dupla real e PDF)
+
+**A ficha odontológica passou a referenciar a dupla do próprio estagiário e a
+ser exportável em PDF pelo navegador.** O exame de imagem não aceita mais texto
+livre como responsável, e o campo "Dente ou Região Anatômica" foi removido.
+
+- **API:** `GET /duplas-odonto/minha` devolve a dupla ativa do estagiário ou
+  `null`; supervisor e RT recebem 403. A RT é recusada explicitamente porque
+  `exigir_perfil` a libera por salvaguarda institucional.
+- **Exame de imagem:** modalidade virou texto livre; a dupla responsável é um
+  select preenchido pela dupla real do aluno; sem dupla ativa o envio fica
+  bloqueado com orientação para procurar a supervisão.
+- **PDF:** botão "Exportar PDF" usa `window.print()` com uma versão de
+  impressão dedicada (adulto e infantil). O documento inclui anamnese, alertas,
+  exame clínico, odontograma/periograma, plano, evolução e exames
+  complementares; imagens e diagnóstico radiográfico ficam fora.
+
+**Verificação:** `pytest -q` → **114 passed, 1 deselected**; `alembic check`
+limpo; `npm run build` verde; lint mantém os **8 problemas preexistentes**.
+
+## Atualização - 2026-10-28 (RT escopada por curso)
+
+**A Referência Técnica deixou de ser global.** `RT-001` responde só pela
+odontologia e `RT-002` só pela psicologia, no frontend e no backend. O que era
+"visão global" virou 403 de clínica alheia.
+
+- **Backend:** `cursos_visiveis(RT)` devolve `[curso, "ambos"]`, e `require_curso`
+  não tem mais bypass para RT. `validar_curso_solicitado` recusa com 403 o
+  `?curso=` de outra clínica e com 400 um curso que não seja psico/odonto.
+  Pacientes, agendamentos, relatórios, auditoria, fila de solicitações, usuários
+  e duplas odontológicas passaram a usar esse recorte. Paciente `ambos` continua
+  visível nas duas clínicas; some apenas da ficha odontológica, que exige
+  `curso='odontologia'`.
+- **Escrita por id:** `PATCH`/`DELETE /usuarios/{id}` e aprovação de solicitação
+  conferem o curso do registro, não só a listagem. A RT não edita, desativa ou
+  aprova conta de outra clínica.
+- **Frontend:** `ProtectedRoute` aplica `allowedCourses` também à RT; o sidebar
+  perdeu o seletor Global/Psico/Odonto e mostra só o módulo do curso; o painel da
+  RT não tem mais "Visão global" e exibe apenas os indicadores da própria
+  clínica; `createUser` não envia `curso`, e o modal não oferece clínica.
+- **Testes:** os casos de "RT global" foram reescritos para a matriz RT-001 /
+  RT-002, com 403 cruzado em leitura, auditoria, fila, aprovação e escrita.
+
+**Verificação:** `pytest -q` → **113 passed, 1 deselected**; `alembic check` limpo;
+`npm run build` verde; lint mantém os **8 problemas preexistentes**.
+
+## Atualização - 2026-10-27 (duplas odontológicas persistidas)
+
+**A supervisão de odontologia parou de criar conta para montar dupla.** O botão
+"Cadastrar Estagiário" virou **"Vincular Aluno"**: o supervisor escolhe um
+estagiário de odontologia já cadastrado pela RT e ainda sem supervisor. Nome,
+matrícula, e-mail, senha e "Cadeira / Dupla" saíram do modal.
+
+- **Tabela `duplas_odonto`** (`app/models/dupla.py`), migração `68603f2ce70a`.
+  Guarda operador, auxiliar, supervisor, autoria e desativação lógica.
+  **Um aluno só pode estar em uma dupla ativa**, garantido no serviço e coberto
+  por teste; desfazer a dupla libera os dois para outra.
+- **API `/duplas-odonto`** (`app/routers/duplas.py`): supervisor monta e enxerga
+  só as próprias duplas; RT enxerga todas e pode encerrar, mas não monta em nome
+  de outro supervisor. Estagiário e recepção recebem RN-001.
+- **Integridade no cadastro de usuário.** `PATCH /usuarios/{id}` e
+  `DELETE /usuarios/{id}` encerram as duplas afetadas quando o aluno muda de
+  matrícula/supervisor ou é desativado, e quando o supervisor é desativado.
+  `GET /usuarios/estagiarios/disponiveis` passou a aceitar `?curso=` para a RT;
+  a supervisão de psicologia pede `psicologia` explicitamente.
+- **Frontend:** `ClinicalPairs` lê as duplas persistidas, mostra contadores a
+  partir de `documentosOdonto`, tem **Vincular Aluno** e **Montar Dupla**, e
+  desfaz a dupla sem apagar histórico. O select de dupla usa apenas alunos
+  vinculados ao supervisor e sem dupla ativa.
+- **Seed:** Augusto (`16024402`) + Gabriela (`16024404`) entram como dupla ativa
+  de demonstração sob `DOC-9122`.
+- **Verificado:** `pytest` **114 passed** (4 novos de duplas/filtro de curso);
+  `alembic check` limpo; head `68603f2ce70a`; `npm run build` verde; lint sem
+  erro novo em `ClinicalPairs`/`api.ts`.
+
+```
+npm run lint     → 8 problemas preexistentes (7 erros + 1 warning);
+                    nenhum introduzido pelas duplas/ficha odontológica
+```
+
+### ⚠️ Correção em 2026-10-23: o envio de e-mail parou
+
+A credencial do Gmail que este bloco descreve **não autentica mais**. Teste ao
+vivo contra `smtp.gmail.com` nas portas **587 e 465** termina em
+`SMTPServerDisconnected — Connection unexpectedly closed` logo depois do
+STARTTLS/SSL; o `docker inspect` confirma que as `MAIL_*` chegam ao container,
+então não é variável faltando nem porta errada. É o Google recusando o segredo.
+Para voltar: gerar uma senha de app nova (com verificação em duas etapas ativa
+na conta) e atualizar `MAIL_PASSWORD`. Enquanto isso, aprovar solicitação de
+cadastro responde **503** e não cria a conta — que é o comportamento correto,
+não um bug da rota.
+
 ### ✉️ E-mail do Bloco 14 — o envio real passou
 
 O código da recuperação já existia e estava coberto por 11 testes com dublê. O
@@ -245,7 +414,261 @@ trilha com `RECUPERACAO_SOLICITADA` e IP real.
 - O 403 da **recepção em `/psi/prontuario` continua correto** e é o esperado: a
   rota libera `estagiario`, `supervisor` e `rt`, e a RN-001 é normativa, com teste
   affirmando o 403. O módulo da recepção é a agenda e a triagem, não o prontuário.
-```
+
+## Atualização — 2026-10-27 (documento completo da ficha odontológica)
+
+**A ficha clínica odontológica inteira passou a ser persistida no servidor**, não
+só o procedimento isolado. `FichaOdonto` continua existindo por procedimento; o
+novo `DocumentoFichaOdonto` guarda anamnese, odontograma, periograma e índices em
+JSON, com versão, parecer e carimbo do supervisor.
+
+- **Fluxo:** `POST /prontuarios/odonto/documentos` cria em `AGUARDANDO_VALIDACAO`;
+  `PATCH /{id}` só reabre documento `EM_ELABORACAO`/`DEVOLVIDO_PARA_AJUSTE` e o
+  devolve para a fila com `versao += 1`; `PATCH /{id}/homologar` só aceita
+  `AGUARDANDO_VALIDACAO`. A autoria vem do token, e só a dupla do documento
+  cria/edita.
+- **Visibilidade:** supervisor vê e homologa apenas documentos de duplas
+  vinculadas a ele (`_matriculas_supervisionadas`); dupla alheia recebe 403. A RT
+  homologa na própria clínica (escopo revisto em 2026-10-28).
+- **Escopo da RT (atualizado em 2026-10-28):** `cursos_visiveis`/`require_curso`
+  mantêm a RT na própria clínica; cadastro de usuário, fila de solicitações,
+  relatórios e auditoria não aceitam mais a clínica alheia. A RT opera a recepção
+  e a supervisão odontológica da própria clínica.
+- **Frontend:** `DocumentoFichaBar` envia/reenvia a ficha, `DentalRecordPage`
+  hidrata o documento do paciente e `ApprovalQueue` homologa/devolve o documento
+  completo. A leitura do supervisor/RT bloqueia edição.
+- **Limpeza:** removidos os componentes legados sem uso (`AnamneseCliFor45Tab`,
+  `AnamneseInfantilTab`, `DentalEvolutionTab`, `TreatmentPlanTab`,
+  `DentalAlertsTab`, `AfericaoSessaoModal`, `EvolucaoFolhaModal`) e os textos
+  visíveis de rascunho local/sessionStorage/CLI-FOR-45.
+- **Migração:** `7276903013a1` (head), com `statusprontuario` reaproveitado via
+  `postgresql.ENUM(..., create_type=False)`.
+
+**Verificação:** `pytest -q` → **110 passed, 1 deselected** (inclui fluxo completo
+do documento e bloqueio de dupla alheia); `alembic check` limpo; `npm run build`
+verde.
+
+## Atualização — 2026-10-25 (agenda em dupla nas duas clínicas)
+
+**As duas clínicas passaram a ter a sessão pertencendo à dupla — não só ao
+responsável/operador.** Antes, o segundo aluno assinava o atendimento e não
+encontrava a sessão na própria agenda; o supervisor também não conseguia separar
+as duplas dos alunos dele.
+
+- **`agendamentos.auxiliar_matricula`** (nullable, indexada) guarda o segundo
+  estagiário. `estagiario_matricula` continua sendo o responsável/operador, e
+  `estagiario_nome` é montado pelo servidor com os dois cadastros. A migração é
+  `c2ba82f344bd` e serve às duas clínicas; sessões antigas ficam com auxiliar
+  nulo, porque o texto livre não permite inferir a dupla.
+- **Schema e servidor:** `AgendamentoCreate` exige dois estagiários distintos nas
+  duas clínicas. O `POST /agendamentos` resolve ambos contra o cadastro (nome do
+  corpo não é gravado) e, na psicologia, mantém o vínculo do paciente com o
+  responsável — o auxiliar participa da sessão, não do prontuário.
+- **Escopo no servidor:** estagiário filtra por responsável/operador **ou**
+  auxiliar; supervisor filtra pelas matrículas dos estagiários ativos vinculados
+  a ele; RT e recepção mantêm o recorte da clínica. O filtro do navegador é
+  segunda barreira, não a única.
+- **Seed:** Gabriela Prado (`16024404`, odontologia, supervisora `DOC-9122`) foi
+  acrescentada, e os agendamentos/fichas odontológicas de demonstração usam
+  Augusto (`16024402`) + Gabriela. Na psicologia, as sessões de demonstração usam
+  Rikelme (`16032935`) + Letícia (`16051234`). **Banco já semeado não ganha os
+  pares novos** — o seed é idempotente por tabela; para ver a dupla completa na
+  demonstração, é preciso reseed/truncar as tabelas ou cadastrar os alunos pela
+  RT.
+- **Frontend:** `/odonto/agendamentos` e `/psi/agendamentos` agrupam por paciente,
+  com pendentes primeiro. O modal da recepção carrega os estagiários da clínica e
+  exige dois selects distintos nas duas clínicas; a tabela mostra `Op.` e `Aux.`,
+  e a tela de psicologia inclui sessões em que o aluno é auxiliar.
+- **Testes:** 108 passed, 1 deselected; `alembic check` limpo; head
+  `c2ba82f344bd`; `npm run build` verde; `npm run lint` mantém os 12 problemas
+  preexistentes (11 erros, 1 warning), nenhum nos arquivos novos. Dois testes de
+  recuperação de senha restauram a senha do seed no `finally` — era vazamento de
+  estado que derrubava qualquer teste posterior que logasse com `16024402`.
+
+## Atualização — 2026-10-23 (CLI-FOR-45 na ficha odontológica, só frontend)
+
+**A aba "Anamnese" (formulário CLI-FOR-45) passou a ser a primeira da `/ficha-odonto`.**
+O formulário reproduz o instrumento físico em 13 seções: **Página 1** (identificação,
+história médica, história odontológica, hábitos, declaração), **Página 2** (exame
+físico, extrabucal, estomatograma, periodonto) e **Páginas 3–4**
+(exames complementares, tratamento programado, termo de autorização, folha de
+evolução). Nesta fase **não grava no servidor**: o rascunho fica em `sessionStorage`
+por paciente (`versao: 2`) e pode ser exportado em JSON. A aba antiga de
+odontograma/periograma só mudou de chave interna (`'anamnese'` → `'odontograma'`);
+o conteúdo dela está intacto.
+
+- **Exame clínico dos dentes ficou só no odontograma.** A tabela dente × descrição
+  e a legenda de siglas foram removidas da CLI-FOR-45 para não duplicar a aba
+  **Odontograma 2D & Periograma**, que já cobre o mapeamento e tem legenda própria.
+  A barra fixa de atalhos ("Página 1/2/3–4") também foi retirada.
+- **ISG e Índice de Placa foram para a aba do odontograma.** Ficam num cartão
+  próprio abaixo do periograma, junto do que é interativo. O rascunho usa a chave
+  `unicare:indices-gengivais:<pacienteId>` e, na primeira carga, migra as marcações
+  que estavam em `exameFisico.indices` do rascunho antigo da anamnese. O autosave
+  da anamnese deixou de regravar o rascunho no mount, para não apagar esses dados
+  antes da migração.
+
+- **Exame Físico com linhas dinâmicas.** A tabela de aferições (PA, FC, FR, T, Dia)
+  começa com uma linha e permite adicionar/remover, como a Folha de Evolução; sem
+  linhas, exibe um estado vazio com o botão de adicionar. Rascunhos antigos abrem
+  com as linhas extras em branco do fim aparadas.
+- **Tratamento Programado com linhas dinâmicas.** Os campos de planejamento
+  começam com uma linha e permitem adicionar/remover; sem linhas, exibem um estado
+  vazio com o botão de adicionar. O mesmo ajuste de linhas vazias do fim vale para
+  rascunhos antigos.
+- **Plano de Tratamento é espelho somente leitura do Tratamento Programado.** A aba
+  não cria nem edita procedimentos: lê `exameDental.planejamento` do rascunho da
+  CLI-FOR-45 e mostra os mesmos campos `Planejamento N`, omitindo linhas vazias e
+  preservando a numeração original. Adicionar/editar só na Anamnese; sem rascunho
+  ou sem linhas preenchidas, exibe o caminho para a seção. A tabela hierárquica e o
+  botão `Adicionar Procedimento` foram removidos; os itens derivados das fichas do
+  servidor continuam disponíveis para o painel da RT, mas não aparecem mais aqui.
+- **Referência anatômica no estomatograma.** A seção Intrabucal exibe a imagem
+  `/estomatograma.png` ao lado dos campos, com link para abrir em tamanho real. A
+  numeração dos chips é a referência de preenchimento; a imagem é ilustrativa.
+  Enquanto o arquivo não existir em `public/estomatograma.png`, um aviso no lugar
+  da imagem informa onde salvá-lo.
+- **Por que `sessionStorage` e não `localStorage`:** a ficha contém HIV, sífilis,
+  gestação e medicações. O rascunho morre com a aba do navegador, e o botão
+  **Limpar** apaga sem deixar cópia. Rascunhos da versão anterior são descartados
+  ao carregar.
+- **ISG e Índice de Placa na mesma grade.** 16 colunas × 4 linhas
+  (`18…11 | 21…28` e `48…41 | 31…38`). Cada dente é um `<svg>` com quatro faces;
+  marcar pinta de `#dc2626`, clicar no número marca o dente como ausente e limpa
+  as faces. Os dentes ausentes são **compartilhados** pelos dois índices, mas as
+  faces marcadas são independentes. A conta e o percentual são automáticos e
+  somente leitura: `faces marcadas / faces presentes × 100`, com
+  `faces presentes = 128 − 4 × dentes ausentes`; denominador zero mostra `—`.
+- **Nada de valor fixo em tela.** Nome, CPF, nascimento, idade e telefone vêm do
+  `Paciente` do `ClinicContext`; RG, endereço, CEP, UF, naturalidade e trabalho
+  ficam em branco porque não existem no cadastro — não foram inventados.
+- **Assinaturas são campos de texto** (paciente, discente e professor, com carimbo),
+  para que o conteúdo entre no JSON exportado. A folha de evolução começa com
+  uma linha e permite adicionar/remover.
+- **A aba Evolução Clínica Diária agora é a Folha de Evolução.** As fichas PDR-05
+  deixaram de ser listadas e criadas nessa aba; o histórico vem de
+  `exameDental.evolucao` do rascunho da CLI-FOR-45, com selo "Rascunho local".
+  **Nova Evolução** abre um modal (data, intervenção e assinatura do docente) que
+  acrescenta a linha ao rascunho; a linha também aparece na Folha da anamnese.
+  Nada vai ao servidor, o histórico some ao fechar a aba e excluir a linha remove
+  o registro da visualização.
+- **Convívio com o que já existe.** As aferições de sinais vitais agora ficam no
+  rascunho local da CLI-FOR-45 e aparecem na Página 2 e na aba Alertas Clínicos &
+  Alergias. O botão `Atualizar anamnese`, na aba de Alertas, continua gravando
+  alergias, condições crônicas e medicações no Postgres. As fichas PDR-05 existentes
+  continuam no backend e nas telas de supervisão/homologação, mas a criação saiu da
+  aba de evolução; novas evoluções da Folha não chegam à supervisão até a integração
+  de backend.
+- **Sinais Vitais da Sessão espelha a Página 2.** O card lê a última linha de
+  `exameFisico.afericoes` do rascunho local. A aba Alertas tem um modal próprio
+  (PA, FC, FR, T e Dia) que grava na mesma lista; a Página 2 continua editando e
+  adicionando linhas. Como as abas são exclusivas, cada uma recarrega o rascunho ao
+  montar. O modal antigo do Postgres virou `Atualizar anamnese` e cuida só de
+  alergias, condições crônicas e medicações.
+- **Arquivos novos:** `src/features/dental-record/anamnese/` (`tipos.ts`,
+  `estado.ts`, `estilos.ts`, `FormularioBase.tsx`,
+  `Pagina1IdentificacaoHistoria.tsx`, `Pagina2ExameFisico.tsx`,
+  `Pagina3DentesPlano.tsx`, `AnamneseCliFor45Tab.tsx`),
+  `src/features/dental-record/components/EvolucaoFolhaModal.tsx`,
+  `AfericaoSessaoModal.tsx`, `DentalAlertsTab.tsx` e
+  `src/features/dental-record/indices/` (`tipos.ts`, `estado.ts`,
+  `IndiceGengival.tsx`, `IndicesGengivaisCard.tsx`).
+- **Acento visual do módulo odontológico é `slate-900`.** Abas ativas, ícones,
+  badges, foco de campos, botões primários e barras estruturais usam `slate-900`.
+  Vermelho/rose fica reservado a erro, alerta e ação destrutiva (lixeiras, limpar
+  marcações e confirmação de limpeza); verde, a sucesso e status. Sidebar, login,
+  cabeçalho global e badge "Supervisão Clínica CFO" continuam fora do escopo.
+- **O bloco de Alertas Clínicos & Alergias virou aba própria.** O conteúdo que
+  ficava na coluna esquerda do Odontograma (alertas, sinais vitais e diretriz CFO)
+  saiu de lá e ganhou a aba **Alertas Clínicos & Alergias**, logo após a Anamnese.
+  O Odontograma passou a usar a largura total para odontograma, periograma e
+  índices. O botão "Registrar aferição" abre o modal local que grava na Página 2.
+- **Pendente:** model/tabela e rotas para persistir a ficha e as evoluções da
+  Folha; enquanto isso o botão de exportação é o único caminho para tirar os dados
+  do navegador, e a supervisão não recebe as linhas locais.
+
+## Atualização — 2026-10-25 (ficha odontológica por domínio)
+
+**A ficha odontológica passou a ser organizada por domínio, com tipo automático
+por idade.** O seletor manual Adulto/Criança foi removido: `paciente.ehMenor`
+decide entre o workspace adulto e o infantil. As abas agora são **Anamnese,
+Alertas, Exame Clínico, Plano, Evolução e Exames**.
+
+- **Rascunho único por paciente.** `useDraft` centraliza carregamento, autosave,
+  salvar, exportar e limpar. As chaves antigas foram preservadas
+  (`unicare:anamnese-cli45:<pacienteId>`, versão 2, e
+  `unicare:anamnese-infantil:<pacienteId>`, versão 1), assim como as versões dos
+  dados. Trocar de aba não perde o estado em edição.
+- **Distribuição dos campos:**
+  - **Anamnese:** adulto = Página 1; infantil = Páginas 1 e 2 + diário alimentar
+    + termo de veracidade.
+  - **Exame Clínico:** adulto = Página 2 + Odontograma 2D + Periograma + ISG/IP +
+    termo de autorização; infantil = Página 3 + IP/IS + odontograma infantil
+    dinâmico, sem periograma.
+  - **Plano:** tratamento programado adulto; plano segundo KERR infantil.
+  - **Evolução:** folha de evolução adulta; evolução por sessão infantil.
+  - **Exames:** exames complementares + radiografias adultas; diagnóstico
+    radiográfico + radiografias infantis.
+  - **Alertas:** adulto usa as aferições do rascunho e os alertas do backend;
+    infantil usa alergias, medicação, doenças e hospitalização, sem sinais vitais.
+- **Cabeçalho global e abas estáveis.** `AnamneseHeader` vive no workspace, com
+  Salvar/Exportar/Limpar globais; o botão **Ocultar/Mostrar** só aparece na
+  Anamnese. `ClinicalTabNav` e `ClinicalChartCard` unificam o padrão visual.
+- **Componentes globais intactos.** `OdontogramaViewer` e `PeriogramaViewer` não
+  foram alterados; o cartão visual é apenas invólucro.
+- **Odontograma infantil acompanha a dentição.** A base tem 20 decíduos; a
+  exibição muda para 52 dentes na dentição mista e 32 na permanente. O visual
+  segue o padrão adulto (5 faces, numeração FDI e ausência com X), mas mantém as
+  condições infantis **azul/preto/vermelho**. Clicar na mesma face remove a
+  marcação; “Limpar tudo” age só nos dentes visíveis, e marcações de dentições
+  ocultas são preservadas. O
+  `MapaHigieneInfantil` continua fixo em 20 decíduos e 4 faces, agora com a
+  grade alinhada às caixas.
+- **Sem dados fictícios no topo.** `PatientHeader` não usa mais nome, CPF,
+  protocolo ou ASA inventados; mostra `—` quando falta o dado.
+- **Telas antigas preservadas.** `AnamneseCliFor45Tab` e `AnamneseInfantilTab`
+  continuam no repositório, mas a rota usa os novos workspaces.
+- **Validação:** `npm run build` verde; ESLint direcionado sem saída; `npm run
+  lint` mantém os 12 problemas preexistentes (11 erros, 1 warning). Teste manual
+  adulto/criança e das três dentições ainda pendente.
+- **Pendente:** persistência no backend, impressão/PDF e validação manual com um
+  paciente menor real.
+
+## Atualização — 2026-10-23 (paridade da odontologia)
+
+**A ficha odontológica passou a ter o que o prontuário psicológico já tinha.**
+O item 9 das pendências de paridade estava aberto desde o Bloco 8.
+
+- **Autoria da dupla por matrícula.** `POST /prontuarios/odonto` não aceita mais
+  `dupla_estagiarios` como texto: recebe `operador_matricula` e
+  `auxiliar_matricula`, resolve os dois cadastros (`estagiario`, `ativo`,
+  `odontologia`) e monta o texto da dupla com os nomes reais. Antes o nome era
+  digitado e podia gravar uma pessoa com a matrícula de outra — o mesmo defeito
+  que o modal de agendamento tinha. Matrícula inexistente, de outra clínica,
+  inativa ou de perfil diferente dá 422; operador e auxiliar iguais também.
+- **Segregação na listagem.** `GET /prontuarios/odonto` filtra para o estagiário
+  as fichas em que ele é operador **ou** auxiliar. As duas matrículas ficam na
+  ficha justamente porque o atendimento é em dupla (PDR-05): filtrar só por quem
+  submeteu esconderia do parceiro o registro que ele assinou junto. Supervisor e
+  RT continuam vendo a clínica.
+- **Validação de conteúdo no servidor.** `dente_regiao`,
+  `procedimento_realizado` e `materiais_utilizados` em branco dão 422. A regra
+  não é copiada da psicologia: quotes literais são RN-002/CFP e não se aplicam
+  ao registro odontológico.
+- **Carimbo de autoria docente.** `fichas_odonto.supervisor_nome` é gravado na
+  homologação a partir do token, como em `prontuarios_psico`. Antes o nome de
+  quem deu o visto só existia na trilha de auditoria.
+- **Migração `a1d5e8f3c207`** (revises `c69c627004f8`): três colunas nullable.
+  Fichas anteriores não têm como inferir autoria a partir do texto livre, então
+  ficam sem matrícula e sem carimbo — não há backfill inventado.
+- **Seed:** o então único estagiário de odontologia do seed (`16024402`) vira operador
+  das fichas de demonstração e `supervisor_nome` é preenchido na ficha validada.
+  `auxiliar_matricula` ficou nula nesta etapa: não existia segundo aluno de
+  odontologia no seed. A atualização de 2026-10-25 acrescentou Gabriela
+  (`16024404`) e passou a preencher a dupla também nas fichas de demonstração.
+- **Relatório emendado** nos três lugares que descrevem `FICHAS_ODONTO` (bloco
+  de schema, diagrama e lista compacta).
+
 ## Atualização — 2026-10-18 (commit 5faea90)
 
 **Agenda de psicologia ganhou data, estagiário no modal e tela do aluno.**
@@ -365,9 +788,11 @@ conta o que mudou.
    de 4 itens que entra no parecer e bloqueia a decisão; psicologia homologa com
    texto livre. **Não implementado de propósito:** redigir os itens exigiria
    inventar conteúdo normativo do CFP, que não está em nenhuma fonte do projeto.
-9. **Levar de volta para odontologia** o que psicologia já tem: carimbo de autoria
-   docente na homologação, validação de conteúdo clínico no servidor e
-   segregação da listagem por estagiário.
+9. ~~**Levar de volta para odontologia** o que psicologia já tem: carimbo de
+   autoria docente na homologação, validação de conteúdo clínico no servidor e
+   segregação da listagem por estagiário.~~ **Resolvido em 2026-10-23:**
+   carimbo `supervisor_nome`, validação de conteúdo e filtro da dupla por
+   matrícula. Ver o bloco de paridade da odontologia no topo.
 
 ### 🟡 Menor
 
@@ -1686,21 +2111,23 @@ Conhecimentos que não são dedutíveis do código e que custaram tempo diagnós
 ## Estado verificado
 
 ```
-pytest           → 100 passed, 1 deselected (de backend/ e da raiz)
+pytest           → 114 passed, 1 deselected (de backend/ e da raiz)
 alembic check    → No new upgrade operations detected
-alembic current  → d8a2f0b3c194 (head)
+alembic current  → 68603f2ce70a (head)
 /health          → dialect: postgresql, conectado: true
 unicare_db       → usuarios=8 pacientes=4 agendamentos=4 prontuarios_psico=2 fichas_odonto=4 anamneses=0
 unicare_test     → banco dedicado da suíte, nunca tocado em dev
 GET /prontuarios/odonto → 4 fichas do seed (a tabela nascia vazia)
 POST /prontuarios/odonto → id real, AGUARDANDO_VALIDACAO
 PATCH /prontuarios/odonto/{id}/homologar → VALIDADO com parecer persistido
+POST /prontuarios/odonto/documentos → documento completo em AGUARDANDO_VALIDACAO
+GET /prontuarios/odonto/documentos → visão por dupla/supervisor/RT
 POST /auth/seed  → 404 (removido na Fase 4)
 GET /demandas    → OK (RF-009, Bloco 1)
 imagem api       → 418 MB (era 1.06 GB; sem .env e sem .venv)
 container api    → healthy; token cruza com o dev local nos dois sentidos
 npm run build    → VERDE
-npm run lint     → 10 erros preexistentes (o "11" estava desatualizado desde d7716d5; nenhum novo)
+npm run lint     → erros preexistentes; build é o gate de tipos
 SMTP real        → smtp.gmail.com:587, STARTTLS, login OK, e-mail de teste entregue
 scripts/verificar_smtp.py → conexão, banner, AUTH anunciados, TLS, login e envio
 pytest -m rede   → teste de SMTP real (pulado por padrão; exige UNICARE_TESTE_SMTP=1)

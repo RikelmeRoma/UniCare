@@ -8,7 +8,7 @@ from app.models.agendamento import Agendamento, StatusAgendamento
 from app.models.prontuario import ProntuarioPsico, FichaOdonto, StatusProntuario
 from app.models.auditoria import LogAuditoria
 from app.models.usuario import Usuario, PerfilUsuario, CursoUsuario
-from app.services.auth_service import require_roles
+from app.services.auth_service import require_roles, validar_curso_solicitado
 
 router = APIRouter(prefix="/relatorios", tags=["Relatórios & Indicadores Gerenciais (RF-006)"])
 
@@ -20,14 +20,15 @@ autorizado_gestao = require_roles([PerfilUsuario.RT, PerfilUsuario.SUPERVISOR])
 
 @router.get("/estatisticas")
 def obter_estatisticas_gerenciais(
+    curso: str | None = None,
     session: Session = Depends(get_session),
     current_user: Usuario = Depends(autorizado_gestao)
 ) -> Dict[str, Any]:
-    # Vertical slice: o relatório cobre só a clínica do solicitante. Um RT de
-    # odontologia não enxerga números de psicologia — nem de dados, nem de
-    # contagens. Pacientes com curso "ambos" aparecem nas duas clínicas.
-    curso = current_user.curso.value
-    clinica = curso if curso in ("psicologia", "odontologia") else None
+    # Cada RT responde pela própria clínica; o supervisor continua restrito ao
+    # próprio curso. Pacientes com curso "ambos" aparecem nas duas clínicas.
+    validar_curso_solicitado(current_user, curso)
+    curso_do_gestor = current_user.curso.value
+    clinica = curso_do_gestor if curso_do_gestor in ("psicologia", "odontologia") else None
 
     def visivel_a_clinica(curso_paciente: str) -> bool:
         if clinica is None:
@@ -72,11 +73,11 @@ def obter_estatisticas_gerenciais(
 
     prontuarios_psico = [
         pr for pr in session.exec(select(ProntuarioPsico)).all()
-        if curso_por_paciente.get(pr.paciente_id) in (clinica, "ambos")
+        if visivel_a_clinica(curso_por_paciente.get(pr.paciente_id) or "")
     ]
     fichas_odonto = [
         f for f in session.exec(select(FichaOdonto)).all()
-        if curso_por_paciente.get(f.paciente_id) in (clinica, "ambos")
+        if visivel_a_clinica(curso_por_paciente.get(f.paciente_id) or "")
     ]
 
     psico_aguardando = sum(1 for pr in prontuarios_psico if pr.status == StatusProntuario.AGUARDANDO_VALIDACAO)
@@ -84,7 +85,10 @@ def obter_estatisticas_gerenciais(
     psico_devolvidos = sum(1 for pr in prontuarios_psico if pr.status == StatusProntuario.DEVOLVIDO_PARA_AJUSTE)
 
     # 4. Indicadores de Segurança e Auditoria LGPD (Art. 11)
-    total_logs_auditoria = len(session.exec(select(LogAuditoria)).all())
+    logs_query = select(LogAuditoria)
+    if clinica is not None:
+        logs_query = logs_query.where(LogAuditoria.curso == clinica)
+    total_logs_auditoria = len(session.exec(logs_query).all())
 
     # distribuicao_cursos traz SOMENTE a chave da clínica do solicitante. O
     # frontend precisa ler a chave do próprio curso — ler .psicologia e
@@ -110,7 +114,7 @@ def obter_estatisticas_gerenciais(
         "resumo_executivo": {
             "instituicao": "UNINASSAU Aracaju",
             "unidade": "Clínicas Integradas de Saúde (SPA & Odontologia)",
-            "curso": curso,
+            "curso": clinica or "global",
             "total_pacientes": total_pacientes,
             "total_agendamentos": total_agendamentos,
             "taxa_comparecimento_pct": taxa_comparecimento,

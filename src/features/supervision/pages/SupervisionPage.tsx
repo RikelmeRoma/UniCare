@@ -2,7 +2,6 @@ import { AppLayout } from '../../../components/layout/AppLayout';
 import { TeacherHeader } from '../components/TeacherHeader';
 import { SupervisionStats } from '../components/SupervisionStats';
 import { ApprovalQueue } from '../components/ApprovalQueue';
-import { FeedbackPanel } from '../components/FeedbackPanel';
 import { PedagogicalHistory } from '../components/PedagogicalHistory';
 import { ClinicalPairs } from '../components/ClinicalPairs';
 
@@ -18,14 +17,7 @@ export function SupervisionPage() {
         <TeacherHeader />
         <SupervisionStats />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <ApprovalQueue />
-          </div>
-          <div className="lg:col-span-1">
-            <FeedbackPanel />
-          </div>
-        </div>
+        <ApprovalQueue />
 
         <PedagogicalHistory />
         <ClinicalPairs />
