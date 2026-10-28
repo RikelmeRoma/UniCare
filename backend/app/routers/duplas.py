@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session, select
@@ -47,6 +47,30 @@ def listar_duplas(
 
     duplas = session.exec(query).all()
     return [serializar_dupla(session, dupla) for dupla in duplas]
+
+
+@router.get("/minha", response_model=Optional[DuplaOdontoRead])
+def minha_dupla(
+    session: Session = Depends(get_session),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """Dupla ativa do próprio estagiário, ou null quando não há uma.
+
+    A tela de exame de imagem precisa referenciar uma dupla real; o estagiário
+    não tem acesso à listagem de gestão (`GET /duplas-odonto`).
+    """
+    exigir_perfil(current_user, [PerfilUsuario.ESTAGIARIO])
+    # `exigir_perfil` libera a RT por salvaguarda institucional; /minha é
+    # estritamente a dupla do próprio estagiário.
+    if current_user.perfil != PerfilUsuario.ESTAGIARIO:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso negado: /minha é a dupla do próprio estagiário (RN-001).",
+        )
+    dupla = dupla_ativa_do_estagiario(session, current_user.matricula)
+    if not dupla:
+        return None
+    return serializar_dupla(session, dupla)
 
 
 @router.post("", response_model=DuplaOdontoRead, status_code=status.HTTP_201_CREATED)

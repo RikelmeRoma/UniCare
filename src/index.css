@@ -44,3 +44,45 @@
 .animate-slow-spin {
   animation: slowSpin 90s linear infinite;
 }
+
+#ficha-odonto-print {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  body.ficha-print-mode {
+    background: #ffffff !important;
+  }
+
+  body.ficha-print-mode #root {
+    display: none !important;
+  }
+
+  body.ficha-print-mode #ficha-odonto-print {
+    display: block !important;
+    width: 100%;
+    color: #0f172a;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  #ficha-odonto-print button {
+    display: none !important;
+  }
+
+  #ficha-odonto-print .print-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 16px;
+  }
+
+  #ficha-odonto-print h2 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+}

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { DocumentoFichaOdonto, Paciente } from '../../clinic/context/ClinicContext';
 import { DocumentoFichaBar } from '../components/DocumentoFichaBar';
 import { AnamneseHeader } from '../anamnese/AnamneseHeader';
@@ -28,6 +29,7 @@ import type { AnamneseInfantil } from '../anamnese-infantil/tipos';
 import { useDraft } from '../hooks/useDraft';
 import { ChildAlertsTab } from '../tabs/ChildAlertsTab';
 import { DentalRadiologyTab } from '../components/DentalRadiologyTab';
+import { FichaOdontoInfantilPrint } from '../components/FichaOdontoPrint';
 import {
   ClinicalTabNav,
   type ClinicalTab,
@@ -62,6 +64,7 @@ export function ChildRecordWorkspace({
   somenteLeitura = false,
 }: ChildRecordWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<ClinicalTabKey>('anamnese');
+  const [imprimindo, setImprimindo] = useState(false);
   const conteudoDocumento = documento?.conteudo as
     | { anamnese?: AnamneseInfantil }
     | undefined;
@@ -98,6 +101,30 @@ export function ChildRecordWorkspace({
 
   const idade = calcularIdadeInfantil(dados.identificacao.dataNascimento);
 
+  useEffect(() => {
+    if (!imprimindo) return;
+
+    const tituloAnterior = document.title;
+    document.body.classList.add('ficha-print-mode');
+    document.title = `Ficha Odontológica - ${paciente?.nome ?? 'Paciente'}`;
+
+    const encerrar = () => {
+      document.body.classList.remove('ficha-print-mode');
+      document.title = tituloAnterior;
+      setImprimindo(false);
+    };
+
+    window.addEventListener('afterprint', encerrar);
+    const temporizador = window.setTimeout(() => window.print(), 100);
+
+    return () => {
+      window.clearTimeout(temporizador);
+      window.removeEventListener('afterprint', encerrar);
+      document.body.classList.remove('ficha-print-mode');
+      document.title = tituloAnterior;
+    };
+  }, [imprimindo, paciente?.nome]);
+
   return (
     <div className="space-y-6 font-sans">
       <AnamneseHeader
@@ -112,6 +139,7 @@ export function ChildRecordWorkspace({
         rotuloAlternar="ficha"
         onSalvar={salvarManual}
         onExportar={exportar}
+        onExportarPdf={() => setImprimindo(true)}
         onLimpar={() => setConfirmandoLimpeza(true)}
         confirmandoLimpeza={confirmandoLimpeza}
         onCancelarLimpeza={() => setConfirmandoLimpeza(false)}
@@ -224,6 +252,16 @@ export function ChildRecordWorkspace({
         </div>
       )}
       </div>
+
+      {imprimindo &&
+        createPortal(
+          <FichaOdontoInfantilPrint
+            paciente={paciente}
+            documento={documento}
+            dados={dados}
+          />,
+          document.body
+        )}
     </div>
   );
 }

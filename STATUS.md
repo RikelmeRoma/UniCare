@@ -1,5 +1,25 @@
 # STATUS — UniCare
 
+## Atualização - 2026-10-28 (ficha odontológica: dupla real e PDF)
+
+**A ficha odontológica passou a referenciar a dupla do próprio estagiário e a
+ser exportável em PDF pelo navegador.** O exame de imagem não aceita mais texto
+livre como responsável, e o campo "Dente ou Região Anatômica" foi removido.
+
+- **API:** `GET /duplas-odonto/minha` devolve a dupla ativa do estagiário ou
+  `null`; supervisor e RT recebem 403. A RT é recusada explicitamente porque
+  `exigir_perfil` a libera por salvaguarda institucional.
+- **Exame de imagem:** modalidade virou texto livre; a dupla responsável é um
+  select preenchido pela dupla real do aluno; sem dupla ativa o envio fica
+  bloqueado com orientação para procurar a supervisão.
+- **PDF:** botão "Exportar PDF" usa `window.print()` com uma versão de
+  impressão dedicada (adulto e infantil). O documento inclui anamnese, alertas,
+  exame clínico, odontograma/periograma, plano, evolução e exames
+  complementares; imagens e diagnóstico radiográfico ficam fora.
+
+**Verificação:** `pytest -q` → **114 passed, 1 deselected**; `alembic check`
+limpo; `npm run build` verde; lint mantém os **8 problemas preexistentes**.
+
 ## Atualização - 2026-10-28 (RT escopada por curso)
 
 **A Referência Técnica deixou de ser global.** `RT-001` responde só pela

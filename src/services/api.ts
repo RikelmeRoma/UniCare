@@ -446,6 +446,10 @@ class ApiService {
     return this.request<ApiDuplaOdonto[]>('/duplas-odonto');
   }
 
+  async getMinhaDuplaOdonto(): Promise<ApiDuplaOdonto | null> {
+    return this.request<ApiDuplaOdonto | null>('/duplas-odonto/minha');
+  }
+
   async criarDuplaOdonto(dados: {
     operador_matricula: string;
     auxiliar_matricula: string;

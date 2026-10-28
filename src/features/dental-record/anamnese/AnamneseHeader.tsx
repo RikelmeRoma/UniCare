@@ -6,6 +6,7 @@ import {
   EyeIcon,
   EyeSlashIcon,
   InformationCircleIcon,
+  PrinterIcon,
   TrashIcon,
 } from '../../../components/icons/CorporateIcons';
 
@@ -22,6 +23,7 @@ interface AnamneseHeaderProps {
   rotuloAlternar?: string;
   onSalvar: () => void;
   onExportar: () => void;
+  onExportarPdf?: () => void;
   onLimpar: () => void;
   confirmandoLimpeza: boolean;
   onCancelarLimpeza: () => void;
@@ -42,6 +44,7 @@ export function AnamneseHeader({
   rotuloAlternar,
   onSalvar,
   onExportar,
+  onExportarPdf,
   onLimpar,
   confirmandoLimpeza,
   onCancelarLimpeza,
@@ -113,6 +116,16 @@ export function AnamneseHeader({
             <DocumentTextIcon className="h-3.5 w-3.5" />
             Baixar cópia
           </button>
+          {onExportarPdf && (
+            <button
+              type="button"
+              onClick={onExportarPdf}
+              className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-[11px] font-bold text-slate-700 transition-colors hover:border-slate-300 hover:text-slate-900"
+            >
+              <PrinterIcon className="h-3.5 w-3.5" />
+              Exportar PDF
+            </button>
+          )}
           <button
             type="button"
             onClick={onLimpar}

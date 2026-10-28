@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { api, type ApiDuplaOdonto } from '../../../services/api';
+import { useAuth } from '../../auth/context/AuthContext';
 import {
   PhotoIcon,
   ArrowUpTrayIcon,
@@ -14,8 +16,7 @@ import {
 export interface RadiografiaItem {
   id: number;
   data: string;
-  tipo: 'Periapical' | 'Panorâmica' | 'Bite-Wing' | 'Oclusal' | 'Fotografia Clínica';
-  regiao: string;
+  tipo: string;
   laudo: string;
   responsavel: string;
   status: 'Homologado' | 'Pendente';
@@ -28,17 +29,65 @@ export interface RadiografiaItem {
 // as duas entradas anteriores apontavam para imagens do Unsplash apresentadas
 // como radiografia de paciente, com laudo fictício e visto docente fixo.
 export function DentalRadiologyTab() {
+  const { user } = useAuth();
   const [radiografias, setRadiografias] = useState<RadiografiaItem[]>([]);
   const [showNovo, setShowNovo] = useState(false);
   const [selectedImage, setSelectedImage] = useState<RadiografiaItem | null>(null);
+  const [duplas, setDuplas] = useState<ApiDuplaOdonto[]>([]);
+  const [duplaId, setDuplaId] = useState('');
+  const [carregandoDuplas, setCarregandoDuplas] = useState(true);
+  const [erroDuplas, setErroDuplas] = useState('');
 
   // Form states
-  const [tipo, setTipo] = useState<RadiografiaItem['tipo']>('Periapical');
-  const [regiao, setRegiao] = useState('');
+  const [tipo, setTipo] = useState('');
   const [laudo, setLaudo] = useState('');
-  const [responsavel, setResponsavel] = useState('Augusto Cesar (Op.) & Gabriela Prado (Aux.)');
   const [imagemPreview, setImagemPreview] = useState<string>('');
   const [sucessoMsg, setSucessoMsg] = useState('');
+
+  useEffect(() => {
+    let cancelado = false;
+
+    const carregarDupla = async () => {
+      if (user?.perfil !== 'estagiario') {
+        if (!cancelado) {
+          setDuplas([]);
+          setCarregandoDuplas(false);
+        }
+        return;
+      }
+
+      setCarregandoDuplas(true);
+      setErroDuplas('');
+      try {
+        const dupla = await api.getMinhaDuplaOdonto();
+        if (cancelado) return;
+        setDuplas(dupla ? [dupla] : []);
+        setDuplaId(dupla ? String(dupla.id) : '');
+      } catch (error) {
+        if (cancelado) return;
+        setDuplas([]);
+        setDuplaId('');
+        setErroDuplas(
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível carregar a dupla ativa.'
+        );
+      } finally {
+        if (!cancelado) setCarregandoDuplas(false);
+      }
+    };
+
+    void carregarDupla();
+    return () => {
+      cancelado = true;
+    };
+  }, [user?.perfil, user?.matricula]);
+
+  const duplaSelecionada =
+    duplas.find((dupla) => String(dupla.id) === duplaId) ?? null;
+  const responsavel = duplaSelecionada
+    ? `${duplaSelecionada.operador_nome} (Op.) & ${duplaSelecionada.auxiliar_nome} (Aux.)`
+    : '';
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -53,13 +102,12 @@ export function DentalRadiologyTab() {
 
   const handleSalvar = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!regiao.trim() || !laudo.trim()) return;
+    if (!tipo.trim() || !laudo.trim() || !duplaSelecionada) return;
 
     const nova: RadiografiaItem = {
       id: Date.now(),
       data: new Date().toLocaleDateString('pt-BR'),
-      tipo,
-      regiao,
+      tipo: tipo.trim(),
       laudo,
       responsavel,
       status: 'Pendente',
@@ -70,7 +118,7 @@ export function DentalRadiologyTab() {
 
     setRadiografias([nova, ...radiografias]);
     setShowNovo(false);
-    setRegiao('');
+    setTipo('');
     setLaudo('');
     setImagemPreview('');
     setSucessoMsg(
@@ -127,34 +175,17 @@ export function DentalRadiologyTab() {
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-[11px] font-bold text-slate-700 mb-1">
                 Modalidade do Exame *
               </label>
-              <select
-                value={tipo}
-                onChange={(e) => setTipo(e.target.value as RadiografiaItem['tipo'])}
-                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-slate-800 font-medium"
-              >
-                <option value="Periapical">Radiografia Periapical</option>
-                <option value="Panorâmica">Radiografia Panorâmica</option>
-                <option value="Bite-Wing">Radiografia Interproximal (Bite-Wing)</option>
-                <option value="Oclusal">Radiografia Oclusal</option>
-                <option value="Fotografia Clínica">Fotografia Clínica Intra/Extraoral</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                Dente ou Região Anatômica *
-              </label>
               <input
                 type="text"
                 required
-                value={regiao}
-                onChange={(e) => setRegiao(e.target.value)}
-                placeholder="Ex: Dente 36 ou Arcada Superior"
+                value={tipo}
+                onChange={(e) => setTipo(e.target.value)}
+                placeholder="Ex.: Radiografia Periapical, Tomografia, Fotografia Clínica"
                 className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-slate-800 font-medium"
               />
             </div>
@@ -163,13 +194,36 @@ export function DentalRadiologyTab() {
               <label className="block text-[11px] font-bold text-slate-700 mb-1">
                 Dupla Responsável *
               </label>
-              <input
-                type="text"
+              <select
                 required
-                value={responsavel}
-                onChange={(e) => setResponsavel(e.target.value)}
-                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-slate-800 font-medium"
-              />
+                value={duplaId}
+                onChange={(e) => setDuplaId(e.target.value)}
+                disabled={carregandoDuplas || duplas.length === 0}
+                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-slate-800 font-medium disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <option value="">
+                  {carregandoDuplas
+                    ? 'Carregando dupla...'
+                    : duplas.length > 0
+                      ? 'Selecione a dupla'
+                      : 'Sem dupla ativa'}
+                </option>
+                {duplas.map((dupla) => (
+                  <option key={dupla.id} value={dupla.id}>
+                    {dupla.operador_nome} (Op.) & {dupla.auxiliar_nome} (Aux.)
+                  </option>
+                ))}
+              </select>
+              {erroDuplas && (
+                <p className="mt-1 text-[10px] font-semibold text-rose-700">
+                  {erroDuplas}
+                </p>
+              )}
+              {!carregandoDuplas && !erroDuplas && duplas.length === 0 && (
+                <p className="mt-1 text-[10px] font-semibold text-amber-700">
+                  Nenhuma dupla ativa. Procure a supervisão antes de anexar o exame.
+                </p>
+              )}
             </div>
           </div>
 
@@ -230,7 +284,8 @@ export function DentalRadiologyTab() {
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-xs transition-colors"
+              disabled={!duplaSelecionada || !tipo.trim() || !laudo.trim()}
+              className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             >
               Gravar Laudo e Submeter ao Supervisor
             </button>
@@ -257,9 +312,6 @@ export function DentalRadiologyTab() {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-slate-900">{item.tipo}</span>
-                    <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-md border border-emerald-200 font-mono">
-                      {item.regiao}
-                    </span>
                   </div>
                   <p className="text-[10px] text-slate-400 mt-1 font-mono">
                     Data: {item.data} • Responsável: {item.responsavel}
@@ -349,7 +401,7 @@ export function DentalRadiologyTab() {
             <div className="flex justify-between items-center pb-3 border-b border-slate-200">
               <div>
                 <h4 className="font-bold text-slate-900 text-base">
-                  {selectedImage.tipo} • {selectedImage.regiao}
+                  {selectedImage.tipo}
                 </h4>
                 <p className="text-xs text-slate-500 font-mono">
                   Data: {selectedImage.data} • Responsável: {selectedImage.responsavel}

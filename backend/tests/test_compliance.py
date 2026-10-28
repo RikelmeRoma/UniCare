@@ -3134,6 +3134,28 @@ def test_supervisor_monta_dupla_e_so_ele_a_enxerga():
     assert "RN-001" in negado.json()["detail"]
 
 
+def test_estagiario_consulta_a_propria_dupla():
+    """A tela de exame referencia a dupla ativa sem abrir a gestão de duplas."""
+    aluno = {"Authorization": f"Bearer {get_auth_token('16024402')}"}
+    resposta = client.get("/api/v1/duplas-odonto/minha", headers=aluno)
+    assert resposta.status_code == 200, resposta.text
+    dupla = resposta.json()
+    assert {dupla["operador_matricula"], dupla["auxiliar_matricula"]} == {
+        "16024402",
+        "16024404",
+    }
+
+    # Sem dupla ativa, a resposta é null em vez de 404.
+    psico = {"Authorization": f"Bearer {get_auth_token('16032935')}"}
+    assert client.get("/api/v1/duplas-odonto/minha", headers=psico).json() is None
+
+    # /minha é exclusiva do estagiário; supervisor e RT usam a listagem.
+    supervisor = {"Authorization": f"Bearer {get_auth_token('DOC-9122')}"}
+    rt = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
+    assert client.get("/api/v1/duplas-odonto/minha", headers=supervisor).status_code == 403
+    assert client.get("/api/v1/duplas-odonto/minha", headers=rt).status_code == 403
+
+
 def test_dupla_ativa_por_aluno_e_reencontro_apos_desfazer():
     _criar_estagiario_odonto("ODO-UNI1", "Aluno Unico Um")
     _criar_estagiario_odonto("ODO-UNI2", "Aluno Unico Dois")
