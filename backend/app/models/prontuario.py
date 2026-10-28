@@ -90,3 +90,31 @@ class DocumentoFichaOdonto(SQLModel, table=True):
     criado_em: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     atualizado_em: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     submetido_em: Optional[datetime] = Field(default=None)
+
+
+class RadiografiaOdonto(SQLModel, table=True):
+    """Exame de imagem anexado ao prontuário odontológico.
+
+    A aba Exames de Imagem não pertence ao documento versionado: o anexo é
+    gravado assim que a dupla clica em "Gravar Exame", para não depender do
+    envio da ficha inteira. O arquivo fica em `imagem_data` como data URL
+    (imagem ou PDF), com limite validado no schema. `dupla_estagiarios` é um
+    snapshot: a dupla pode ser desfeita depois sem apagar a autoria do exame.
+    """
+
+    __tablename__ = "radiografias_odonto"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    paciente_id: int = Field(foreign_key="pacientes.id", index=True)
+    dupla_id: int = Field(foreign_key="duplas_odonto.id", index=True)
+    dupla_estagiarios: str = Field(max_length=200)
+    operador_matricula: str = Field(max_length=32, index=True)
+    auxiliar_matricula: str = Field(max_length=32, index=True)
+    tipo: str = Field(max_length=120)
+    laudo: str = Field(sa_column=Column(Text, nullable=False))
+    imagem_nome: Optional[str] = Field(default=None, max_length=255)
+    imagem_mime: Optional[str] = Field(default=None, max_length=100)
+    imagem_data: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
+    # Sem fluxo de homologação de imagem: o exame fica registrado no prontuário.
+    status: str = Field(default="REGISTRADO", max_length=20)
+    criado_em: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

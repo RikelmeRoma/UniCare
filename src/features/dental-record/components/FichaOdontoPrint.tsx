@@ -139,6 +139,7 @@ interface FichaAdultaPrintProps {
   periograma: PeriogramaToothMap | null;
   indices: IndicesGengivais | null;
   ultima?: Anamnese;
+  containerId?: string;
 }
 
 export function FichaOdontoAdultoPrint({
@@ -149,9 +150,10 @@ export function FichaOdontoAdultoPrint({
   periograma,
   indices,
   ultima,
+  containerId = 'ficha-odonto-print',
 }: FichaAdultaPrintProps) {
   return (
-    <div id="ficha-odonto-print" className="bg-white text-slate-900 font-sans text-[11px] leading-relaxed">
+    <div id={containerId} className="bg-white text-slate-900 font-sans text-[11px] leading-relaxed">
       <CabecalhoFicha
         titulo="Ficha Clínica Odontológica — Adulto e Idoso"
         paciente={paciente}
@@ -221,15 +223,17 @@ interface FichaInfantilPrintProps {
   paciente?: Paciente;
   documento?: DocumentoFichaOdonto | null;
   dados: AnamneseInfantil;
+  containerId?: string;
 }
 
 export function FichaOdontoInfantilPrint({
   paciente,
   documento,
   dados,
+  containerId = 'ficha-odonto-print',
 }: FichaInfantilPrintProps) {
   return (
-    <div id="ficha-odonto-print" className="bg-white text-slate-900 font-sans text-[11px] leading-relaxed">
+    <div id={containerId} className="bg-white text-slate-900 font-sans text-[11px] leading-relaxed">
       <CabecalhoFicha
         titulo="Ficha Clínica Odontológica — Odontopediatria"
         paciente={paciente}

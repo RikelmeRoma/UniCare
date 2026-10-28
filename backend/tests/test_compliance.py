@@ -3046,6 +3046,8 @@ def _documento_odonto_payload(paciente_id: int, operador: str, auxiliar: str) ->
         "conteudo": {
             "anamnese": {"identificacao": {"nome": "Paciente do documento"}},
             "odontograma": {"26": {"faces": {"O": "carie"}, "whole": None, "note": ""}},
+            "periograma": {"26": {"profundidade": 3, "sangramento": True}},
+            "indicesGengivais": {"placa": 20, "gengivite": 10},
         },
     }
 
@@ -3262,6 +3264,8 @@ def test_documento_ficha_odonto_fluxo_completo():
     assert documento["status"] == "AGUARDANDO_VALIDACAO"
     assert documento["versao"] == 1
     assert documento["conteudo"]["odontograma"]["26"]["faces"]["O"] == "carie"
+    assert documento["conteudo"]["periograma"]["26"]["profundidade"] == 3
+    assert documento["conteudo"]["indicesGengivais"]["placa"] == 20
 
     detalhe = client.get(
         f"/api/v1/prontuarios/odonto/documentos/{documento['id']}", headers=primeiro
@@ -3332,3 +3336,118 @@ def test_supervisor_ve_e_homologa_apenas_documentos_das_proprias_duplas():
         json={"decisao": "VALIDADO", "parecer": "Tentativa de dupla alheia."},
         headers=supervisor,
     ).status_code == 403
+
+
+def _preparar_dupla_radiografia(sufixo: str):
+    operador = _criar_estagiario_odonto(f"ODO-RAD{sufixo}1", f"Operador Radiografia {sufixo}")
+    auxiliar = _criar_estagiario_odonto(f"ODO-RAD{sufixo}2", f"Auxiliar Radiografia {sufixo}")
+    _vincular_estagiario_ao_supervisor(f"ODO-RAD{sufixo}1", "DOC-9122")
+    _vincular_estagiario_ao_supervisor(f"ODO-RAD{sufixo}2", "DOC-9122")
+    supervisor = {"Authorization": f"Bearer {get_auth_token('DOC-9122')}"}
+    dupla = _criar_dupla(supervisor, f"ODO-RAD{sufixo}1", f"ODO-RAD{sufixo}2")
+    assert dupla.status_code == 201, dupla.text
+    paciente_id = _criar_paciente_odonto(f"888.888.{sufixo}00-88")
+    return operador, auxiliar, supervisor, dupla.json(), paciente_id
+
+
+def _radiografia_payload(paciente_id: int, dupla_id: int, **overrides) -> dict:
+    payload = {
+        "paciente_id": paciente_id,
+        "dupla_id": dupla_id,
+        "tipo": "Radiografia periapical",
+        "laudo": "Sem alterações periapicais evidentes.",
+        "imagem_nome": "periapical.png",
+        "imagem_mime": "image/png",
+        "imagem_data": "data:image/png;base64,iVBORw0KGgo=",
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_radiografia_odonto_grava_lista_escopa_e_remove():
+    """O exame é imediato, escopado pela dupla e removível por quem o anexou."""
+    operador, auxiliar, supervisor, dupla, paciente_id = _preparar_dupla_radiografia("1")
+    outro = _criar_estagiario_odonto("ODO-RADX", "Estagiário Fora da Dupla")
+
+    criada = client.post(
+        "/api/v1/prontuarios/odonto/radiografias",
+        json=_radiografia_payload(paciente_id, dupla["id"]),
+        headers=operador,
+    )
+    assert criada.status_code == 201, criada.text
+    exame = criada.json()
+    assert exame["status"] == "REGISTRADO"
+    assert exame["dupla_id"] == dupla["id"]
+    assert exame["operador_matricula"] == "ODO-RAD11"
+    assert exame["auxiliar_matricula"] == "ODO-RAD12"
+    assert "Operador Radiografia 1" in exame["dupla_estagiarios"]
+
+    for headers in (operador, auxiliar, supervisor):
+        lista = client.get(
+            f"/api/v1/prontuarios/odonto/radiografias?paciente_id={paciente_id}",
+            headers=headers,
+        )
+        assert lista.status_code == 200, lista.text
+        assert exame["id"] in {item["id"] for item in lista.json()}
+
+    alheia = client.get(
+        f"/api/v1/prontuarios/odonto/radiografias?paciente_id={paciente_id}",
+        headers=outro,
+    )
+    assert alheia.status_code == 200, alheia.text
+    assert exame["id"] not in {item["id"] for item in alheia.json()}
+
+    negada = client.delete(
+        f"/api/v1/prontuarios/odonto/radiografias/{exame['id']}", headers=outro
+    )
+    assert negada.status_code == 403, negada.text
+    assert "RF-005" in negada.json()["detail"]
+
+    removida = client.delete(
+        f"/api/v1/prontuarios/odonto/radiografias/{exame['id']}", headers=operador
+    )
+    assert removida.status_code == 200, removida.text
+
+    restantes = client.get(
+        f"/api/v1/prontuarios/odonto/radiografias?paciente_id={paciente_id}",
+        headers=operador,
+    )
+    assert restantes.status_code == 200, restantes.text
+    assert restantes.json() == []
+
+
+def test_radiografia_odonto_recusa_laudo_vazio_formato_invalido_e_supervisor():
+    """A regra do anexo existe no servidor, não só no modal da tela."""
+    operador, _, supervisor, dupla, paciente_id = _preparar_dupla_radiografia("2")
+
+    vazio = client.post(
+        "/api/v1/prontuarios/odonto/radiografias",
+        json=_radiografia_payload(paciente_id, dupla["id"], laudo="   "),
+        headers=operador,
+    )
+    assert vazio.status_code == 422, vazio.text
+
+    invalido = client.post(
+        "/api/v1/prontuarios/odonto/radiografias",
+        json=_radiografia_payload(
+            paciente_id,
+            dupla["id"],
+            imagem_data="data:text/plain;base64,bmFvLWVzdGEtY2xpbmljYQ==",
+        ),
+        headers=operador,
+    )
+    assert invalido.status_code == 422, invalido.text
+
+    negado = client.post(
+        "/api/v1/prontuarios/odonto/radiografias",
+        json=_radiografia_payload(paciente_id, dupla["id"]),
+        headers=supervisor,
+    )
+    assert negado.status_code == 403, negado.text
+
+    lista = client.get(
+        f"/api/v1/prontuarios/odonto/radiografias?paciente_id={paciente_id}",
+        headers=operador,
+    )
+    assert lista.status_code == 200, lista.text
+    assert lista.json() == []

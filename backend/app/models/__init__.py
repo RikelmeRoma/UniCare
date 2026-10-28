@@ -1,7 +1,13 @@
 from app.models.usuario import Usuario, PerfilUsuario, CursoUsuario
 from app.models.paciente import Paciente
 from app.models.agendamento import Agendamento, StatusAgendamento
-from app.models.prontuario import ProntuarioPsico, FichaOdonto, DocumentoFichaOdonto, StatusProntuario
+from app.models.prontuario import (
+    ProntuarioPsico,
+    FichaOdonto,
+    DocumentoFichaOdonto,
+    RadiografiaOdonto,
+    StatusProntuario,
+)
 from app.models.auditoria import LogAuditoria
 from app.models.anamnese import Anamnese
 from app.models.solicitacao import SolicitacaoCadastro, SituacaoSolicitacao
@@ -19,6 +25,7 @@ __all__ = [
     "ProntuarioPsico",
     "FichaOdonto",
     "DocumentoFichaOdonto",
+    "RadiografiaOdonto",
     "StatusProntuario",
     "LogAuditoria",
     "Anamnese",

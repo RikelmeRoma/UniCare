@@ -192,6 +192,22 @@ export interface ApiDocumentoFichaOdonto {
   conteudo?: Record<string, unknown>;
 }
 
+export interface ApiRadiografiaOdonto {
+  id: number;
+  paciente_id: number;
+  dupla_id: number;
+  dupla_estagiarios: string;
+  operador_matricula: string;
+  auxiliar_matricula: string;
+  tipo: string;
+  laudo: string;
+  imagem_nome?: string | null;
+  imagem_mime?: string | null;
+  imagem_data?: string | null;
+  status: string;
+  criado_em: string;
+}
+
 export interface ApiLogAuditoria {
   id: number;
   usuario_id: number;
@@ -793,6 +809,34 @@ class ApiService {
         body: JSON.stringify({ decisao, parecer }),
       }
     );
+  }
+
+  // --- Exames de imagem do prontuário odontológico ---
+  async getRadiografiasOdonto(pacienteId: number): Promise<ApiRadiografiaOdonto[]> {
+    return this.request<ApiRadiografiaOdonto[]>(
+      `/prontuarios/odonto/radiografias?paciente_id=${pacienteId}`
+    );
+  }
+
+  async createRadiografiaOdonto(dados: {
+    paciente_id: number;
+    dupla_id: number;
+    tipo: string;
+    laudo: string;
+    imagem_nome?: string;
+    imagem_mime?: string;
+    imagem_data?: string;
+  }): Promise<ApiRadiografiaOdonto> {
+    return this.request<ApiRadiografiaOdonto>('/prontuarios/odonto/radiografias', {
+      method: 'POST',
+      body: JSON.stringify(dados),
+    });
+  }
+
+  async deleteRadiografiaOdonto(id: number): Promise<{ detail: string }> {
+    return this.request<{ detail: string }>(`/prontuarios/odonto/radiografias/${id}`, {
+      method: 'DELETE',
+    });
   }
 
   // --- Auditoria LGPD ---

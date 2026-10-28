@@ -1,5 +1,33 @@
 # STATUS — UniCare
 
+## Atualização - 2026-10-28 (exames de imagem, dossiê e indicadores RT)
+
+**O prontuário odontológico passou a persistir exames de imagem e a RT passou a
+emitir dois PDFs próprios.** A recepção de odontologia não oferece mais
+"Clínicas Integradas (Ambos)"; a recepção de psicologia continua oferecendo.
+
+- **Radiografias:** tabela `radiografias_odonto` (migração `a3955e2873a6`), com
+  `GET/POST/DELETE /prontuarios/odonto/radiografias`. O exame é gravado assim que
+  a dupla clica em "Gravar Exame", com data URL (imagem/PDF), limite de 5 MB na
+  tela e status `REGISTRADO`; não há homologação de imagem. Listagem e remoção
+  são escopadas pela dupla/supervisão, e o registro entra na trilha de auditoria.
+- **Persistência completa:** o documento odontológico testado agora inclui
+  anamnese, odontograma, periograma e índices gengivais. A aba de imagens fica
+  fora do documento versionado e é carregada à parte.
+- **Dossiê da RT:** o botão "Exportar Dossiê do Paciente em PDF" aparece nas duas
+  clínicas e filtra procedimentos pelo paciente selecionado. Em odontologia ele
+  busca o documento completo e as radiografias antes de abrir a impressão; se a
+  busca falhar, não imprime dossiê parcial. Psicologia imprime as evoluções.
+- **Indicadores da RT:** "Exportar Indicadores em PDF" usa os mesmos dados da
+  tela, sem fallback numérico inventado. O antigo "Imprimir Relatório" foi
+  removido. Os dois PDFs usam `window.print()` e CSS `#rt-print`.
+- **Testes:** 2 novos casos de radiografia e round-trip das quatro abas do
+  documento.
+
+**Verificação:** `pytest -q` → **116 passed, 1 deselected**; `alembic check`
+limpo; `npm run build` verde; lint mantém os **8 problemas preexistentes**. A
+impressão visual dos PDFs ainda deve ser conferida no navegador.
+
 ## Atualização - 2026-10-28 (ficha odontológica: dupla real e PDF)
 
 **A ficha odontológica passou a referenciar a dupla do próprio estagiário e a

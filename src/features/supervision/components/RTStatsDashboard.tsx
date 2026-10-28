@@ -1,8 +1,18 @@
 import { useState, useEffect } from 'react';
-import { api, type RelatorioEstatisticas, type ApiLogAuditoria } from '../../../services/api';
-import { useClinic } from '../../clinic/context/ClinicContext';
+import { createPortal } from 'react-dom';
+import {
+  api,
+  ApiError,
+  type ApiDocumentoFichaOdonto,
+  type ApiRadiografiaOdonto,
+  type RelatorioEstatisticas,
+  type ApiLogAuditoria,
+} from '../../../services/api';
+import { useClinic, type DocumentoFichaOdonto } from '../../clinic/context/ClinicContext';
 import { useAuth, type RoleType, type CourseType } from '../../auth/context/AuthContext';
 import { SolicitacoesCadastro } from './SolicitacoesCadastro';
+import { IndicadoresPrint } from '../print/IndicadoresPrint';
+import { DossiePacientePrint } from '../print/DossiePacientePrint';
 import {
   ChartBarIcon,
   ShieldCheckIcon,
@@ -21,6 +31,26 @@ import {
   PencilSquareIcon,
   TrashIcon,
 } from '../../../components/icons/CorporateIcons';
+
+const mapearDocumentoOdonto = (
+  doc: ApiDocumentoFichaOdonto,
+  pacienteNome: string
+): DocumentoFichaOdonto => ({
+  id: doc.id,
+  pacienteId: doc.paciente_id,
+  pacienteNome,
+  tipo: doc.tipo,
+  duplaEstagiarios: doc.dupla_estagiarios,
+  operadorMatricula: doc.operador_matricula,
+  auxiliarMatricula: doc.auxiliar_matricula,
+  status: doc.status,
+  parecerSupervisor: doc.parecer_supervisor,
+  supervisorNome: doc.supervisor_nome,
+  versao: doc.versao,
+  submetidoEm: doc.submetido_em ?? '',
+  atualizadoEm: doc.atualizado_em,
+  conteudo: doc.conteudo,
+});
 
 export function RTStatsDashboard() {
   const { pacientes, agendamentos, evolucoesPsico, planosTratamento } = useClinic();
@@ -61,6 +91,12 @@ export function RTStatsDashboard() {
   // Estado para busca de custódia de prontuários (RF-006)
   const [buscaPaciente, setBuscaPaciente] = useState<string>('');
   const [pacienteCustodiaId, setPacienteCustodiaId] = useState<number>(pacientes[0]?.id || 1);
+
+  const [printTarget, setPrintTarget] = useState<'indicadores' | 'custodia' | null>(null);
+  const [dossieLoading, setDossieLoading] = useState(false);
+  const [dossieErro, setDossieErro] = useState('');
+  const [dossieDocumento, setDossieDocumento] = useState<DocumentoFichaOdonto | null>(null);
+  const [dossieRadiografias, setDossieRadiografias] = useState<ApiRadiografiaOdonto[]>([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -159,6 +195,71 @@ export function RTStatsDashboard() {
   const evolucoesDoPaciente = evolucoesPsico.filter(
     (e) => e.pacienteId === pacienteSelecionadoCustodia?.id
   );
+
+  const planosDoPaciente = planosTratamento.filter(
+    (p) => p.pacienteId === pacienteSelecionadoCustodia?.id
+  );
+
+  const handleExportarDossie = async () => {
+    const paciente = pacienteSelecionadoCustodia;
+    if (!paciente) return;
+
+    setDossieErro('');
+    setDossieLoading(true);
+    try {
+      if (cursoPainel === 'odontologia') {
+        let documento: DocumentoFichaOdonto | null = null;
+        try {
+          const apiDoc = await api.getDocumentoOdontoPaciente(paciente.id);
+          documento = mapearDocumentoOdonto(apiDoc, paciente.nome);
+        } catch (error) {
+          if (!(error instanceof ApiError) || error.status !== 404) throw error;
+        }
+        const radiografias = await api.getRadiografiasOdonto(paciente.id);
+        setDossieDocumento(documento);
+        setDossieRadiografias(radiografias);
+      } else {
+        setDossieDocumento(null);
+        setDossieRadiografias([]);
+      }
+      setPrintTarget('custodia');
+    } catch (error) {
+      setDossieErro(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar o prontuário completo para o dossiê.'
+      );
+    } finally {
+      setDossieLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!printTarget) return;
+
+    const tituloAnterior = document.title;
+    document.body.classList.add('rt-print-mode');
+    document.title =
+      printTarget === 'indicadores'
+        ? 'Indicadores RT - UniCare'
+        : `Dossiê - ${pacienteSelecionadoCustodia?.nome ?? 'Paciente'}`;
+
+    const encerrar = () => {
+      document.body.classList.remove('rt-print-mode');
+      document.title = tituloAnterior;
+      setPrintTarget(null);
+    };
+
+    window.addEventListener('afterprint', encerrar);
+    const timer = window.setTimeout(() => window.print(), 250);
+
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('afterprint', encerrar);
+      document.body.classList.remove('rt-print-mode');
+      document.title = tituloAnterior;
+    };
+  }, [printTarget, pacienteSelecionadoCustodia?.nome]);
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -316,14 +417,6 @@ export function RTStatsDashboard() {
         </div>
 
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-2 px-3.5 py-2 border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 rounded-lg text-xs font-semibold transition-colors shadow-xs"
-          >
-            <PrinterIcon className="w-4 h-4 text-slate-500" />
-            <span className="hidden sm:inline">Imprimir Relatório</span>
-          </button>
-
           <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 flex-wrap gap-1">
             <button
               onClick={() => setActiveTab('indicadores')}
@@ -375,6 +468,17 @@ export function RTStatsDashboard() {
 
       {activeTab === 'indicadores' && (
         <>
+          <div className="flex justify-end">
+            <button
+              onClick={() => setPrintTarget('indicadores')}
+              disabled={!stats}
+              className="flex items-center gap-2 px-3.5 py-2 border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 rounded-lg text-xs font-semibold transition-colors shadow-xs disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <PrinterIcon className="w-4 h-4 text-slate-500" />
+              <span>Exportar Indicadores em PDF</span>
+            </button>
+          </div>
+
           {/* Grade de KPIs Principais */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
@@ -715,7 +819,7 @@ export function RTStatsDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-slate-700">
-                      {planosTratamento.map((item) => (
+                      {planosDoPaciente.map((item) => (
                         <tr key={item.id} className="hover:bg-slate-50">
                           <td className="p-2.5 font-semibold">{item.prioridade}</td>
                           <td className="p-2.5 font-mono">{item.denteRegiao}</td>
@@ -733,7 +837,10 @@ export function RTStatsDashboard() {
                 </div>
               </div>
 
-              {/* Carimbo de Custódia e Termo de Guarda */}
+              </>
+              )}
+
+              {/* Termo de Guarda e Custódia — comum às duas clínicas */}
               <div className="p-4 bg-white rounded-lg border border-indigo-200 flex flex-col md:flex-row justify-between items-center gap-4 text-xs">
                 <div>
                   <p className="font-bold text-slate-900">Termo de Guarda e Custódia Definitiva (Resoluções CFP e CFO)</p>
@@ -742,13 +849,18 @@ export function RTStatsDashboard() {
                   </p>
                 </div>
                 <button
-                  onClick={() => window.print()}
-                  className="px-4 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg font-bold text-xs shadow-xs transition-colors shrink-0"
+                  onClick={handleExportarDossie}
+                  disabled={dossieLoading}
+                  className="px-4 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg font-bold text-xs shadow-xs transition-colors shrink-0 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Exportar Dossiê Oficial em PDF
+                  {dossieLoading ? 'Carregando prontuário...' : 'Exportar Dossiê do Paciente em PDF'}
                 </button>
               </div>
-                </>
+
+              {dossieErro && (
+                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-800">
+                  {dossieErro}
+                </p>
               )}
             </div>
           )}
@@ -1361,6 +1473,35 @@ export function RTStatsDashboard() {
           </div>
         </div>
       )}
+      {printTarget === 'indicadores' &&
+        createPortal(
+          <IndicadoresPrint
+            curso={cursoPainel}
+            stats={stats}
+            pacientes={pacientes}
+            planosTratamento={planosTratamento}
+            totalPacientes={totalPacientes}
+            totalAgendamentos={totalAgendamentos}
+            taxaComparecimento={taxaComparecimento}
+            taxaAbsenteismo={taxaAbsenteismo}
+            geradoEm={new Date().toLocaleString('pt-BR')}
+          />,
+          document.body
+        )}
+
+      {printTarget === 'custodia' &&
+        pacienteSelecionadoCustodia &&
+        createPortal(
+          <DossiePacientePrint
+            paciente={pacienteSelecionadoCustodia}
+            curso={cursoPainel}
+            evolucoes={evolucoesDoPaciente}
+            planos={planosDoPaciente}
+            documento={dossieDocumento}
+            radiografias={dossieRadiografias}
+          />,
+          document.body
+        )}
     </div>
   );
 }

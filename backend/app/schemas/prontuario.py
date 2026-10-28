@@ -200,3 +200,73 @@ class DocumentoFichaOdontoRead(BaseModel):
 
 class DocumentoFichaOdontoDetalhe(DocumentoFichaOdontoRead):
     conteudo: dict[str, Any]
+
+
+MAX_IMAGEM_DATA_URL = 8_000_000
+
+
+class RadiografiaOdontoCreate(BaseModel):
+    paciente_id: int
+    dupla_id: int
+    tipo: str
+    laudo: str
+    imagem_nome: Optional[str] = None
+    imagem_mime: Optional[str] = None
+    imagem_data: Optional[str] = None
+
+    @field_validator("tipo", "laudo")
+    @classmethod
+    def validar_campos_obrigatorios(cls, v: str) -> str:
+        texto = v.strip()
+        if not texto:
+            raise ValueError(
+                "Modalidade e laudo do exame são obrigatórios: o anexo precisa "
+                "ter interpretação clínica no prontuário."
+            )
+        return texto
+
+    @field_validator("imagem_nome", "imagem_mime")
+    @classmethod
+    def validar_texto_opcional(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        texto = v.strip()
+        return texto or None
+
+    @field_validator("imagem_data")
+    @classmethod
+    def validar_imagem_data(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        texto = v.strip()
+        if not texto:
+            return None
+        if len(texto) > MAX_IMAGEM_DATA_URL:
+            raise ValueError(
+                "Arquivo do exame acima do limite de 5 MB. Reduza a imagem "
+                "antes de anexar."
+            )
+        if not (
+            texto.startswith("data:image/")
+            or texto.startswith("data:application/pdf")
+        ):
+            raise ValueError(
+                "Formato de arquivo inválido: anexe uma imagem ou um PDF."
+            )
+        return texto
+
+
+class RadiografiaOdontoRead(BaseModel):
+    id: int
+    paciente_id: int
+    dupla_id: int
+    dupla_estagiarios: str
+    operador_matricula: str
+    auxiliar_matricula: str
+    tipo: str
+    laudo: str
+    imagem_nome: Optional[str] = None
+    imagem_mime: Optional[str] = None
+    imagem_data: Optional[str] = None
+    status: str
+    criado_em: datetime

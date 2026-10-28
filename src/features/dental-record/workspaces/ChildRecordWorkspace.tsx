@@ -248,7 +248,11 @@ export function ChildRecordWorkspace({
             odontograma={dados.odontograma}
             setDados={setDados}
           />
-          <DentalRadiologyTab />
+          <DentalRadiologyTab
+            pacienteId={paciente?.id}
+            pacienteNome={paciente?.nome}
+            somenteLeitura={somenteLeitura}
+          />
         </div>
       )}
       </div>

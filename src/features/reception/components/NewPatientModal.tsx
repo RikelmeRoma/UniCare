@@ -152,9 +152,10 @@ export function NewPatientModal({ onClose, defaultCurso = 'odontologia' }: NewPa
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">Serviço de Destino *</label>
-              {/* A recepção cadastra paciente da própria clínica. "Ambos" segue
-                  disponível: paciente compartilhado atende nas duas. A outra
-                  clínica não aparece — o servidor recusaria com 403. */}
+              {/* A recepção odontológica cadastra exclusivamente na própria
+                  clínica; "Ambos" continua disponível na recepção de
+                  psicologia. A outra clínica nunca aparece — o servidor
+                  recusaria com 403. */}
               <select
                 value={curso}
                 onChange={(e) => setCurso(e.target.value as 'psicologia' | 'odontologia' | 'ambos')}
@@ -162,7 +163,9 @@ export function NewPatientModal({ onClose, defaultCurso = 'odontologia' }: NewPa
               >
                 {defaultCurso === 'odontologia' && <option value="odontologia">Odontologia</option>}
                 {defaultCurso === 'psicologia' && <option value="psicologia">Psicologia (SPA)</option>}
-                <option value="ambos">Clínicas Integradas (Ambos)</option>
+                {defaultCurso !== 'odontologia' && (
+                  <option value="ambos">Clínicas Integradas (Ambos)</option>
+                )}
               </select>
             </div>
           </div>

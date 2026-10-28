@@ -8,8 +8,10 @@ from app.models.prontuario import (
     ProntuarioPsico,
     FichaOdonto,
     DocumentoFichaOdonto,
+    RadiografiaOdonto,
     StatusProntuario,
 )
+from app.models.dupla import DuplaOdonto
 from app.models.paciente import Paciente
 from app.models.atribuicao import AtribuicaoClinica, SituacaoAtribuicao
 from app.models.usuario import Usuario, PerfilUsuario
@@ -23,6 +25,8 @@ from app.schemas.prontuario import (
     DocumentoFichaOdontoUpdate,
     DocumentoFichaOdontoRead,
     DocumentoFichaOdontoDetalhe,
+    RadiografiaOdontoCreate,
+    RadiografiaOdontoRead,
 )
 from app.services.auth_service import (
     require_roles,
@@ -649,3 +653,189 @@ def homologar_documento_odonto(
         endereco_ip=ip_do_cliente(http_request),
     )
     return documento
+
+
+# --- Exames de imagem do prontuário odontológico ---
+# A aba Exames de Imagem grava no ato, sem esperar o envio da ficha completa.
+# O exame continua vinculado ao paciente e à dupla que o assinou.
+
+def _pode_ver_radiografia(
+    session: Session,
+    usuario: Usuario,
+    radiografia: RadiografiaOdonto,
+) -> bool:
+    if usuario.perfil == PerfilUsuario.RT:
+        return True
+    if usuario.perfil == PerfilUsuario.ESTAGIARIO:
+        return usuario.matricula in (
+            radiografia.operador_matricula,
+            radiografia.auxiliar_matricula,
+        )
+    if usuario.perfil == PerfilUsuario.SUPERVISOR:
+        matriculas = set(_matriculas_supervisionadas(session, usuario))
+        return bool(
+            {
+                radiografia.operador_matricula,
+                radiografia.auxiliar_matricula,
+            }
+            & matriculas
+        )
+    return False
+
+
+def _exigir_visao_radiografia(
+    session: Session,
+    usuario: Usuario,
+    radiografia: RadiografiaOdonto,
+) -> None:
+    if not _pode_ver_radiografia(session, usuario, radiografia):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso negado: este exame não pertence à sua dupla (RF-005).",
+        )
+
+
+def _resolver_dupla_do_exame(
+    session: Session,
+    usuario: Usuario,
+    dupla_id: int,
+) -> DuplaOdonto:
+    if usuario.perfil != PerfilUsuario.ESTAGIARIO:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="O exame de imagem é anexado pela dupla de estagiários responsável.",
+        )
+
+    dupla = session.get(DuplaOdonto, dupla_id)
+    if not dupla or not dupla.ativo:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "A dupla informada não está ativa. Monte a dupla com a "
+                "supervisão antes de anexar o exame."
+            ),
+        )
+
+    if usuario.matricula not in (
+        dupla.operador_matricula,
+        dupla.auxiliar_matricula,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso negado: você não faz parte desta dupla (PDR-05).",
+        )
+
+    return dupla
+
+
+@router.get("/odonto/radiografias", response_model=List[RadiografiaOdontoRead])
+def listar_radiografias_odonto(
+    paciente_id: int,
+    session: Session = Depends(get_session),
+    current_user: Usuario = Depends(require_curso("odontologia", base=autorizado_clinico))
+):
+    _validar_paciente_do_curso(session, paciente_id, "odontologia")
+
+    query = select(RadiografiaOdonto).where(
+        RadiografiaOdonto.paciente_id == paciente_id
+    )
+
+    if current_user.perfil == PerfilUsuario.ESTAGIARIO:
+        query = query.where(
+            or_(
+                RadiografiaOdonto.operador_matricula == current_user.matricula,
+                RadiografiaOdonto.auxiliar_matricula == current_user.matricula,
+            )
+        )
+    elif current_user.perfil == PerfilUsuario.SUPERVISOR:
+        matriculas = _matriculas_supervisionadas(session, current_user)
+        query = query.where(
+            or_(
+                RadiografiaOdonto.operador_matricula.in_(matriculas),
+                RadiografiaOdonto.auxiliar_matricula.in_(matriculas),
+            )
+        )
+
+    return session.exec(
+        query.order_by(RadiografiaOdonto.criado_em.desc())
+    ).all()
+
+
+@router.post(
+    "/odonto/radiografias",
+    response_model=RadiografiaOdontoRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def criar_radiografia_odonto(
+    dados: RadiografiaOdontoCreate,
+    http_request: Request,
+    session: Session = Depends(get_session),
+    current_user: Usuario = Depends(require_curso("odontologia", base=autorizado_clinico))
+):
+    _validar_paciente_do_curso(session, dados.paciente_id, "odontologia")
+    dupla = _resolver_dupla_do_exame(session, current_user, dados.dupla_id)
+
+    operador = _resolver_estagiario_odonto(
+        session, dupla.operador_matricula, "Operador"
+    )
+    auxiliar = _resolver_estagiario_odonto(
+        session, dupla.auxiliar_matricula, "Auxiliar"
+    )
+
+    radiografia = RadiografiaOdonto(
+        paciente_id=dados.paciente_id,
+        dupla_id=dupla.id,
+        dupla_estagiarios=f"{operador.nome} & {auxiliar.nome}",
+        operador_matricula=dupla.operador_matricula,
+        auxiliar_matricula=dupla.auxiliar_matricula,
+        tipo=dados.tipo,
+        laudo=dados.laudo,
+        imagem_nome=dados.imagem_nome,
+        imagem_mime=dados.imagem_mime,
+        imagem_data=dados.imagem_data,
+        status="REGISTRADO",
+    )
+    session.add(radiografia)
+    session.commit()
+    session.refresh(radiografia)
+
+    registrar_log(
+        session,
+        current_user,
+        "REGISTRO_RADIOGRAFIA_ODONTO",
+        "radiografias_odonto",
+        radiografia.id,
+        endereco_ip=ip_do_cliente(http_request),
+    )
+    return radiografia
+
+
+@router.delete("/odonto/radiografias/{radiografia_id}")
+def remover_radiografia_odonto(
+    radiografia_id: int,
+    http_request: Request,
+    session: Session = Depends(get_session),
+    current_user: Usuario = Depends(require_curso("odontologia", base=autorizado_clinico))
+):
+    radiografia = session.get(RadiografiaOdonto, radiografia_id)
+    if not radiografia:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Exame de imagem não localizado.",
+        )
+
+    _validar_paciente_do_curso(session, radiografia.paciente_id, "odontologia")
+    _exigir_visao_radiografia(session, current_user, radiografia)
+
+    session.delete(radiografia)
+    session.commit()
+
+    registrar_log(
+        session,
+        current_user,
+        "REMOCAO_RADIOGRAFIA_ODONTO",
+        "radiografias_odonto",
+        radiografia_id,
+        endereco_ip=ip_do_cliente(http_request),
+    )
+    return {"detail": "Exame de imagem removido do prontuário."}

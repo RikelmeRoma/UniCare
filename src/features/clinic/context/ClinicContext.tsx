@@ -144,6 +144,7 @@ export interface Anamnese {
 
 export interface ItemPlanoTratamento {
   id: number;
+  pacienteId: number;
   prioridade: 'Urgência' | 'Fase 1 - Restauradora' | 'Fase 2 - Periodontal' | 'Fase 3 - Manutenção';
   denteRegiao: string;
   procedimento: string;
@@ -394,6 +395,7 @@ const mapearAnamnese = (a: ApiAnamnese): Anamnese => ({
 const planosDasFichas = (fichas: FichaOdonto[]): ItemPlanoTratamento[] =>
   fichas.map((f) => ({
     id: f.id,
+    pacienteId: f.pacienteId,
     // `prioridade` é a fase de planejamento e `status` é o estado do fluxo:
     // são eixos diferentes, então o status do banco alimenta os dois campos.
     prioridade:
