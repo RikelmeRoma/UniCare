@@ -25,7 +25,7 @@ interface FaceData {
 }
 
 /** Dados completos de um dente. */
-interface ToothData {
+export interface ToothData {
   fdi: number; // Número do dente (notação FDI)
   missing: boolean; // Dente ausente
   implant: boolean; // Implante
@@ -36,7 +36,7 @@ interface ToothData {
 }
 
 /** Mapa de todos os dentes, indexados pelo número FDI. */
-type ToothMap = Record<number, ToothData>;
+export type ToothMap = Record<number, ToothData>;
 
 /** Informações do paciente. */
 interface PatientInfo {
@@ -391,7 +391,17 @@ const ToothGlyph: React.FC<{
  * COMPONENTE PRINCIPAL
  * ========================================================= */
 
-const Periograma: React.FC = () => {
+interface PeriogramaProps {
+  valor?: ToothMap | null;
+  onChange?: (teeth: ToothMap) => void;
+  somenteLeitura?: boolean;
+}
+
+const Periograma: React.FC<PeriogramaProps> = ({
+  valor,
+  onChange,
+  somenteLeitura = false,
+}) => {
   const [patient, setPatient] = useState<PatientInfo>({
     nome: "",
     nascimento: "",
@@ -399,7 +409,17 @@ const Periograma: React.FC = () => {
     examinador: "",
   });
 
-  const [teeth, setTeeth] = useState<ToothMap>(buildInitialTeeth);
+  const [teethInterno, setTeethInterno] = useState<ToothMap>(buildInitialTeeth);
+  const teeth = valor ?? teethInterno;
+  const setTeeth = useCallback(
+    (atualizador: ToothMap | ((prev: ToothMap) => ToothMap)) => {
+      const proximo =
+        typeof atualizador === "function" ? atualizador(teeth) : atualizador;
+      if (onChange) onChange(proximo);
+      else setTeethInterno(proximo);
+    },
+    [teeth, onChange]
+  );
   const [showDetail, setShowDetail] = useState<boolean>(false);
 
   /* ----------------------- Handlers ----------------------- */
@@ -420,6 +440,7 @@ const Periograma: React.FC = () => {
       field: "ps" | "rec",
       raw: string
     ) => {
+      if (somenteLeitura) return;
       setTeeth((prev) => {
         const tooth = prev[fdi];
         let value: number | null = raw === "" ? null : parseFloat(raw);
@@ -430,12 +451,13 @@ const Periograma: React.FC = () => {
         return { ...prev, [fdi]: { ...tooth, [face]: newFace } };
       });
     },
-    []
+    [setTeeth, somenteLeitura]
   );
 
   /** Alterna o sangramento à sondagem (SS) de um sítio. */
   const toggleSS = useCallback(
     (fdi: number, face: FaceKey, site: SiteKey) => {
+      if (somenteLeitura) return;
       setTeeth((prev) => {
         const tooth = prev[fdi];
         const newSite: SiteData = {
@@ -446,23 +468,25 @@ const Periograma: React.FC = () => {
         return { ...prev, [fdi]: { ...tooth, [face]: newFace } };
       });
     },
-    []
+    [setTeeth, somenteLeitura]
   );
 
   /** Atualiza mobilidade ou furca. */
   const updateGrade = useCallback(
     (fdi: number, field: "mobility" | "furcation", value: Grade) => {
+      if (somenteLeitura) return;
       setTeeth((prev) => ({
         ...prev,
         [fdi]: { ...prev[fdi], [field]: value },
       }));
     },
-    []
+    [setTeeth, somenteLeitura]
   );
 
   /** Alterna ausente/implante. */
   const toggleFlag = useCallback(
     (fdi: number, field: "missing" | "implant") => {
+      if (somenteLeitura) return;
       setTeeth((prev) => {
         const tooth = prev[fdi];
         const next = !tooth[field];
@@ -474,7 +498,7 @@ const Periograma: React.FC = () => {
         };
       });
     },
-    []
+    [setTeeth, somenteLeitura]
   );
 
   /* ----------------------- Estatísticas ----------------------- */
@@ -731,24 +755,17 @@ const Periograma: React.FC = () => {
       rows: Array<"SS" | "PS" | "REC" | "NIC">
     ) =>
       rows.map((row) => {
-        let label = "";
-        let cells: React.ReactNode[] = [];
-        if (row === "SS") {
-          label = "SS";
-          cells = order.map((fdi) => renderSSCells(fdi, face));
-        } else if (row === "PS") {
-          label = "PS";
-          cells = order.map((fdi) => renderNumberCells(fdi, face, "ps"));
-        } else if (row === "REC") {
-          label = "REC";
-          cells = order.map((fdi) => renderNumberCells(fdi, face, "rec"));
-        } else {
-          label = "NIC";
-          cells = order.map((fdi) => renderNicCells(fdi, face));
-        }
+        const cells =
+          row === "SS"
+            ? order.map((fdi) => renderSSCells(fdi, face))
+            : row === "PS"
+              ? order.map((fdi) => renderNumberCells(fdi, face, "ps"))
+              : row === "REC"
+                ? order.map((fdi) => renderNumberCells(fdi, face, "rec"))
+                : order.map((fdi) => renderNicCells(fdi, face));
         return (
           <tr key={`${arcada}-${face}-${row}`}>
-            {rowLabel(`${label}`)}
+            {rowLabel(row)}
             {cells}
           </tr>
         );

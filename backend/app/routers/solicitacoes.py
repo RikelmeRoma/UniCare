@@ -19,14 +19,14 @@ from sqlmodel import Session, select
 
 from app.database import get_session
 from app.models.solicitacao import SolicitacaoCadastro, SituacaoSolicitacao
-from app.models.usuario import Usuario, PerfilUsuario
+from app.models.usuario import Usuario, PerfilUsuario, CursoUsuario
 from app.schemas.solicitacao import (
     SolicitacaoCreate,
     SolicitacaoRead,
     AprovacaoSolicitacao,
     RecusaSolicitacao,
 )
-from app.services.auth_service import get_current_user
+from app.services.auth_service import get_current_user, validar_curso_solicitado
 from app.services.auditoria_service import registrar_log, ip_do_cliente
 from app.services import email_service
 from app.services.email_service import StatusEnvio
@@ -100,11 +100,12 @@ def solicitar_credencial(
 @router.get("/", response_model=List[SolicitacaoRead], include_in_schema=False)
 def listar_solicitacoes(
     situacao: Optional[SituacaoSolicitacao] = SituacaoSolicitacao.PENDENTE,
+    curso: Optional[CursoUsuario] = None,
     session: Session = Depends(get_session),
     current_user: Usuario = Depends(_exigir_rt),
 ):
-    """Fila da RT. Cada RT vê só a clínica dela — a segregação por curso vale
-    aqui tanto quanto no resto do sistema."""
+    """Fila da própria clínica da RT."""
+    validar_curso_solicitado(current_user, curso.value if curso is not None else None)
     query = select(SolicitacaoCadastro).where(
         SolicitacaoCadastro.curso_declarado == current_user.curso.value
     )
@@ -120,14 +121,7 @@ def _buscar_da_clinica(session: Session, solicitacao_id: int, rt: Usuario) -> So
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Solicitação não localizada.",
         )
-    if solicitacao.curso_declarado != rt.curso.value:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                f"Acesso negado: a solicitação é da clínica de "
-                f"{solicitacao.curso_declarado}. Sua clínica é {rt.curso.value}."
-            ),
-        )
+    validar_curso_solicitado(rt, solicitacao.curso_declarado)
     return solicitacao
 
 
@@ -205,6 +199,7 @@ def aprovar_solicitacao(
         perfil=dados.perfil,
         senha=dados.senha,
         registro_profissional=dados.registro_profissional,
+        curso=CursoUsuario(solicitacao.curso_declarado),
     )
 
     solicitacao.situacao = SituacaoSolicitacao.APROVADA

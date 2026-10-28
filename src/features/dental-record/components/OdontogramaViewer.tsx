@@ -17,13 +17,13 @@ interface ConditionDef {
 
 type ToothFaces = Record<FaceKey, FaceConditionKey | null>;
 
-interface ToothData {
+export interface ToothData {
   faces: ToothFaces;
   whole: WholeConditionKey | null;
   note: string;
 }
 
-type TeethMap = Record<number, ToothData>;
+export type TeethMap = Record<number, ToothData>;
 
 interface PatientData {
   nome: string;
@@ -306,12 +306,24 @@ function ToothSVG({ fdi, data, activeTool, onCellClick, onSelect, isSelected }: 
 /*  Componente principal                                              */
 /* ------------------------------------------------------------------ */
 
-export default function OdontogramApp() {
-  const [teeth, setTeeth] = useState<TeethMap>(buildInitialTeeth);
+interface OdontogramAppProps {
+  valor?: TeethMap | null;
+  onChange?: (teeth: TeethMap) => void;
+  somenteLeitura?: boolean;
+}
+
+export default function OdontogramApp({ valor, onChange, somenteLeitura = false }: OdontogramAppProps = {}) {
+  const [teethInterno, setTeethInterno] = useState<TeethMap>(buildInitialTeeth);
+  const teeth = valor ?? teethInterno;
+  const setTeeth = (atualizador: TeethMap | ((prev: TeethMap) => TeethMap)) => {
+    const proximo =
+      typeof atualizador === "function" ? atualizador(teeth) : atualizador;
+    if (onChange) onChange(proximo);
+    else setTeethInterno(proximo);
+  };
   const [activeTool, setActiveTool] = useState<ActiveToolType>("carie");
   const [selectedTooth, setSelectedTooth] = useState<number | null>(null);
   const [patient, setPatient] = useState<PatientData>({ nome: "", data: "", profissional: "" });
-  const [showJson, setShowJson] = useState(false);
   const fontsLoaded = useRef(false);
 
   useEffect(() => {
@@ -327,6 +339,7 @@ export default function OdontogramApp() {
   const isWholeTool = WHOLE_CONDITIONS.some((c) => c.key === activeTool);
 
   function handleCellClick(fdi: number, faceKey: FaceKey) {
+    if (somenteLeitura) return;
     setTeeth((prev) => {
       const t = prev[fdi];
 
@@ -353,6 +366,7 @@ export default function OdontogramApp() {
   }
 
   function updateToothFace(fdi: number, faceKey: FaceKey, value: string) {
+    if (somenteLeitura) return;
     setTeeth((prev) => ({
       ...prev,
       [fdi]: { ...prev[fdi], faces: { ...prev[fdi].faces, [faceKey]: value ? (value as FaceConditionKey) : null } },
@@ -360,6 +374,7 @@ export default function OdontogramApp() {
   }
 
   function updateToothWhole(fdi: number, value: string) {
+    if (somenteLeitura) return;
     setTeeth((prev) => {
       const t = prev[fdi];
       const nextFaces = value === "ausente" || value === "implante" ? emptyFaces() : t.faces;
@@ -368,14 +383,17 @@ export default function OdontogramApp() {
   }
 
   function updateNote(fdi: number, note: string) {
+    if (somenteLeitura) return;
     setTeeth((prev) => ({ ...prev, [fdi]: { ...prev[fdi], note } }));
   }
 
   function resetTooth(fdi: number) {
+    if (somenteLeitura) return;
     setTeeth((prev) => ({ ...prev, [fdi]: { faces: emptyFaces(), whole: null, note: prev[fdi].note } }));
   }
 
   function clearAll() {
+    if (somenteLeitura) return;
     if (window.confirm("Limpar todo o odontograma? Esta ação não pode ser desfeita.")) {
       setTeeth(buildInitialTeeth());
       setSelectedTooth(null);
@@ -396,24 +414,6 @@ export default function OdontogramApp() {
     });
     return { counts, notesCount };
   }, [teeth]);
-
-  function downloadJson() {
-    const payload = {
-      paciente: patient,
-      geradoEm: new Date().toISOString(),
-      numeracao: "FDI",
-      dentes: teeth,
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `odontograma_${patient.nome ? patient.nome.replace(/\s+/g, "_") : "paciente"}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
 
   const sel = selectedTooth ? teeth[selectedTooth] : null;
 
@@ -654,18 +654,8 @@ export default function OdontogramApp() {
         </div>
 
         <div className="flex flex-wrap gap-2 no-print">
-          <button onClick={downloadJson} className="text-sm px-3 py-2 rounded font-medium" style={{ background: "#0E7C7B", color: "#FFFFFF" }}>Exportar JSON</button>
-          <button onClick={() => setShowJson((v) => !v)} className="text-sm px-3 py-2 rounded font-medium" style={{ border: "1px solid #D7DEDD", background: "#FFFFFF" }}>
-            {showJson ? "Ocultar dados" : "Ver dados"}
-          </button>
           <button onClick={clearAll} className="text-sm px-3 py-2 rounded font-medium" style={{ border: "1px solid #D08A2C", color: "#B5651D", background: "#FFFFFF" }}>Limpar tudo</button>
         </div>
-
-        {showJson && (
-          <pre className="mt-3 p-3 rounded text-xs overflow-auto no-print" style={{ background: "#14262A", color: "#E7ECEB", maxHeight: 300 }}>
-            {JSON.stringify({ paciente: patient, dentes: teeth }, null, 2)}
-          </pre>
-        )}
       </div>
     </div>
   );

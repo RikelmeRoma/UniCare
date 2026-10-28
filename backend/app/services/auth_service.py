@@ -91,12 +91,40 @@ def cursos_visiveis(usuario: Usuario) -> Optional[List[str]]:
     Retorna None quando o cadastro não é de uma clínica — nesse caso o recurso
     não deve ser filtrado por curso. Não confundir com require_curso, que
     bloqueia com 403 em vez de filtrar.
+
+    A RT não é exceção: cada RT responde pela própria clínica. O curso "geral"
+    continua sem visão de clínica nenhuma, como qualquer cadastro sem curso.
     """
     curso = usuario.curso.value
     if curso in CURSOS_CLINICOS:
         # Paciente "ambos" pertence às duas clínicas: aparece para os dois.
         return [curso, "ambos"]
     return None
+
+
+def validar_curso_solicitado(usuario: Usuario, curso: Optional[str]) -> None:
+    """Recusa filtro de outra clínica quando quem pede é a RT.
+
+    A recepção e o supervisor continuam com o comportamento anterior: o
+    parâmetro do cliente não amplia o escopo, então pedir a clínica alheia
+    devolve a própria lista. A RT, que antes era global, agora recebe 403 em
+    vez de um filtro silenciosamente ignorado.
+    """
+    if curso is None or usuario.perfil != PerfilUsuario.RT:
+        return
+    if curso not in CURSOS_CLINICOS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Informe psicologia ou odontologia para filtrar a clínica.",
+        )
+    if curso != usuario.curso.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"Acesso negado: a RT de {usuario.curso.value} não pode consultar "
+                f"a clínica de {curso}."
+            ),
+        )
 
 
 def validar_curso_do_registro(
@@ -127,15 +155,11 @@ def validar_curso_do_registro(
 
 
 def require_curso(curso_da_clinica: str, base: Optional[Any] = None):
-    """Escopa o acesso ao curso da clínica. Não há bypass para o perfil RT.
+    """Escopa o acesso ao curso da clínica, inclusive para a RT.
 
-    Diferente de require_roles, aqui o RT NÃO é salvo: a vertical slice exige que
-    a Referência Técnica de odontologia não leia prontuários psicológicos, e vice-
-    versa. A salvaguarda institucional (RN-003) continua valendo nos recursos que
-    não são específicos de uma clínica — auditoria e relatórios gerenciais.
-
-    "geral" também não escapa: não existe mais cadastro institucional. Se um
-    dia existir, ele é barrado das clínicas em vez de ver as duas.
+    A RT responde pela própria clínica: a de odontologia não lê prontuário,
+    agenda ou auditoria da psicologia, e vice-versa. O supervisor e a recepção
+    continuam presos ao curso do cadastro.
 
     `base` é o guard de papel, avaliado ANTES do curso. Isso não é detalhe de
     estilo: a recepção é barrada das clínicas pelo RN-001, e se o curso

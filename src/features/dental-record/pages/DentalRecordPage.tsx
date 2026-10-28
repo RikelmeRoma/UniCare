@@ -1,23 +1,32 @@
 import { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { AppLayout } from '../../../components/layout/AppLayout';
 import { PatientHeader } from '../components/PatientHeader';
 import { useClinic } from '../../clinic/context/ClinicContext';
+import { useAuth } from '../../auth/context/AuthContext';
 import { AdultRecordWorkspace } from '../workspaces/AdultRecordWorkspace';
 import { ChildRecordWorkspace } from '../workspaces/ChildRecordWorkspace';
 
 export function DentalRecordPage() {
-  const { pacientes, anamnesesPorPaciente, carregarAnamneses } = useClinic();
+  const {
+    pacientes,
+    anamnesesPorPaciente,
+    carregarAnamneses,
+    documentosOdonto,
+    carregarDocumentoOdontoPaciente,
+  } = useClinic();
+  const { user } = useAuth();
   const location = useLocation();
-  const pacientesOdonto = pacientes.filter(
-    (p) => p.curso === 'odontologia' || p.curso === 'ambos'
-  );
+  const [searchParams] = useSearchParams();
+  const pacientesOdonto = pacientes.filter((p) => p.curso === 'odontologia');
 
   // A agenda abre a ficha do paciente do card clicado. Sem ler o state, o
   // seletor caía sempre no primeiro paciente da clínica e o estagiário tinha
   // que procurar de novo o paciente que acabou de clicar.
-  const pacienteDaAgenda = (location.state as { pacienteId?: number } | null)
-    ?.pacienteId;
+  const pacienteDaQuery = Number(searchParams.get('paciente')) || undefined;
+  const pacienteDaAgenda =
+    (location.state as { pacienteId?: number } | null)?.pacienteId ??
+    pacienteDaQuery;
   const [selectedPatientId, setSelectedPatientId] = useState<number | undefined>(
     pacienteDaAgenda
   );
@@ -31,11 +40,25 @@ export function DentalRecordPage() {
     }
   }, [pacienteSelecionado?.id, carregarAnamneses]);
 
+  useEffect(() => {
+    if (pacienteSelecionado?.id) {
+      void carregarDocumentoOdontoPaciente(pacienteSelecionado.id);
+    }
+    // A função do contexto é recriada a cada render; a chave é o paciente.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pacienteSelecionado?.id]);
+
   const anamneses = pacienteSelecionado?.id
     ? (anamnesesPorPaciente[pacienteSelecionado.id] ?? [])
     : [];
   // O backend devolve do mais recente para o mais antigo.
   const ultima = anamneses[0];
+  const documento =
+    documentosOdonto.find((d) => d.pacienteId === pacienteSelecionado?.id) ?? null;
+  const documentoKey = documento
+    ? `${documento.id}-${documento.versao}-${documento.conteudo ? 'detalhe' : 'resumo'}`
+    : 'novo';
+  const somenteLeitura = user?.perfil === 'supervisor' || user?.perfil === 'rt';
 
   return (
     <AppLayout
@@ -68,14 +91,18 @@ export function DentalRecordPage() {
         {pacienteSelecionado ? (
           pacienteSelecionado.ehMenor ? (
             <ChildRecordWorkspace
-              key={`infantil-${pacienteSelecionado.id}`}
+              key={`infantil-${pacienteSelecionado.id}-${documentoKey}`}
               paciente={pacienteSelecionado}
+              documento={documento}
+              somenteLeitura={somenteLeitura}
             />
           ) : (
             <AdultRecordWorkspace
-              key={`adulto-${pacienteSelecionado.id}`}
+              key={`adulto-${pacienteSelecionado.id}-${documentoKey}`}
               paciente={pacienteSelecionado}
               ultima={ultima}
+              documento={documento}
+              somenteLeitura={somenteLeitura}
             />
           )
         ) : (

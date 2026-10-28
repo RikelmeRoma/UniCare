@@ -8,7 +8,7 @@ from sqlmodel import Session
 from app.config import settings
 from app.database import engine
 from app.seed import run_seed
-from app.routers import auth, pacientes, agendamentos, prontuarios, auditoria, relatorios, usuarios, solicitacoes, atribuicoes
+from app.routers import auth, pacientes, agendamentos, prontuarios, auditoria, relatorios, usuarios, solicitacoes, atribuicoes, duplas
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -48,6 +48,7 @@ app.include_router(relatorios.router, prefix=settings.API_V1_STR)
 app.include_router(usuarios.router, prefix=settings.API_V1_STR)
 app.include_router(solicitacoes.router, prefix=settings.API_V1_STR)
 app.include_router(atribuicoes.router, prefix=settings.API_V1_STR)
+app.include_router(duplas.router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 def root():

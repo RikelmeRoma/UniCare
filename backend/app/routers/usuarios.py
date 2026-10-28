@@ -19,10 +19,15 @@ from app.services.auth_service import (
     require_curso,
     get_current_user,
     cursos_visiveis,
+    validar_curso_solicitado,
     exigir_perfil,
 )
 from app.services.crypto_service import get_password_hash
 from app.services.auditoria_service import registrar_log, ip_do_cliente
+from app.services.dupla_service import (
+    desativar_duplas_do_estagiario,
+    desativar_duplas_do_supervisor,
+)
 
 router = APIRouter(prefix="/usuarios", tags=["Gestão de Usuários (RF-009)"])
 
@@ -91,34 +96,66 @@ def _negar_gestao(perfil_alvo: PerfilUsuario) -> HTTPException:
     )
 
 
+def _encerrar_duplas_do_usuario(
+    session: Session,
+    ator: Usuario,
+    usuario: Usuario,
+    http_request: Request,
+) -> None:
+    """Encerra duplas afetadas por desativação, troca de matrícula ou supervisor.
+
+    Sem isto a dupla sobreviveria ao vínculo que a justificava: o aluno sairia da
+    clínica e continuaria ocupando vaga em uma dupla ativa, ou a dupla apontaria
+    para uma matrícula que não existe mais.
+    """
+    if usuario.perfil == PerfilUsuario.ESTAGIARIO:
+        duplas = desativar_duplas_do_estagiario(session, usuario.matricula)
+    elif usuario.perfil == PerfilUsuario.SUPERVISOR:
+        duplas = desativar_duplas_do_supervisor(session, usuario.matricula)
+    else:
+        return
+
+    for dupla in duplas:
+        registrar_log(
+            session,
+            ator,
+            "DESATIVACAO_DUPLA_ODONTO",
+            "duplas_odonto",
+            dupla.id,
+            endereco_ip=ip_do_cliente(http_request),
+        )
+
+
 @router.get("", response_model=List[UsuarioRead])
 @router.get("/", response_model=List[UsuarioRead], include_in_schema=False)
 def listar_usuarios(
-    http_request: Request,
+    curso: Optional[CursoUsuario] = None,
     session: Session = Depends(get_session),
     current_user: Usuario = Depends(autorizado_gestao)
 ):
     """Lista os usuários visíveis ao gestor.
 
-    A RT enxerga a clínica inteira; o supervisor vê os estagiários da clínica
-    dele. Nenhum dos dois atravessa a segregação de curso.
+    A RT vê apenas a própria clínica; o supervisor vê apenas os estagiários
+    vinculados a ele, na própria clínica.
     """
-    query = select(Usuario).where(Usuario.curso == current_user.curso)
-
-    if current_user.perfil == PerfilUsuario.SUPERVISOR:
-        # Supervisor vê apenas os estagiários vinculados a ele. Antes via todos
-        # da clínica, porque não existia vínculo formal — o RF-005 resolve isso.
-        query = query.where(
-            Usuario.perfil == PerfilUsuario.ESTAGIARIO,
-            Usuario.supervisor_matricula == current_user.matricula,
-        )
-    elif current_user.perfil == PerfilUsuario.RT:
-        # RT vê a clínica inteira, inclusive os estagiários sem supervisor ainda.
-        pass
+    validar_curso_solicitado(
+        current_user, curso.value if curso is not None else None
+    )
+    if current_user.perfil == PerfilUsuario.RT:
+        query = select(Usuario).where(Usuario.curso == current_user.curso)
     else:
-        # Recepção não administra ninguém — mas a rota exige autorizado_gestao,
-        # então nunca chega aqui.
-        query = query.where(Usuario.perfil == PerfilUsuario.ESTAGIARIO)
+        query = select(Usuario).where(Usuario.curso == current_user.curso)
+        if current_user.perfil == PerfilUsuario.SUPERVISOR:
+            # Supervisor vê apenas os estagiários vinculados a ele. Antes via todos
+            # da clínica, porque não existia vínculo formal — o RF-005 resolve isso.
+            query = query.where(
+                Usuario.perfil == PerfilUsuario.ESTAGIARIO,
+                Usuario.supervisor_matricula == current_user.matricula,
+            )
+        else:
+            # Recepção não administra ninguém — mas a rota exige autorizado_gestao,
+            # então nunca chega aqui.
+            query = query.where(Usuario.perfil == PerfilUsuario.ESTAGIARIO)
 
     return session.exec(query).all()
 
@@ -140,19 +177,14 @@ def listar_estagiarios(
     O filtro é pelo ENUM `cursousuario`, e aqui NÃO se pode usar
     `cursos_visiveis`: ele devolve `[curso, "ambos"]`, e "ambos" é convenção das
     colunas VARCHAR de paciente e agendamento — não é valor do ENUM. Contra
-    `usuarios.curso` a query morre com InvalidTextRepresentation. A RT, cujo curso
-    é `geral`, recebe as duas clínicas.
+    `usuarios.curso` a query morre com InvalidTextRepresentation. A RT recebe
+    apenas os estagiários da própria clínica.
     """
     query = select(Usuario).where(
         Usuario.perfil == PerfilUsuario.ESTAGIARIO,
         Usuario.ativo.is_(True),
+        Usuario.curso == current_user.curso,
     )
-    if current_user.curso == CursoUsuario.GERAL:
-        query = query.where(
-            Usuario.curso.in_([CursoUsuario.PSICOLOGIA, CursoUsuario.ODONTOLOGIA])
-        )
-    else:
-        query = query.where(Usuario.curso == current_user.curso)
 
     estagiarios = session.exec(query).all()
     return [
@@ -163,6 +195,7 @@ def listar_estagiarios(
 
 @router.get("/estagiarios/disponiveis", response_model=List[EstagiarioDisponivelRead])
 def listar_estagiarios_disponiveis(
+    curso: Optional[CursoUsuario] = None,
     session: Session = Depends(get_session),
     current_user: Usuario = Depends(get_current_user)
 ):
@@ -180,18 +213,22 @@ def listar_estagiarios_disponiveis(
 
     Só supervisor e RT. A recepção não precisa: para a agenda ela usa
     `GET /usuarios/estagiarios`, que traz todos os estagiários da clínica.
+
+    A RT consulta apenas a própria clínica; as telas de supervisão pedem o
+    próprio curso para não oferecer aluno da outra clínica. O supervisor ignora
+    o parâmetro: o recorte dele já é o curso do próprio cadastro.
     """
     exigir_perfil(current_user, [PerfilUsuario.SUPERVISOR, PerfilUsuario.RT])
+    validar_curso_solicitado(
+        current_user, curso.value if curso is not None else None
+    )
 
     query = select(Usuario).where(
         Usuario.perfil == PerfilUsuario.ESTAGIARIO,
         Usuario.ativo.is_(True),
         Usuario.supervisor_matricula.is_(None),
+        Usuario.curso == current_user.curso,
     )
-    if current_user.curso == CursoUsuario.GERAL:
-        query = query.where(Usuario.curso.in_([CursoUsuario.PSICOLOGIA, CursoUsuario.ODONTOLOGIA]))
-    else:
-        query = query.where(Usuario.curso == current_user.curso)
 
     estagiarios = session.exec(query).all()
     return [
@@ -211,19 +248,43 @@ def criar_usuario_para_gestor(
     senha: str,
     registro_profissional: Optional[str] = None,
     supervisor_matricula: Optional[str] = None,
+    curso: Optional[CursoUsuario] = None,
 ) -> Usuario:
-    """Cria um usuário na clínica de quem está autorizando.
+    """Cria um usuário na clínica escolhida pela RT ou na clínica do supervisor.
 
     Função compartilhada de propósito: o POST /usuarios e a aprovação de uma
     solicitação de cadastro precisam obedecer exatamente a mesma regra — curso
-    vindo do gestor, bcrypt, unicidade e auditoria. Duas cópias desse bloco
-    divergem na primeira mudança, e a que divergisse seria a do pedido.
+    validado, bcrypt, unicidade e auditoria. Duas cópias desse bloco divergem na
+    primeira mudança, e a que divergisse seria a do pedido.
 
     Levanta 403 quando o gestor não pode criar aquele perfil e 400 quando o
-    e-mail ou a matrícula já existem.
+    e-mail, a matrícula ou a clínica são inválidos.
     """
     if not _pode_gerenciar(gestor, perfil):
         raise _negar_gestao(perfil)
+
+    curso_do_cadastro = gestor.curso
+    if gestor.perfil == PerfilUsuario.RT:
+        validar_curso_solicitado(
+            gestor, curso.value if curso is not None else None
+        )
+        curso_do_cadastro = gestor.curso
+        if curso_do_cadastro not in (CursoUsuario.PSICOLOGIA, CursoUsuario.ODONTOLOGIA):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A RT precisa estar vinculada a psicologia ou odontologia.",
+            )
+
+    supervisor_do_cadastro = None
+    if gestor.perfil == PerfilUsuario.SUPERVISOR and perfil == PerfilUsuario.ESTAGIARIO:
+        supervisor_do_cadastro = gestor.matricula
+    elif (
+        gestor.perfil == PerfilUsuario.RT
+        and perfil == PerfilUsuario.ESTAGIARIO
+        and supervisor_matricula
+    ):
+        supervisor = _supervisor_valido(session, supervisor_matricula, curso_do_cadastro)
+        supervisor_do_cadastro = supervisor.matricula
 
     usuario = Usuario(
         nome=nome.strip(),
@@ -231,16 +292,10 @@ def criar_usuario_para_gestor(
         # bcrypt direto, nunca SHA-256: ver crypto_service.
         senha_hash=get_password_hash(senha),
         perfil=perfil,
-        # O curso vem do gestor, não do corpo: nenhuma chamada pode criar usuário
-        # em clínica alheia nem escrever `geral` por engano.
-        curso=gestor.curso,
+        curso=curso_do_cadastro,
         matricula=matricula.strip().upper(),
         registro_profissional=(registro_profissional or None),
-        supervisor_matricula=(
-            gestor.matricula
-            if gestor.perfil == PerfilUsuario.SUPERVISOR and perfil == PerfilUsuario.ESTAGIARIO
-            else None
-        ),
+        supervisor_matricula=supervisor_do_cadastro,
         ativo=True
     )
 
@@ -273,9 +328,10 @@ def cadastrar_usuario(
     session: Session = Depends(get_session),
     current_user: Usuario = Depends(autorizado_gestao)
 ):
-    """Cadastra um usuário na clínica do gestor.
+    """Cadastra um usuário.
 
-    O curso nunca vem do corpo: é o da RT ou do supervisor que está cadastrando.
+    A RT cadastra sempre na própria clínica; o supervisor também. Pedir a
+    clínica alheia no corpo é 403.
     """
     return criar_usuario_para_gestor(
         session=session,
@@ -288,6 +344,7 @@ def cadastrar_usuario(
         senha=dados.senha,
         registro_profissional=dados.registro_profissional,
         supervisor_matricula=dados.supervisor_matricula,
+        curso=dados.curso,
     )
 
 
@@ -317,27 +374,6 @@ def vincular_supervisor(
       puxado por outro supervisor: a troca de dono é ato da RT, senão a
       segregação que o RF-005 cria vira decorativa.
     """
-    if current_user.perfil == PerfilUsuario.RT:
-        matricula_alvo = dados.supervisor_matricula
-        if not matricula_alvo:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Informe a matrícula do supervisor que vai assumir o estagiário.",
-            )
-        supervisor = _supervisor_valido(
-            session, matricula_alvo, current_user.curso
-        )
-    elif current_user.perfil == PerfilUsuario.SUPERVISOR:
-        supervisor = current_user
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                f"Acesso negado: Perfil '{current_user.perfil.value}' não tem "
-                "permissão para este recurso (RN-001)"
-            ),
-        )
-
     estagiario = session.get(Usuario, usuario_id)
     if not estagiario:
         raise HTTPException(
@@ -349,12 +385,33 @@ def vincular_supervisor(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Só estagiário recebe supervisor.",
         )
-    if estagiario.curso != current_user.curso and current_user.curso != CursoUsuario.GERAL:
+
+    if current_user.perfil == PerfilUsuario.RT:
+        validar_curso_solicitado(current_user, estagiario.curso.value)
+        matricula_alvo = dados.supervisor_matricula
+        if not matricula_alvo:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Informe a matr��cula do supervisor que vai assumir o estagiǭrio.",
+            )
+        # A RT só vincula aluno da própria clínica ao supervisor da mesma clínica.
+        supervisor = _supervisor_valido(session, matricula_alvo, estagiario.curso)
+    elif current_user.perfil == PerfilUsuario.SUPERVISOR:
+        supervisor = current_user
+        if estagiario.curso != current_user.curso:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    f"Acesso negado: usuário pertence à clínica de {estagiario.curso.value}. "
+                    f"Seu cadastro é da clínica de {current_user.curso.value}."
+                ),
+            )
+    else:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(
-                f"Acesso negado: usuário pertence à clínica de {estagiario.curso.value}. "
-                f"Seu cadastro é da clínica de {current_user.curso.value}."
+                f"Acesso negado: Perfil '{current_user.perfil.value}' não tem "
+                "permissão para este recurso (RN-001)"
             ),
         )
     if estagiario.supervisor_matricula:
@@ -423,17 +480,11 @@ def atualizar_usuario(
             detail="Acesso negado: este estagiário não está vinculado a você (RF-005).",
         )
 
-    if dados.nome is not None:
-        usuario.nome = dados.nome.strip()
-    if dados.email is not None:
-        usuario.email = dados.email.strip().lower()
-    if dados.matricula is not None:
-        usuario.matricula = dados.matricula.strip().upper()
-    if dados.registro_profissional is not None:
-        usuario.registro_profissional = dados.registro_profissional or None
-    if dados.ativo is not None:
-        usuario.ativo = dados.ativo
+    matricula_original = usuario.matricula
+    supervisor_original = usuario.supervisor_matricula
+
     # Atribuir supervisor é ato da RT. Supervisor não se auto-atribui estagiário.
+    novo_supervisor = supervisor_original
     if dados.supervisor_matricula is not None:
         if current_user.perfil != PerfilUsuario.RT:
             raise HTTPException(
@@ -441,12 +492,37 @@ def atualizar_usuario(
                 detail="Atribuir estagiário a supervisor é ato da Referência Técnica (RF-009).",
             )
         if dados.supervisor_matricula == '':
-            usuario.supervisor_matricula = None
+            novo_supervisor = None
         else:
             supervisor = _supervisor_valido(
                 session, dados.supervisor_matricula, usuario.curso
             )
-            usuario.supervisor_matricula = supervisor.matricula
+            novo_supervisor = supervisor.matricula
+
+    nova_matricula = (
+        dados.matricula.strip().upper()
+        if dados.matricula is not None
+        else matricula_original
+    )
+
+    muda_matricula = nova_matricula != matricula_original
+    muda_supervisor = novo_supervisor != supervisor_original
+    desativando = dados.ativo is False and usuario.ativo
+    if muda_matricula or muda_supervisor or desativando:
+        _encerrar_duplas_do_usuario(session, current_user, usuario, http_request)
+
+    if dados.nome is not None:
+        usuario.nome = dados.nome.strip()
+    if dados.email is not None:
+        usuario.email = dados.email.strip().lower()
+    if dados.matricula is not None:
+        usuario.matricula = nova_matricula
+    if dados.registro_profissional is not None:
+        usuario.registro_profissional = dados.registro_profissional or None
+    if dados.ativo is not None:
+        usuario.ativo = dados.ativo
+    if dados.supervisor_matricula is not None:
+        usuario.supervisor_matricula = novo_supervisor
 
     # Trocar a senha é uma operação separada e explícita, para o hash nunca ser
     # sobrescrito por um PATCH de nome/e-mail.
@@ -518,6 +594,8 @@ def desativar_usuario(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Acesso negado: este estagiário não está vinculado a você (RF-005).",
         )
+
+    _encerrar_duplas_do_usuario(session, current_user, usuario, http_request)
 
     usuario.ativo = False
     session.add(usuario)

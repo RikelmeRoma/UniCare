@@ -101,7 +101,7 @@ export function ChildAlertsTab({
               <span>Saúde Geral</span>
             </h3>
             <span className="rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-slate-900">
-              Rascunho local
+              Na ficha
             </span>
           </div>
 

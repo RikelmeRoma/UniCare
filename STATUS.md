@@ -1,8 +1,64 @@
 # STATUS — UniCare
+
+## Atualização - 2026-10-28 (RT escopada por curso)
+
+**A Referência Técnica deixou de ser global.** `RT-001` responde só pela
+odontologia e `RT-002` só pela psicologia, no frontend e no backend. O que era
+"visão global" virou 403 de clínica alheia.
+
+- **Backend:** `cursos_visiveis(RT)` devolve `[curso, "ambos"]`, e `require_curso`
+  não tem mais bypass para RT. `validar_curso_solicitado` recusa com 403 o
+  `?curso=` de outra clínica e com 400 um curso que não seja psico/odonto.
+  Pacientes, agendamentos, relatórios, auditoria, fila de solicitações, usuários
+  e duplas odontológicas passaram a usar esse recorte. Paciente `ambos` continua
+  visível nas duas clínicas; some apenas da ficha odontológica, que exige
+  `curso='odontologia'`.
+- **Escrita por id:** `PATCH`/`DELETE /usuarios/{id}` e aprovação de solicitação
+  conferem o curso do registro, não só a listagem. A RT não edita, desativa ou
+  aprova conta de outra clínica.
+- **Frontend:** `ProtectedRoute` aplica `allowedCourses` também à RT; o sidebar
+  perdeu o seletor Global/Psico/Odonto e mostra só o módulo do curso; o painel da
+  RT não tem mais "Visão global" e exibe apenas os indicadores da própria
+  clínica; `createUser` não envia `curso`, e o modal não oferece clínica.
+- **Testes:** os casos de "RT global" foram reescritos para a matriz RT-001 /
+  RT-002, com 403 cruzado em leitura, auditoria, fila, aprovação e escrita.
+
+**Verificação:** `pytest -q` → **113 passed, 1 deselected**; `alembic check` limpo;
+`npm run build` verde; lint mantém os **8 problemas preexistentes**.
+
+## Atualização - 2026-10-27 (duplas odontológicas persistidas)
+
+**A supervisão de odontologia parou de criar conta para montar dupla.** O botão
+"Cadastrar Estagiário" virou **"Vincular Aluno"**: o supervisor escolhe um
+estagiário de odontologia já cadastrado pela RT e ainda sem supervisor. Nome,
+matrícula, e-mail, senha e "Cadeira / Dupla" saíram do modal.
+
+- **Tabela `duplas_odonto`** (`app/models/dupla.py`), migração `68603f2ce70a`.
+  Guarda operador, auxiliar, supervisor, autoria e desativação lógica.
+  **Um aluno só pode estar em uma dupla ativa**, garantido no serviço e coberto
+  por teste; desfazer a dupla libera os dois para outra.
+- **API `/duplas-odonto`** (`app/routers/duplas.py`): supervisor monta e enxerga
+  só as próprias duplas; RT enxerga todas e pode encerrar, mas não monta em nome
+  de outro supervisor. Estagiário e recepção recebem RN-001.
+- **Integridade no cadastro de usuário.** `PATCH /usuarios/{id}` e
+  `DELETE /usuarios/{id}` encerram as duplas afetadas quando o aluno muda de
+  matrícula/supervisor ou é desativado, e quando o supervisor é desativado.
+  `GET /usuarios/estagiarios/disponiveis` passou a aceitar `?curso=` para a RT;
+  a supervisão de psicologia pede `psicologia` explicitamente.
+- **Frontend:** `ClinicalPairs` lê as duplas persistidas, mostra contadores a
+  partir de `documentosOdonto`, tem **Vincular Aluno** e **Montar Dupla**, e
+  desfaz a dupla sem apagar histórico. O select de dupla usa apenas alunos
+  vinculados ao supervisor e sem dupla ativa.
+- **Seed:** Augusto (`16024402`) + Gabriela (`16024404`) entram como dupla ativa
+  de demonstração sob `DOC-9122`.
+- **Verificado:** `pytest` **114 passed** (4 novos de duplas/filtro de curso);
+  `alembic check` limpo; head `68603f2ce70a`; `npm run build` verde; lint sem
+  erro novo em `ClinicalPairs`/`api.ts`.
+
 ```
-npm run lint     → 11 erros preexistentes; a paridade da odontologia não
-                    acrescentou nenhum (`DentalEvolutionTab` passou a derivar o
-                    operador em vez de sincronizar por efeito)
+npm run lint     → 8 problemas preexistentes (7 erros + 1 warning);
+                    nenhum introduzido pelas duplas/ficha odontológica
+```
 
 ### ⚠️ Correção em 2026-10-23: o envio de e-mail parou
 
@@ -109,7 +165,40 @@ trilha com `RECUPERACAO_SOLICITADA` e IP real.
 - O 403 da **recepção em `/psi/prontuario` continua correto** e é o esperado: a
   rota libera `estagiario`, `supervisor` e `rt`, e a RN-001 é normativa, com teste
   affirmando o 403. O módulo da recepção é a agenda e a triagem, não o prontuário.
-```
+
+## Atualização — 2026-10-27 (documento completo da ficha odontológica)
+
+**A ficha clínica odontológica inteira passou a ser persistida no servidor**, não
+só o procedimento isolado. `FichaOdonto` continua existindo por procedimento; o
+novo `DocumentoFichaOdonto` guarda anamnese, odontograma, periograma e índices em
+JSON, com versão, parecer e carimbo do supervisor.
+
+- **Fluxo:** `POST /prontuarios/odonto/documentos` cria em `AGUARDANDO_VALIDACAO`;
+  `PATCH /{id}` só reabre documento `EM_ELABORACAO`/`DEVOLVIDO_PARA_AJUSTE` e o
+  devolve para a fila com `versao += 1`; `PATCH /{id}/homologar` só aceita
+  `AGUARDANDO_VALIDACAO`. A autoria vem do token, e só a dupla do documento
+  cria/edita.
+- **Visibilidade:** supervisor vê e homologa apenas documentos de duplas
+  vinculadas a ele (`_matriculas_supervisionadas`); dupla alheia recebe 403. A RT
+  homologa na própria clínica (escopo revisto em 2026-10-28).
+- **Escopo da RT (atualizado em 2026-10-28):** `cursos_visiveis`/`require_curso`
+  mantêm a RT na própria clínica; cadastro de usuário, fila de solicitações,
+  relatórios e auditoria não aceitam mais a clínica alheia. A RT opera a recepção
+  e a supervisão odontológica da própria clínica.
+- **Frontend:** `DocumentoFichaBar` envia/reenvia a ficha, `DentalRecordPage`
+  hidrata o documento do paciente e `ApprovalQueue` homologa/devolve o documento
+  completo. A leitura do supervisor/RT bloqueia edição.
+- **Limpeza:** removidos os componentes legados sem uso (`AnamneseCliFor45Tab`,
+  `AnamneseInfantilTab`, `DentalEvolutionTab`, `TreatmentPlanTab`,
+  `DentalAlertsTab`, `AfericaoSessaoModal`, `EvolucaoFolhaModal`) e os textos
+  visíveis de rascunho local/sessionStorage/CLI-FOR-45.
+- **Migração:** `7276903013a1` (head), com `statusprontuario` reaproveitado via
+  `postgresql.ENUM(..., create_type=False)`.
+
+**Verificação:** `pytest -q` → **110 passed, 1 deselected** (inclui fluxo completo
+do documento e bloqueio de dupla alheia); `alembic check` limpo; `npm run build`
+verde.
+
 ## Atualização — 2026-10-25 (agenda em dupla nas duas clínicas)
 
 **As duas clínicas passaram a ter a sessão pertencendo à dupla — não só ao
@@ -1772,21 +1861,23 @@ Conhecimentos que não são dedutíveis do código e que custaram tempo diagnós
 ## Estado verificado
 
 ```
-pytest           → 100 passed, 1 deselected (de backend/ e da raiz)
+pytest           → 114 passed, 1 deselected (de backend/ e da raiz)
 alembic check    → No new upgrade operations detected
-alembic current  → d8a2f0b3c194 (head)
+alembic current  → 68603f2ce70a (head)
 /health          → dialect: postgresql, conectado: true
 unicare_db       → usuarios=8 pacientes=4 agendamentos=4 prontuarios_psico=2 fichas_odonto=4 anamneses=0
 unicare_test     → banco dedicado da suíte, nunca tocado em dev
 GET /prontuarios/odonto → 4 fichas do seed (a tabela nascia vazia)
 POST /prontuarios/odonto → id real, AGUARDANDO_VALIDACAO
 PATCH /prontuarios/odonto/{id}/homologar → VALIDADO com parecer persistido
+POST /prontuarios/odonto/documentos → documento completo em AGUARDANDO_VALIDACAO
+GET /prontuarios/odonto/documentos → visão por dupla/supervisor/RT
 POST /auth/seed  → 404 (removido na Fase 4)
 GET /demandas    → OK (RF-009, Bloco 1)
 imagem api       → 418 MB (era 1.06 GB; sem .env e sem .venv)
 container api    → healthy; token cruza com o dev local nos dois sentidos
 npm run build    → VERDE
-npm run lint     → 12 problemas preexistentes (11 erros + 1 warning; nenhum novo)
+npm run lint     → erros preexistentes; build é o gate de tipos
 SMTP real        → smtp.gmail.com:587, STARTTLS, login OK, e-mail de teste entregue
 scripts/verificar_smtp.py → conexão, banner, AUTH anunciados, TLS, login e envio
 pytest -m rede   → teste de SMTP real (pulado por padrão; exige UNICARE_TESTE_SMTP=1)

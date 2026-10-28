@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../features/auth/context/AuthContext';
 import {
@@ -14,9 +13,6 @@ import {
 export function AppSidebar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-
-  // Para o perfil de RT Master: seletor de visão
-  const [rtCourseView, setRtCourseView] = useState<'psicologia' | 'odontologia' | 'global'>('global');
 
   const handleLogout = () => {
     logout();
@@ -50,8 +46,8 @@ export function AppSidebar() {
   // As rotas de recepção são segregadas por curso no ProtectedRoute
   // (allowedCourses). O menu offering os dois links para qualquer recepção
   // fazia um deles cair sempre em /nao-autorizado: REC-001 via 403 em
-  // /psi/recepcao e REC-002 via 403 em /recepcao. O mesmo valia para a RT na
-  // visão Global, que enxerga as duas seções de clínica.
+  // /psi/recepcao e REC-002 via 403 em /recepcao. A RT segue a mesma regra:
+  // cada uma vê só a seção da própria clínica.
   const mostrarRecepcaoPsi = user?.curso === 'psicologia';
   const mostrarRecepcaoOdonto = user?.curso === 'odontologia';
 
@@ -139,48 +135,10 @@ export function AppSidebar() {
         </div>
 
 
-        {/* MÓDULO EXCLUSIVO DA RT MASTER: Seletor de Visão de Curso */}
-        {isRT && (
-          <div className="px-3 pt-3">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-1.5">
-              Filtrar Módulo Clínico:
-            </p>
-            <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl text-[10px] font-bold">
-              <button
-                type="button"
-                onClick={() => setRtCourseView('global')}
-                className={`py-1 rounded-lg transition-all ${
-                  rtCourseView === 'global' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                Global
-              </button>
-              <button
-                type="button"
-                onClick={() => setRtCourseView('psicologia')}
-                className={`py-1 rounded-lg transition-all ${
-                  rtCourseView === 'psicologia' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                Psico
-              </button>
-              <button
-                type="button"
-                onClick={() => setRtCourseView('odontologia')}
-                className={`py-1 rounded-lg transition-all ${
-                  rtCourseView === 'odontologia' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                Odonto
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* NAVEGAÇÃO ESTRITAMENTE SEGREGADA CONFORME PERMISSÃO DO USUÁRIO */}
         <nav className="px-3 py-3 space-y-4">
-          {/* 1. SE FOR PSICOLOGIA (OU RT NA VISÃO PSICO/GLOBAL) */}
-          {(isPsicoUser || (isRT && (rtCourseView === 'psicologia' || rtCourseView === 'global'))) && (
+          {/* 1. SE FOR PSICOLOGIA (INCLUSIVE A RT DE PSICOLOGIA) */}
+          {(isPsicoUser || (isRT && user?.curso === 'psicologia')) && (
             <div>
               <h2 className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                 Serviço de Psicologia (SPA)
@@ -232,8 +190,8 @@ export function AppSidebar() {
             </div>
           )}
 
-          {/* 2. SE FOR ODONTOLOGIA (OU RT NA VISÃO ODONTO/GLOBAL) */}
-          {(isOdontoUser || (isRT && (rtCourseView === 'odontologia' || rtCourseView === 'global'))) && (
+          {/* 2. SE FOR ODONTOLOGIA (INCLUSIVE A RT DE ODONTOLOGIA) */}
+          {(isOdontoUser || (isRT && user?.curso === 'odontologia')) && (
             <div>
               <h2 className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                 Clínica Odontológica
@@ -277,7 +235,9 @@ export function AppSidebar() {
                 )}
 
                 {/* Recepção Odontológica: Apenas Recepção e RT (Não aparece para Estagiário/Supervisor) */}
-                {((isRecepcao && mostrarRecepcaoOdonto) || isRT) && (
+                {((isRecepcao && mostrarRecepcaoOdonto) ||
+                  isRT ||
+                  (user?.perfil === 'supervisor' && user?.curso === 'odontologia')) && (
                   <li>
                     <NavLink to="/recepcao" className={getLinkStyle}>
                       <CalendarIcon className="w-4 h-4 shrink-0 text-slate-500" />

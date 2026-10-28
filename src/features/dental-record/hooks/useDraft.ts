@@ -4,6 +4,7 @@ import type { Paciente } from '../../clinic/context/ClinicContext';
 
 interface UseDraftOptions<T> {
   paciente?: Paciente;
+  inicial?: T | null;
   criar: (paciente?: Paciente) => T;
   carregar: (pacienteId: number) => T | null;
   salvar: (pacienteId: number, dados: T) => boolean;
@@ -27,12 +28,14 @@ export interface UseDraftResult<T> {
 
 export function useDraft<T>({
   paciente,
+  inicial,
   criar,
   carregar,
   salvar,
   remover,
 }: UseDraftOptions<T>): UseDraftResult<T> {
   const [dados, setDados] = useState<T>(() => {
+    if (inicial) return inicial;
     if (!paciente) return criar();
     return carregar(paciente.id) ?? criar(paciente);
   });
@@ -60,7 +63,7 @@ export function useDraft<T>({
     if (!paciente?.id) {
       setMensagem({
         tipo: 'alerta',
-        texto: 'Selecione um paciente antes de salvar o rascunho.',
+        texto: 'Selecione um paciente antes de salvar o progresso.',
       });
       return;
     }
@@ -68,7 +71,7 @@ export function useDraft<T>({
     const salvo = salvar(paciente.id, dados);
     setMensagem(
       salvo
-        ? { tipo: 'ok', texto: 'Rascunho salvo neste navegador.' }
+        ? { tipo: 'ok', texto: 'Progresso salvo.' }
         : {
             tipo: 'alerta',
             texto:
@@ -86,7 +89,7 @@ export function useDraft<T>({
     setConfirmandoLimpeza(false);
     setMensagem({
       tipo: 'alerta',
-      texto: 'Todos os campos foram limpos. O rascunho anterior foi descartado.',
+      texto: 'Todos os campos foram limpos.',
     });
   };
 

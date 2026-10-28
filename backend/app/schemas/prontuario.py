@@ -1,6 +1,6 @@
 import re
 from pydantic import BaseModel, field_validator, model_validator
-from typing import Optional
+from typing import Any, Optional
 from datetime import datetime
 from app.models.prontuario import StatusProntuario
 
@@ -131,3 +131,72 @@ class FichaOdontoRead(BaseModel):
     parecer_supervisor: Optional[str] = None
     status: StatusProntuario
     criado_em: datetime
+
+class DocumentoFichaOdontoCreate(BaseModel):
+    paciente_id: int
+    operador_matricula: str
+    auxiliar_matricula: str
+    tipo: str
+    conteudo: dict[str, Any]
+
+    @field_validator("operador_matricula", "auxiliar_matricula")
+    @classmethod
+    def validar_matricula_obrigatoria(cls, v: str) -> str:
+        texto = v.strip()
+        if not texto:
+            raise ValueError("A dupla de estagiários é obrigatória (PDR-05).")
+        return texto
+
+    @field_validator("tipo")
+    @classmethod
+    def validar_tipo(cls, v: str) -> str:
+        if v not in ("adulto", "infantil"):
+            raise ValueError("Tipo de ficha inválido: use adulto ou infantil.")
+        return v
+
+    @field_validator("conteudo")
+    @classmethod
+    def validar_conteudo(cls, v: dict[str, Any]) -> dict[str, Any]:
+        if not v:
+            raise ValueError("A ficha clínica não pode ser enviada vazia.")
+        return v
+
+    @model_validator(mode="after")
+    def validar_dupla_distinta(self):
+        if self.operador_matricula == self.auxiliar_matricula:
+            raise ValueError(
+                "Operador e auxiliar precisam ser estagiários diferentes: a "
+                "ficha odontológica é de atendimento em dupla (PDR-05)."
+            )
+        return self
+
+
+class DocumentoFichaOdontoUpdate(BaseModel):
+    conteudo: dict[str, Any]
+
+    @field_validator("conteudo")
+    @classmethod
+    def validar_conteudo(cls, v: dict[str, Any]) -> dict[str, Any]:
+        if not v:
+            raise ValueError("A ficha clínica não pode ser enviada vazia.")
+        return v
+
+
+class DocumentoFichaOdontoRead(BaseModel):
+    id: int
+    paciente_id: int
+    tipo: str
+    dupla_estagiarios: str
+    operador_matricula: str
+    auxiliar_matricula: str
+    status: StatusProntuario
+    parecer_supervisor: Optional[str] = None
+    supervisor_nome: Optional[str] = None
+    versao: int
+    criado_em: datetime
+    atualizado_em: datetime
+    submetido_em: Optional[datetime] = None
+
+
+class DocumentoFichaOdontoDetalhe(DocumentoFichaOdontoRead):
+    conteudo: dict[str, Any]

@@ -10,18 +10,35 @@ import { IndiceGengival } from './IndiceGengival';
 
 interface IndicesGengivaisCardProps {
   pacienteId?: number;
+  valor?: IndicesGengivais | null;
+  onChange?: (indices: IndicesGengivais) => void;
+  somenteLeitura?: boolean;
 }
 
-export function IndicesGengivaisCard({ pacienteId }: IndicesGengivaisCardProps) {
-  const [indices, setIndices] = useState<IndicesGengivais>(() =>
+export function IndicesGengivaisCard({
+  pacienteId,
+  valor,
+  onChange,
+  somenteLeitura = false,
+}: IndicesGengivaisCardProps) {
+  const [indicesInterno, setIndicesInterno] = useState<IndicesGengivais>(() =>
     pacienteId ? carregarIndices(pacienteId) : criarIndicesVazios()
   );
+  const indices = valor ?? indicesInterno;
+  const setIndices = (
+    atualizador: IndicesGengivais | ((prev: IndicesGengivais) => IndicesGengivais)
+  ) => {
+    const proximo =
+      typeof atualizador === 'function' ? atualizador(indices) : atualizador;
+    if (onChange) onChange(proximo);
+    else setIndicesInterno(proximo);
+  };
 
   useEffect(() => {
-    if (pacienteId) {
+    if (pacienteId && !valor) {
       salvarIndices(pacienteId, indices);
     }
-  }, [pacienteId, indices]);
+  }, [pacienteId, indices, valor]);
 
   if (!pacienteId) {
     return (
@@ -31,7 +48,8 @@ export function IndicesGengivaisCard({ pacienteId }: IndicesGengivaisCardProps) 
     );
   }
 
-  const alternarDente = (dente: string) =>
+  const alternarDente = (dente: string) => {
+    if (somenteLeitura) return;
     setIndices((prev) => {
       const ausente = prev.dentesAusentes.includes(dente);
 
@@ -54,8 +72,10 @@ export function IndicesGengivaisCard({ pacienteId }: IndicesGengivaisCardProps) 
         placa,
       };
     });
+  };
 
-  const alternarFace = (indice: 'sangramento' | 'placa') => (dente: string, face: Face) =>
+  const alternarFace = (indice: 'sangramento' | 'placa') => (dente: string, face: Face) => {
+    if (somenteLeitura) return;
     setIndices((prev) => {
       if (prev.dentesAusentes.includes(dente)) return prev;
 
@@ -68,12 +88,15 @@ export function IndicesGengivaisCard({ pacienteId }: IndicesGengivaisCardProps) 
         },
       };
     });
+  };
 
-  const limparIndice = (indice: 'sangramento' | 'placa') =>
+  const limparIndice = (indice: 'sangramento' | 'placa') => {
+    if (somenteLeitura) return;
     setIndices((prev) => ({
       ...prev,
       [indice]: {},
     }));
+  };
 
   return (
     <div className="space-y-5">
@@ -119,8 +142,7 @@ export function IndicesGengivaisCard({ pacienteId }: IndicesGengivaisCardProps) 
       </div>
 
       <p className="text-[10px] leading-relaxed text-slate-400">
-        As marcações ficam neste navegador (sessionStorage) por paciente; nada é enviado ao
-        servidor nesta fase.
+        As marcações fazem parte da ficha clínica enviada à supervisão.
       </p>
     </div>
   );

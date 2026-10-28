@@ -6,7 +6,13 @@ from app.database import get_session
 from app.models.agendamento import Agendamento, StatusAgendamento
 from app.models.usuario import Usuario, PerfilUsuario
 from app.schemas.agendamento import AgendamentoCreate, AgendamentoRead, AgendamentoUpdateStatus
-from app.services.auth_service import get_current_user, cursos_visiveis, validar_curso_do_registro, exigir_perfil
+from app.services.auth_service import (
+    get_current_user,
+    cursos_visiveis,
+    validar_curso_do_registro,
+    validar_curso_solicitado,
+    exigir_perfil,
+)
 from app.services.auditoria_service import registrar_log, ip_do_cliente
 from app.services.vinculo_service import (
     exigir_estagiario_da_clinica,
@@ -23,6 +29,10 @@ CLINICA_ODONTO = "odontologia"
 # paciente. Conferido aqui porque o `require_roles` é dependência do FastAPI e
 # age antes de o corpo dizer a que clínica a sessão pertence.
 AUTORIZADO_AGENDAR_PSICO = [PerfilUsuario.RECEPCAO, PerfilUsuario.RT]
+# O supervisor odontológico acompanha as duplas e usa a recepção para cadastrar
+# paciente e marcar sessão. A psicologia não entra aqui: o supervisor clínico
+# não substitui a recepção da outra clínica.
+AUTORIZADO_AGENDAR_ODONTO = [PerfilUsuario.RECEPCAO, PerfilUsuario.SUPERVISOR, PerfilUsuario.RT]
 
 @router.get("", response_model=List[AgendamentoRead])
 @router.get("/", response_model=List[AgendamentoRead], include_in_schema=False)
@@ -33,12 +43,15 @@ def listar_agendamentos(
     current_user: Usuario = Depends(get_current_user)
 ):
     # Vertical slice: a agenda é da clínica do usuário, não da query string.
+    validar_curso_solicitado(current_user, curso)
     visiveis = cursos_visiveis(current_user)
     query = select(Agendamento)
     if visiveis is not None:
         query = query.where(Agendamento.curso.in_(visiveis))
         if curso and curso in visiveis:
             query = query.where(Agendamento.curso == curso)
+    elif curso in ("psicologia", "odontologia"):
+        query = query.where(Agendamento.curso == curso)
     # Mesma segregação do prontuário psicológico: o estagiário enxerga a própria
     # agenda, não a dos colegas. Filtrar por curso não faz isso — ele continua
     # dentro da clínica, mas a agenda é da clínica inteira.
@@ -128,6 +141,11 @@ def criar_agendamento(
         )
         vinculo_id = vinculo.id
     elif dados.curso == CLINICA_ODONTO:
+        # O supervisor odontológico usa a mesma agenda da recepção. A regra de
+        # papel precisa existir no servidor: a tela esconder o botão não impede
+        # uma chamada direta.
+        exigir_perfil(current_user, AUTORIZADO_AGENDAR_ODONTO)
+
         # `AgendamentoCreate` já exige o auxiliar. A validação aqui confere que
         # as duas matrículas são de estagiários ativos da clínica; o nome
         # exibido é montado com os cadastros reais.
@@ -196,6 +214,24 @@ def atualizar_status(
     # Filtrar a listagem não impede agir sobre o id de outro curso. A recepção
     # de psicologia não confirma presença de uma consulta odontológica.
     validar_curso_do_registro(current_user, agendamento.curso)
+
+    if current_user.perfil == PerfilUsuario.SUPERVISOR:
+        matriculas = session.exec(
+            select(Usuario.matricula).where(
+                Usuario.perfil == PerfilUsuario.ESTAGIARIO,
+                Usuario.curso == current_user.curso,
+                Usuario.supervisor_matricula == current_user.matricula,
+                Usuario.ativo.is_(True),
+            )
+        ).all()
+        if not (
+            agendamento.estagiario_matricula in matriculas
+            or agendamento.auxiliar_matricula in matriculas
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Acesso negado: este agendamento não é de uma dupla vinculada a você (RF-005).",
+            )
 
     agendamento.status = body.status
     session.add(agendamento)

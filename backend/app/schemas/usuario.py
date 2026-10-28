@@ -22,7 +22,11 @@ class UsuarioRead(BaseModel):
 
 
 class UsuarioCreate(BaseModel):
-    """Cadastro feito pela RT. `curso` não entra: a clínica é a da RT."""
+    """Cadastro feito pela RT.
+
+    `curso` é opcional e só pode coincidir com a clínica do gestor. A RT e o
+    supervisor cadastram sempre na própria clínica; pedir a alheia é 403.
+    """
     nome: str = Field(min_length=2, max_length=200)
     email: EmailStr
     senha: str = Field(min_length=6, max_length=72)
@@ -31,6 +35,7 @@ class UsuarioCreate(BaseModel):
     registro_profissional: Optional[str] = Field(default=None, max_length=64)
     # Só a RT informa ao cadastrar; supervisor não se atribui estagiário.
     supervisor_matricula: Optional[str] = Field(default=None, max_length=32)
+    curso: Optional[CursoUsuario] = None
 
 
 class EstagiarioRead(BaseModel):

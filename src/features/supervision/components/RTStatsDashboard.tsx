@@ -30,6 +30,8 @@ export function RTStatsDashboard() {
   const [loading, setLoading] = useState<boolean>(true);
   const [filtroLog, setFiltroLog] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'indicadores' | 'custodia' | 'auditoria' | 'usuarios'>('indicadores');
+  const filtroCurso: 'psicologia' | 'odontologia' =
+    user?.curso === 'odontologia' ? 'odontologia' : 'psicologia';
 
   // Estados de Criação e Gestão de Usuários RBAC pela RT Master
   const [showCreateUserModal, setShowCreateUserModal] = useState(false);
@@ -37,9 +39,6 @@ export function RTStatsDashboard() {
   const [formMatricula, setFormMatricula] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formPerfil, setFormPerfil] = useState<RoleType>('supervisor');
-  // O curso não tem estado: o servidor define pela clínica da RT, e a tela
-  // mostra isso travado. Antes havia um `formCurso` com default 'psicologia'
-  // que não era usado em lugar nenhum do fluxo.
   const [formRegistro, setFormRegistro] = useState('');
   // O backend exige senha no cadastro: antes a tela prometia "unicare123" sem
   // pedir nada e o banco nunca recebia hash nenhum.
@@ -69,8 +68,8 @@ export function RTStatsDashboard() {
       try {
         setLoading(true);
         const [statsData, logsData] = await Promise.allSettled([
-          api.getEstatisticas(),
-          api.getAuditoria(100),
+          api.getEstatisticas(filtroCurso),
+          api.getAuditoria(100, filtroCurso),
         ]);
 
         if (!isMounted) return;
@@ -92,7 +91,7 @@ export function RTStatsDashboard() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [filtroCurso]);
 
   // Métricas calculadas
   const totalPacientesLocal = pacientes.length;
@@ -109,8 +108,8 @@ export function RTStatsDashboard() {
   // Vertical slice: o backend devolve distribuicao_cursos apenas com a chave da
   // clínica do solicitante. Ler .psicologia e .odontologia fixos mostraria
   // números de outro curso — ou cairia nos fallbacks inventados (?? 1, ?? 2).
-  const cursoPainel = user?.curso === 'odontologia' ? 'odontologia' : 'psicologia';
-const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
+  const cursoPainel = filtroCurso;
+  const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
     | Record<string, number>
     | undefined;
   // Sem API não se inventa número de tela docente.
@@ -311,7 +310,8 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
             Painel Executivo de Gestão, Indicadores & Custódia Legal
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            UNINASSAU Aracaju • Sistema Integrado de Saúde Hospitalar (Psicologia e Odontologia)
+            UNINASSAU Aracaju • Sistema Integrado de Saúde Hospitalar —{' '}
+            {cursoPainel === 'psicologia' ? 'Psicologia (SPA)' : 'Odontologia Integrada'}
           </p>
         </div>
 
@@ -448,6 +448,7 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
 
           {/* Comparativo Estrutural dos Módulos Clínicos */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {cursoPainel === 'psicologia' && (
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
@@ -500,7 +501,9 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                 </div>
               </div>
             </div>
+            )}
 
+            {cursoPainel === 'odontologia' && (
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
@@ -559,6 +562,7 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
                 </div>
               </div>
             </div>
+            )}
           </div>
         </>
       )}
@@ -1062,12 +1066,8 @@ const bloco = stats?.distribuicao_cursos?.[cursoPainel] as
               <label className="block text-[11px] font-bold text-slate-700 mb-1">
                 Clínica de Atuação
               </label>
-              {/* Antes era um <select> com "Psicologia" e "Odontologia" que não
-                  fazia nada: o `curso` era descartado no cliente e o servidor
-                  usa o da RT. A RT de odontologia via "Psicologia" marcado. */}
-              <div className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-700 font-semibold flex items-center justify-between">
-                <span>{user?.curso === 'psicologia' ? 'Psicologia (SPA)' : 'Odontologia Integrada'}</span>
-                <span className="text-[10px] font-mono text-slate-500">travada pela sua RT</span>
+              <div className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-700 font-semibold">
+                {user?.curso === 'psicologia' ? 'Psicologia (SPA)' : 'Odontologia Integrada'}
               </div>
             </div>
           </div>

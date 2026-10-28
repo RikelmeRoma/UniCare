@@ -3,27 +3,32 @@ import { useClinic } from '../../clinic/context/ClinicContext';
 /**
  * Contadores da supervisão de odontologia.
  *
- * Antes os quatro números eram literais (`05`, `18`, `02`, `12`) e a badge
- * "100% Ativas" era constante. Agora saem das fichas reais do Postgres.
+ * Os números saem dos documentos completos da fila de homologação, a mesma
+ * fonte usada por `ApprovalQueue` e `PedagogicalHistory`. Sem API não se
+ * inventa número de tela docente.
  */
 export function SupervisionStats() {
-  const { fichasOdonto, sync } = useClinic();
+  const { documentosOdonto, sync } = useClinic();
 
-  const aguardando = fichasOdonto.filter((f) => f.status === 'AGUARDANDO_VALIDACAO').length;
-  const validados = fichasOdonto.filter((f) => f.status === 'VALIDADO').length;
-  const devolvidos = fichasOdonto.filter((f) => f.status === 'DEVOLVIDO_PARA_AJUSTE').length;
-  // Dupla é o par operador/auxiliar que assinou a ficha. O total no banco é o
-  // número de duplas distintas, não um número inventado de "12 duplas ativas".
-  const duplas = new Set(fichasOdonto.map((f) => f.duplaEstagiarios)).size;
+  const aguardando = documentosOdonto.filter(
+    (d) => d.status === 'AGUARDANDO_VALIDACAO'
+  ).length;
+  const validados = documentosOdonto.filter((d) => d.status === 'VALIDADO').length;
+  const devolvidos = documentosOdonto.filter(
+    (d) => d.status === 'DEVOLVIDO_PARA_AJUSTE'
+  ).length;
+  const duplas = new Set(documentosOdonto.map((d) => d.duplaEstagiarios)).size;
   const pendentesDeDecisao = aguardando + devolvidos;
   const taxaHomologacao =
-    fichasOdonto.length > 0 ? Math.round((validados / fichasOdonto.length) * 100) : 0;
+    documentosOdonto.length > 0
+      ? Math.round((validados / documentosOdonto.length) * 100)
+      : 0;
 
   const semDado = sync.estado === 'erro' || sync.estado === 'aguardando-login';
 
   const cards = [
     {
-      rotulo: 'Fichas Odontológicas Aguardando',
+      rotulo: 'Fichas Aguardando Homologação',
       valor: aguardando,
       badge: pendentesDeDecisao > 0 ? `${pendentesDeDecisao} pendente(s)` : 'Fila vazia',
       card: 'bg-white border-orange-100',
@@ -31,7 +36,7 @@ export function SupervisionStats() {
       badgeClass: 'text-orange-600 bg-orange-50',
     },
     {
-      rotulo: 'Procedimentos Homologados',
+      rotulo: 'Fichas Homologadas',
       valor: validados,
       badge: `${taxaHomologacao}% da fila`,
       card: 'bg-white border-green-100',
@@ -39,7 +44,7 @@ export function SupervisionStats() {
       badgeClass: 'text-green-600 bg-green-50',
     },
     {
-      rotulo: 'Devolvidos para Ajuste Clínico',
+      rotulo: 'Devolvidas para Ajuste',
       valor: devolvidos,
       badge: 'Revisão Técnica',
       card: 'bg-white border-red-100',
@@ -49,7 +54,7 @@ export function SupervisionStats() {
     {
       rotulo: 'Duplas com Ficha Registrada',
       valor: duplas,
-      badge: `${fichasOdonto.length} ficha(s)`,
+      badge: `${documentosOdonto.length} ficha(s)`,
       card: 'bg-white border-blue-100',
       numero: 'text-gray-900',
       badgeClass: 'text-blue-600 bg-blue-50',
@@ -63,7 +68,6 @@ export function SupervisionStats() {
           <p className="text-xs font-semibold text-gray-600 mb-2">{c.rotulo}</p>
           <div className="flex items-end gap-3 mb-2">
             <h3 className={`text-4xl font-bold ${c.numero}`}>
-              {/* Sem API não se inventa número de tela docente. */}
               {semDado ? '—' : String(c.valor).padStart(2, '0')}
             </h3>
             <span className={`text-[10px] font-medium px-2 py-1 rounded ${c.badgeClass}`}>

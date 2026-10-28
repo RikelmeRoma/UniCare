@@ -103,7 +103,7 @@ export function AnamneseHeader({
             className="flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2 text-[11px] font-bold text-white transition-colors hover:bg-slate-800"
           >
             <CheckCircleIcon className="h-3.5 w-3.5" />
-            Salvar rascunho
+            Salvar progresso
           </button>
           <button
             type="button"
@@ -111,7 +111,7 @@ export function AnamneseHeader({
             className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-[11px] font-bold text-slate-700 transition-colors hover:border-slate-300 hover:text-slate-900"
           >
             <DocumentTextIcon className="h-3.5 w-3.5" />
-            Exportar JSON
+            Baixar cópia
           </button>
           <button
             type="button"
@@ -127,7 +127,7 @@ export function AnamneseHeader({
       {confirmandoLimpeza && (
         <div className="mt-3 flex flex-col gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-[11px] font-semibold text-rose-900">
-            Limpar todos os campos deste rascunho? Esta ação não pode ser desfeita.
+            Limpar todos os campos desta ficha? Esta ação não pode ser desfeita.
           </p>
           <div className="flex gap-2">
             <button

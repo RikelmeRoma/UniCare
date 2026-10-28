@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import type { Paciente } from '../../clinic/context/ClinicContext';
+import type { DocumentoFichaOdonto, Paciente } from '../../clinic/context/ClinicContext';
+import { DocumentoFichaBar } from '../components/DocumentoFichaBar';
 import { AnamneseHeader } from '../anamnese/AnamneseHeader';
 import { Pagina1IdentificacaoPsicologica } from '../anamnese-infantil/Pagina1IdentificacaoPsicologica';
 import { Pagina2AntecedentesHabitos } from '../anamnese-infantil/Pagina2AntecedentesHabitos';
@@ -42,6 +43,8 @@ import {
 
 interface ChildRecordWorkspaceProps {
   paciente?: Paciente;
+  documento?: DocumentoFichaOdonto | null;
+  somenteLeitura?: boolean;
 }
 
 const TABS: ClinicalTab[] = [
@@ -55,8 +58,13 @@ const TABS: ClinicalTab[] = [
 
 export function ChildRecordWorkspace({
   paciente,
+  documento,
+  somenteLeitura = false,
 }: ChildRecordWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<ClinicalTabKey>('anamnese');
+  const conteudoDocumento = documento?.conteudo as
+    | { anamnese?: AnamneseInfantil }
+    | undefined;
   const {
     dados,
     setDados,
@@ -70,6 +78,7 @@ export function ChildRecordWorkspace({
     limpar,
   } = useDraft<AnamneseInfantil>({
     paciente,
+    inicial: conteudoDocumento?.anamnese,
     criar: criarAnamneseInfantilVazia,
     carregar: carregarRascunhoInfantil,
     salvar: salvarRascunhoInfantil,
@@ -81,9 +90,11 @@ export function ChildRecordWorkspace({
     exportarJsonInfantil(paciente, dados);
     setMensagem({
       tipo: 'ok',
-      texto: 'Arquivo JSON exportado. O rascunho continua salvo neste navegador.',
+      texto: 'Arquivo exportado para conferência.',
     });
   };
+
+  const montarConteudo = () => ({ anamnese: dados });
 
   const idade = calcularIdadeInfantil(dados.identificacao.dataNascimento);
 
@@ -108,16 +119,24 @@ export function ChildRecordWorkspace({
         mensagem={mensagem}
         descricao={
           <>
-            Ficha infantil organizada por domínio clínico. O preenchimento fica
-            <strong className="text-slate-700"> apenas neste navegador</strong>{' '}
-            (sessionStorage) e pode ser exportado em JSON; nada é enviado ao servidor
-            nesta fase.
+            Ficha infantil organizada por domínio clínico. O preenchimento é
+            preservado durante a digitação e enviado à supervisão ao final.
           </>
         }
       />
 
+      <DocumentoFichaBar
+        pacienteId={paciente?.id}
+        pacienteNome={paciente?.nome}
+        tipo="infantil"
+        documento={documento}
+        montarConteudo={montarConteudo}
+        somenteLeitura={somenteLeitura}
+      />
+
       <ClinicalTabNav tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
 
+      <div className={somenteLeitura ? 'pointer-events-none' : ''}>
       {activeTab === 'anamnese' && (
         <div
           id="ficha-infantil-conteudo"
@@ -204,6 +223,7 @@ export function ChildRecordWorkspace({
           <DentalRadiologyTab />
         </div>
       )}
+      </div>
     </div>
   );
 }

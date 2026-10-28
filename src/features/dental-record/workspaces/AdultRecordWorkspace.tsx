@@ -1,7 +1,13 @@
 import { useState } from 'react';
-import type { Anamnese, Paciente } from '../../clinic/context/ClinicContext';
-import OdontogramApp from '../components/OdontogramaViewer';
-import Periograma from '../components/PeriogramaViewer';
+import type {
+  Anamnese,
+  DocumentoFichaOdonto,
+  Paciente,
+} from '../../clinic/context/ClinicContext';
+import OdontogramApp, { type TeethMap } from '../components/OdontogramaViewer';
+import Periograma, { type ToothMap as PeriogramaToothMap } from '../components/PeriogramaViewer';
+import { DocumentoFichaBar } from '../components/DocumentoFichaBar';
+import type { IndicesGengivais } from '../indices/tipos';
 import { AnamneseHeader } from '../anamnese/AnamneseHeader';
 import { Pagina1IdentificacaoHistoria } from '../anamnese/Pagina1IdentificacaoHistoria';
 import { Pagina2ExameFisico } from '../anamnese/Pagina2ExameFisico';
@@ -40,6 +46,8 @@ import {
 interface AdultRecordWorkspaceProps {
   paciente?: Paciente;
   ultima?: Anamnese;
+  documento?: DocumentoFichaOdonto | null;
+  somenteLeitura?: boolean;
 }
 
 const TABS: ClinicalTab[] = [
@@ -54,8 +62,27 @@ const TABS: ClinicalTab[] = [
 export function AdultRecordWorkspace({
   paciente,
   ultima,
+  documento,
+  somenteLeitura = false,
 }: AdultRecordWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<ClinicalTabKey>('anamnese');
+  const conteudoDocumento = documento?.conteudo as
+    | {
+        anamnese?: AnamneseCliFor45;
+        odontograma?: TeethMap | null;
+        periograma?: PeriogramaToothMap | null;
+        indicesGengivais?: IndicesGengivais | null;
+      }
+    | undefined;
+  const [odontograma, setOdontograma] = useState<TeethMap | null>(
+    () => conteudoDocumento?.odontograma ?? null
+  );
+  const [periograma, setPeriograma] = useState<PeriogramaToothMap | null>(
+    () => conteudoDocumento?.periograma ?? null
+  );
+  const [indices, setIndices] = useState<IndicesGengivais | null>(
+    () => conteudoDocumento?.indicesGengivais ?? null
+  );
   const {
     dados,
     setDados,
@@ -69,6 +96,7 @@ export function AdultRecordWorkspace({
     limpar,
   } = useDraft<AnamneseCliFor45>({
     paciente,
+    inicial: conteudoDocumento?.anamnese,
     criar: criarAnamneseVazia,
     carregar: carregarRascunho,
     salvar: salvarRascunho,
@@ -80,9 +108,16 @@ export function AdultRecordWorkspace({
     exportarJson(paciente, dados);
     setMensagem({
       tipo: 'ok',
-      texto: 'Arquivo JSON exportado. O rascunho continua salvo neste navegador.',
+      texto: 'Arquivo exportado para conferência.',
     });
   };
+
+  const montarConteudo = () => ({
+    anamnese: dados,
+    odontograma,
+    periograma,
+    indicesGengivais: indices,
+  });
 
   const idade = calcularIdade(dados.identificacao.dataNascimento);
 
@@ -90,7 +125,7 @@ export function AdultRecordWorkspace({
     <div className="space-y-6 font-sans">
       <AnamneseHeader
         titulo="Ficha Clínica Odontológica — Adulto e Idoso"
-        selo="CLI-FOR-45"
+        selo="ADULTO"
         paciente={paciente}
         idade={idade}
         idConteudo="ficha-adulto-conteudo"
@@ -107,16 +142,24 @@ export function AdultRecordWorkspace({
         mensagem={mensagem}
         descricao={
           <>
-            Ficha completa organizada por domínio clínico. O preenchimento fica
-            <strong className="text-slate-700"> apenas neste navegador</strong>{' '}
-            (sessionStorage) e pode ser exportado em JSON. A atualização de alertas
-            clínicos no servidor continua disponível na aba Alertas.
+            Ficha completa organizada por domínio clínico. O preenchimento é
+            preservado durante a digitação e enviado à supervisão ao final.
           </>
         }
       />
 
+      <DocumentoFichaBar
+        pacienteId={paciente?.id}
+        pacienteNome={paciente?.nome}
+        tipo="adulto"
+        documento={documento}
+        montarConteudo={montarConteudo}
+        somenteLeitura={somenteLeitura}
+      />
+
       <ClinicalTabNav tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
 
+      <div className={somenteLeitura ? 'pointer-events-none' : ''}>
       {activeTab === 'anamnese' && (
         <div
           id="ficha-adulto-conteudo"
@@ -149,15 +192,26 @@ export function AdultRecordWorkspace({
             setDados={setDados}
           />
           <ClinicalChartCard>
-            <OdontogramApp />
+            <OdontogramApp
+              valor={odontograma}
+              onChange={setOdontograma}
+              somenteLeitura={somenteLeitura}
+            />
           </ClinicalChartCard>
           <ClinicalChartCard>
-            <Periograma />
+            <Periograma
+              valor={periograma}
+              onChange={setPeriograma}
+              somenteLeitura={somenteLeitura}
+            />
           </ClinicalChartCard>
           <ClinicalChartCard>
             <IndicesGengivaisCard
               key={paciente?.id ?? 'sem-paciente'}
               pacienteId={paciente?.id}
+              valor={indices}
+              onChange={setIndices}
+              somenteLeitura={somenteLeitura}
             />
           </ClinicalChartCard>
           <TermoAutorizacaoSection
@@ -190,6 +244,7 @@ export function AdultRecordWorkspace({
           <DentalRadiologyTab />
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -323,8 +323,8 @@ export function EvolucaoAdultoSection({
       </button>
 
       <p className="text-[10px] leading-relaxed text-slate-400">
-        Documento CLI-FOR-45 preenchido localmente. A assinatura e o carimbo docente
-        passam pela homologação no prontuário após a integração com o servidor.
+        A assinatura e o carimbo docente são registrados na homologação da
+        ficha clínica pela supervisão.
       </p>
     </SectionCard>
   );

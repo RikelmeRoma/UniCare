@@ -67,7 +67,8 @@ flowchart TD
   `auxiliar_matricula`; o nome exibido e montado pelo servidor com os dois
   cadastros. O schema exige dois estagiarios distintos, e o estagiario enxerga a
   sessao em que e responsavel/operador **ou** auxiliar. O supervisor enxerga as
-  duplas dos alunos vinculados a ele e a RT enxerga a clinica do proprio curso.
+  duplas dos alunos vinculados a ele e a RT enxerga as duas clinicas, com filtro
+  opcional por curso nos relatorios e na auditoria.
   Na odontologia a dupla segue o instrumento PDR-05; na psicologia o vinculo do
   paciente continua com o responsavel, e o auxiliar participa da sessao.
 
@@ -80,6 +81,7 @@ flowchart TD
 - Mapeamento anatômico dos 32 dentes da dentição permanente (adulto) e faces dentárias (vestibular, lingual, mesial, distal, oclusal).
 - Marcação de patologias (cárie, restauração, endodontia, prótese, extração indicada) com codificação por cores padrão CFO.
 - Periodograma para mensuração de profundidade de sondagem, sangramento gengival e recessão.
+- A ficha clínica completa (anamnese, odontograma, periograma e índices) é persistida no servidor, submetida pela dupla e homologada ou devolvida pelo supervisor da dupla.
 
 ### RF-004: Fila de Homologação Docente & Devolutiva Pedagógica
 - Segregação de estagiários por turma e orientação docente.
@@ -88,11 +90,11 @@ flowchart TD
   - **Solicitar Correção com Devolutiva Formativa** (notificação para o estagiário com orientações pedagógicas).
 
 ### RF-005: Gestão de Duplas Clínicas e Carga Horária
-- Mapeamento das duplas da Clínica Integrada de Odontologia por Cadeira Clínica.
+- Duplas da Clínica Integrada de Odontologia persistidas por matrícula: o supervisor monta a dupla com dois estagiários já vinculados a ele, e cada aluno só pode ter uma dupla ativa. A RT de odontologia enxerga todas e pode encerrar; a RT de psicologia recebe 403. A linha encerrada é preservada para auditoria.
 - Contabilização de procedimentos homologados vs. meta acadêmica de procedimentos mínimos por semestre.
 
 ### RF-006: Painel Executivo da RT Master & Custódia Legal
-- Indicadores gerenciais de saúde da UNINASSAU Aracaju (taxa de comparecimento, volume de prontuários arquivados, procedimentos por especialidade).
+- Indicadores gerenciais de saúde da própria clínica da RT (taxa de comparecimento, volume de prontuários arquivados, procedimentos por especialidade). A RT não recebe o painel da clínica alheia; paciente `ambos` aparece nos indicadores das duas.
 - Busca e visualização de prontuários para fins de fiscalização sanitária, ética e emissão de laudos oficiais sob custódia de 20 anos (LGPD e Resoluções de Saúde).
 
 ### RF-007: Trilha de Auditoria Imutável (Audit Log)
@@ -104,7 +106,7 @@ flowchart TD
 - Salvaguarda mandatória: para alternar ou logar em qualquer conta, o operador deve confirmar a senha institucional (`Unicare123`).
 
 ### RF-009: Gerenciamento RBAC com Ciclo de Vida Completo
-- A RT Master pode cadastrar, editar e excluir qualquer usuário (Supervisores, Estagiários e Operadores de Recepção).
+- A RT pode cadastrar, editar e excluir usuários apenas na própria clínica (Supervisores, Estagiários e Operadores de Recepção). Pedir a clínica alheia na API é 403.
 - Supervisores de Psicologia podem gerenciar acadêmicos vinculados à sua turma de SPA.
 - Supervisores de Odontologia podem gerenciar acadêmicos vinculados à Clínica Integrada.
 - Sincronização reativa com o `localStorage` para que novos usuários cadastrados ou editados surtam efeito imediato na tela de login.
@@ -130,9 +132,10 @@ flowchart TD
 
 ### Modelo de Dados (PostgreSQL 16)
 
-O schema é versionado por Alembic e possui **8 entidades de negócio** mais a tabela
+O schema é versionado por Alembic e possui **9 entidades de negócio** mais a tabela
 técnica `alembic_version`. Existem apenas **4 foreign keys** no banco, três de
-`paciente_id` para `pacientes.id` e uma da anamnese.
+`paciente_id` para `pacientes.id` e uma da anamnese; as matrículas de
+`duplas_odonto` são referências lógicas, como as demais autorias.
 
 #### Diagrama Entidade-Relacionamento
 
@@ -142,6 +145,7 @@ erDiagram
     PACIENTES ||--o{ ANAMNESES : "paciente_id"
     PACIENTES ||--o{ PRONTUARIOS_PSICO : "paciente_id"
     PACIENTES ||--o{ FICHAS_ODONTO : "paciente_id"
+    USUARIOS ||..o{ DUPLAS_ODONTO : "matriculas (logico, sem FK)"
     USUARIOS ||..o{ LOGS_AUDITORIA : "usuario_id (logico, sem FK)"
 
     USUARIOS {
@@ -238,6 +242,18 @@ erDiagram
         string status "ENUM 4 estados"
         datetime criado_em
     }
+
+    DUPLAS_ODONTO {
+        int    id PK
+        string operador_matricula "idx, aluno 1"
+        string auxiliar_matricula "idx, aluno 2"
+        string supervisor_matricula "idx, responsavel"
+        bool   ativo "desativacao logica"
+        string criado_por_matricula
+        datetime criado_em
+        datetime desativado_em "opcional"
+    }
+        ^ regra de aplicacao: um aluno so pode estar em uma dupla ativa.
 
     ANAMNESES {
         int    id PK
@@ -377,6 +393,10 @@ FICHAS_ODONTO (id PK, paciente_id FK->PACIENTES, dupla_estagiarios,
                alerta_alergia, parecer_supervisor, supervisor_nome, status,
                criado_em)
 
+DUPLAS_ODONTO (id PK, operador_matricula, auxiliar_matricula,
+               supervisor_matricula, ativo, criado_por_matricula, criado_em,
+               desativado_em)
+
 ANAMNESES (id PK, paciente_id FK->PACIENTES, afetido_em, pressao_arterial,
           glicemia_capilar, frequencia_cardiaca, temperatura, alergias,
           condicoes_cronicas, medicacoes_em_uso, responsavel_nome,
@@ -481,7 +501,7 @@ UniCare/
 │   │   └── supervision/              # Fila de Homologação, Duplas e RT Master
 │   │       └── components/
 │   │           ├── RTStatsDashboard.tsx  # Dashboard RT com CRUD de usuários
-│   │           └── ClinicalPairs.tsx     # Gestão de estagiários de Odontologia
+│   │           └── ClinicalPairs.tsx     # Duplas e vínculos de estagiários de Odontologia
 │   ├── services/
 │   │   └── api.ts                 # Cliente REST: fronteira snake_case ↔ camelCase
 │   ├── App.tsx                     # Rotas com ProtectedRoute por papel e curso

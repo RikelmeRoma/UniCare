@@ -42,7 +42,7 @@ export default function App() {
             <Route
               path="/recepcao"
               element={
-                <ProtectedRoute allowedRoles={['recepcao', 'rt']} allowedCourses={['odontologia']}>
+                <ProtectedRoute allowedRoles={['recepcao', 'supervisor', 'rt']} allowedCourses={['odontologia']}>
                   <ReceptionDashboard />
                 </ProtectedRoute>
               }

@@ -97,7 +97,7 @@ export function PsySupervisionPage() {
   useEffect(() => {
     let cancelado = false;
     api
-      .getEstagiariosDisponiveis()
+      .getEstagiariosDisponiveis('psicologia')
       .then((lista) => {
         if (!cancelado) setDisponiveis(lista);
       })

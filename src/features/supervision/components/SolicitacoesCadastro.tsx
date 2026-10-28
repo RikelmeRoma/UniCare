@@ -148,7 +148,9 @@ export function SolicitacoesCadastro() {
 
       {solicitacoes.length === 0 ? (
         <p className="text-[11px] text-slate-500 text-center py-4">
-          Nenhum pedido aguardando na clínica de {user?.curso === 'psicologia' ? 'Psicologia' : 'Odontologia'}.
+          {`Nenhum pedido aguardando na clínica de ${
+            user?.curso === 'psicologia' ? 'Psicologia' : 'Odontologia'
+          }.`}
         </p>
       ) : (
         <ul className="space-y-2">

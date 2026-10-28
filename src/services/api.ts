@@ -59,6 +59,21 @@ export interface ApiEstagiarioDisponivel {
   matricula: string;
 }
 
+/** Dupla odontológica persistida. O vínculo é por matrícula porque a ficha
+ *  clínica também referencia a dupla por matrícula, não por nome digitado. */
+export interface ApiDuplaOdonto {
+  id: number;
+  operador_matricula: string;
+  operador_nome: string;
+  auxiliar_matricula: string;
+  auxiliar_nome: string;
+  supervisor_matricula: string;
+  supervisor_nome?: string | null;
+  ativo: boolean;
+  criado_em: string;
+  desativado_em?: string | null;
+}
+
 export interface ApiAnamnese {
   id: number;
   paciente_id: number;
@@ -157,6 +172,24 @@ export interface ApiFichaOdonto {
   parecer_supervisor?: string;
   status: 'EM_ELABORACAO' | 'AGUARDANDO_VALIDACAO' | 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE';
   criado_em: string;
+}
+
+export interface ApiDocumentoFichaOdonto {
+  id: number;
+  paciente_id: number;
+  tipo: 'adulto' | 'infantil' | string;
+  dupla_estagiarios: string;
+  operador_matricula: string;
+  auxiliar_matricula: string;
+  status: 'EM_ELABORACAO' | 'AGUARDANDO_VALIDACAO' | 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE';
+  parecer_supervisor?: string | null;
+  supervisor_nome?: string | null;
+  versao: number;
+  criado_em: string;
+  atualizado_em: string;
+  submetido_em?: string | null;
+  /** Presente apenas no detalhe; a listagem devolve só o resumo. */
+  conteudo?: Record<string, unknown>;
 }
 
 export interface ApiLogAuditoria {
@@ -388,8 +421,9 @@ class ApiService {
 
   // --- Usuários (RF-009) ---
 // `senha_hash` não existe em nenhum desses tipos: o backend nunca o serializa.
-async getUsuarios(): Promise<ApiUsuario[]> {
-    return this.request<ApiUsuario[]>('/usuarios');
+  async getUsuarios(curso?: 'psicologia' | 'odontologia'): Promise<ApiUsuario[]> {
+    const param = curso ? `?curso=${encodeURIComponent(curso)}` : '';
+    return this.request<ApiUsuario[]>(`/usuarios${param}`);
   }
 
   async getEstagiarios(): Promise<ApiEstagiario[]> {
@@ -398,8 +432,34 @@ async getUsuarios(): Promise<ApiUsuario[]> {
 
   /** Estagiários ativos da clínica que ainda não têm supervisor — os que o
    *  supervisor pode assumir (RF-005). */
-  async getEstagiariosDisponiveis(): Promise<ApiEstagiarioDisponivel[]> {
-    return this.request<ApiEstagiarioDisponivel[]>('/usuarios/estagiarios/disponiveis');
+  async getEstagiariosDisponiveis(
+    curso?: 'psicologia' | 'odontologia'
+  ): Promise<ApiEstagiarioDisponivel[]> {
+    const param = curso ? `?curso=${encodeURIComponent(curso)}` : '';
+    return this.request<ApiEstagiarioDisponivel[]>(
+      `/usuarios/estagiarios/disponiveis${param}`
+    );
+  }
+
+  // --- Duplas clínicas de odontologia (RF-005) ---
+  async getDuplasOdonto(): Promise<ApiDuplaOdonto[]> {
+    return this.request<ApiDuplaOdonto[]>('/duplas-odonto');
+  }
+
+  async criarDuplaOdonto(dados: {
+    operador_matricula: string;
+    auxiliar_matricula: string;
+  }): Promise<ApiDuplaOdonto> {
+    return this.request<ApiDuplaOdonto>('/duplas-odonto', {
+      method: 'POST',
+      body: JSON.stringify(dados),
+    });
+  }
+
+  async desativarDuplaOdonto(id: number): Promise<ApiDuplaOdonto> {
+    return this.request<ApiDuplaOdonto>(`/duplas-odonto/${id}`, {
+      method: 'DELETE',
+    });
   }
 
   async vincularSupervisor(
@@ -420,6 +480,7 @@ async getUsuarios(): Promise<ApiUsuario[]> {
     matricula: string;
     registro_profissional?: string;
     supervisor_matricula?: string;
+    curso?: 'psicologia' | 'odontologia';
   }): Promise<ApiUsuario> {
     return this.request<ApiUsuario>('/usuarios', {
       method: 'POST',
@@ -471,8 +532,14 @@ async getUsuarios(): Promise<ApiUsuario[]> {
     });
   }
 
-  async getSolicitacoes(situacao?: 'PENDENTE' | 'APROVADA' | 'RECUSADA'): Promise<SolicitacaoCadastro[]> {
-    const filtro = situacao ? `?situacao=${situacao}` : '';
+  async getSolicitacoes(
+    situacao?: 'PENDENTE' | 'APROVADA' | 'RECUSADA',
+    curso?: 'psicologia' | 'odontologia'
+  ): Promise<SolicitacaoCadastro[]> {
+    const params = new URLSearchParams();
+    if (situacao) params.append('situacao', situacao);
+    if (curso) params.append('curso', curso);
+    const filtro = params.toString() ? `?${params.toString()}` : '';
     return this.request<SolicitacaoCadastro[]>(`/solicitacoes-cadastro/${filtro}`);
   }
 
@@ -675,14 +742,69 @@ async getUsuarios(): Promise<ApiUsuario[]> {
     });
   }
 
+  // --- Documento completo da ficha odontológica ---
+  async getDocumentosOdonto(pacienteId?: number): Promise<ApiDocumentoFichaOdonto[]> {
+    const param = pacienteId ? `?paciente_id=${pacienteId}` : '';
+    return this.request<ApiDocumentoFichaOdonto[]>(`/prontuarios/odonto/documentos${param}`);
+  }
+
+  async getDocumentoOdontoPaciente(pacienteId: number): Promise<ApiDocumentoFichaOdonto> {
+    return this.request<ApiDocumentoFichaOdonto>(
+      `/prontuarios/odonto/documentos/paciente/${pacienteId}`
+    );
+  }
+
+  async createDocumentoOdonto(dados: {
+    paciente_id: number;
+    operador_matricula: string;
+    auxiliar_matricula: string;
+    tipo: 'adulto' | 'infantil';
+    conteudo: Record<string, unknown>;
+  }): Promise<ApiDocumentoFichaOdonto> {
+    return this.request<ApiDocumentoFichaOdonto>('/prontuarios/odonto/documentos', {
+      method: 'POST',
+      body: JSON.stringify(dados),
+    });
+  }
+
+  async updateDocumentoOdonto(
+    id: number,
+    conteudo: Record<string, unknown>
+  ): Promise<ApiDocumentoFichaOdonto> {
+    return this.request<ApiDocumentoFichaOdonto>(`/prontuarios/odonto/documentos/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ conteudo }),
+    });
+  }
+
+  async homologarDocumentoOdonto(
+    id: number,
+    decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE',
+    parecer: string
+  ): Promise<ApiDocumentoFichaOdonto> {
+    return this.request<ApiDocumentoFichaOdonto>(
+      `/prontuarios/odonto/documentos/${id}/homologar`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ decisao, parecer }),
+      }
+    );
+  }
+
   // --- Auditoria LGPD ---
-  async getAuditoria(limite = 50): Promise<ApiLogAuditoria[]> {
-    return this.request<ApiLogAuditoria[]>(`/auditoria?limite=${limite}`);
+  async getAuditoria(
+    limite = 50,
+    curso?: 'psicologia' | 'odontologia'
+  ): Promise<ApiLogAuditoria[]> {
+    const params = new URLSearchParams({ limite: String(limite) });
+    if (curso) params.append('curso', curso);
+    return this.request<ApiLogAuditoria[]>(`/auditoria?${params.toString()}`);
   }
 
   // --- Relatórios Estatísticos (RF-006) ---
-  async getEstatisticas(): Promise<RelatorioEstatisticas> {
-    return this.request<RelatorioEstatisticas>('/relatorios/estatisticas');
+  async getEstatisticas(curso?: 'psicologia' | 'odontologia'): Promise<RelatorioEstatisticas> {
+    const param = curso ? `?curso=${encodeURIComponent(curso)}` : '';
+    return this.request<RelatorioEstatisticas>(`/relatorios/estatisticas${param}`);
   }
 
   // Demandas de estágio removidas: o botão "Conciliar" só escrevia a palavra

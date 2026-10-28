@@ -355,25 +355,17 @@ def test_vslice_supervisor_psico_bloqueado_na_odontologia():
     )
     assert res_escrita.status_code == 403
 
-def test_vslice_rt_escopado_ao_proprio_curso():
-    """Vertical slice: a Referência Técnica tem visão panorâmica só da sua clínica
-
-    A salvaguarda institucional (RN-003) dá ao RT acesso amplo, mas a vertical
-    slice exige que ele não leia dado clínico da outra clínica.
-    """
+def test_vslice_rt_responde_pela_propria_clinica():
+    """RF-009: cada RT enxerga apenas a clínica sob sua responsabilidade."""
     rt_odonto = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
     rt_psico = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
 
-    # RT de odontologia: sua clínica sim, a outra não.
     assert client.get("/api/v1/prontuarios/odonto", headers=rt_odonto).status_code == 200
     assert client.get("/api/v1/prontuarios/psico", headers=rt_odonto).status_code == 403
-
-    # RT de psicologia: o inverso.
     assert client.get("/api/v1/prontuarios/psico", headers=rt_psico).status_code == 200
     assert client.get("/api/v1/prontuarios/odonto", headers=rt_psico).status_code == 403
 
-    # O relatório gerencial também vem filtrado: distribuicao_cursos só traz a
-    # chave da clínica do solicitante.
+    # O relatório gerencial não é mais global: cada RT recebe a própria clínica.
     est_odonto = client.get("/api/v1/relatorios/estatisticas", headers=rt_odonto)
     assert est_odonto.status_code == 200
     dados_odonto = est_odonto.json()
@@ -385,8 +377,13 @@ def test_vslice_rt_escopado_ao_proprio_curso():
     assert dados_psico["resumo_executivo"]["curso"] == "psicologia"
     assert list(dados_psico["distribuicao_cursos"].keys()) == ["psicologia"]
 
-    # Contagens também não se misturam entre as duas clínicas.
-    assert dados_odonto["resumo_executivo"]["total_pacientes"] != dados_psico["resumo_executivo"]["total_pacientes"]
+    # Pedir a clínica alheia pela query string é 403, não um filtro silencioso.
+    assert client.get(
+        "/api/v1/relatorios/estatisticas?curso=psicologia", headers=rt_odonto
+    ).status_code == 403
+    assert client.get(
+        "/api/v1/relatorios/estatisticas?curso=odontologia", headers=rt_psico
+    ).status_code == 403
 
 def test_vslice_recepcao_so_enxerga_a_propria_clinica():
     """Vertical slice: recepção é uma conta por clínica
@@ -469,21 +466,25 @@ def test_vslice_rn001_preservado_na_recepcao_da_psicologia():
     res_odonto = client.get("/api/v1/prontuarios/odonto", headers=headers)
     assert res_odonto.status_code == 403
 
-def test_rf007_auditoria_filtrada_por_curso():
-    """RF-007: a trilha de auditoria é dado pessoal (LGPD Art. 11) e não vaza entre clínicas"""
+def test_rf007_auditoria_da_rt_escopada_por_curso():
+    """RF-007: cada RT audita apenas a própria clínica."""
     rt_odonto = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
     rt_psico = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
 
-    # A própria RT rende log ao entrar, então a lista nunca vem vazia.
     logs_odonto = client.get("/api/v1/auditoria", headers=rt_odonto).json()
     logs_psico = client.get("/api/v1/auditoria", headers=rt_psico).json()
-
     assert logs_odonto and logs_psico
-    assert all(l["curso"] in ("odontologia", "ambos") for l in logs_odonto)
-    assert all(l["curso"] in ("psicologia", "ambos") for l in logs_psico)
+    assert all(l["curso"] == "odontologia" for l in logs_odonto)
+    assert all(l["curso"] == "psicologia" for l in logs_psico)
 
-    # Os dois lados não podem enxergar exatamente a mesma trilha.
-    assert {l["id"] for l in logs_odonto} != {l["id"] for l in logs_psico}
+    logs_filtrados = client.get(
+        "/api/v1/auditoria?curso=odontologia", headers=rt_odonto
+    ).json()
+    assert logs_filtrados
+    assert all(l["curso"] == "odontologia" for l in logs_filtrados)
+    assert client.get(
+        "/api/v1/auditoria?curso=psicologia", headers=rt_odonto
+    ).status_code == 403
 
 def test_rf004_homologacao_odontologica_docente():
     """RF-004 na odontologia: o supervisor homologa a ficha com visto digital
@@ -530,23 +531,21 @@ def test_rf004_homologacao_odontologica_devolucao():
     assert res.json()["status"] == "DEVOLVIDO_PARA_AJUSTE"
 
 def test_vslice_homologacao_odontologica_bloqueada_por_curso():
-    """Vertical slice: só supervisor/RT da odontologia homologa ficha odontológica"""
+    """Supervisor de outra clínica, estagiário e a RT alheia não homologam."""
     headers_psi = {"Authorization": f"Bearer {get_auth_token('DOC-8821')}"}
     rt_psi = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
+    rt_odonto = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
     estagiario = {"Authorization": f"Bearer {get_auth_token('16024402')}"}
 
-    # A RT de odontologia enxerga a fila; as outras clínicas nem a leem.
     fila_odonto = client.get("/api/v1/prontuarios/odonto", headers={"Authorization": f"Bearer {get_auth_token('DOC-9122')}"}).json()
     assert client.get("/api/v1/prontuarios/odonto", headers=rt_psi).status_code == 403
+    assert client.get("/api/v1/prontuarios/odonto", headers=rt_odonto).status_code == 200
 
     ficha_id = fila_odonto[0]["id"]
     payload = {"decisao": "VALIDADO", "parecer": "Homologação indevida."}
 
     assert client.patch(
         f"/api/v1/prontuarios/odonto/{ficha_id}/homologar", json=payload, headers=headers_psi
-    ).status_code == 403
-    assert client.patch(
-        f"/api/v1/prontuarios/odonto/{ficha_id}/homologar", json=payload, headers=rt_psi
     ).status_code == 403
     # Estagiário não homologa nem a própria ficha (RN-004 é ato docente).
     assert client.patch(
@@ -713,12 +712,11 @@ def test_rf009_rt_cadastra_usuario_na_propria_clinica():
     assert me.json()["id"] == criado["id"], "getMe precisa devolver o id real do banco"
 
 
-def test_rf009_rt_nao_cadastra_usuario_de_outra_clinica():
-    """RF-009 + vertical slice: nenhum usuário pode ser criado em clínica alheia"""
+def test_rf009_rt_cadastra_usuario_na_propria_clinica():
+    """RF-009: a RT cadastra apenas na própria clínica, mesmo omitindo o curso."""
     headers = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
+    rt_odonto = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
 
-    # O corpo manda psicologia, mas a RT é de psicologia também: o curso forçado
-    # é o dela. O teste que importa é que a RT de odontologia não alcança a psi.
     novo = {
         "nome": "Tentativa Cruzada",
         "email": "cruzado.teste@uninassau.edu.br",
@@ -727,15 +725,31 @@ def test_rf009_rt_nao_cadastra_usuario_de_outra_clinica():
         "matricula": "CRZ009",
     }
     res = client.post("/api/v1/usuarios", json=novo, headers=headers)
-    assert res.status_code == 201
+    assert res.status_code == 201, res.text
     assert res.json()["curso"] == "psicologia"
 
-    # A RT de odontologia não enxerga esse usuário na listagem.
-    lista_odonto = client.get(
-        "/api/v1/usuarios",
-        headers={"Authorization": f"Bearer {get_auth_token('RT-001')}"}
-    ).json()
-    assert all(u["matricula"] != "CRZ009" for u in lista_odonto)
+    # Pedir explicitamente a clínica alheia é recusado antes de gravar.
+    cruzado = {
+        **novo,
+        "nome": "Tentativa Cruzada Odonto",
+        "email": "cruzado.odonto@uninassau.edu.br",
+        "matricula": "CRZ010",
+        "curso": "odontologia",
+    }
+    assert client.post("/api/v1/usuarios", json=cruzado, headers=headers).status_code == 403
+
+    lista_psico = client.get("/api/v1/usuarios", headers=headers).json()
+    assert any(u["matricula"] == "CRZ009" for u in lista_psico)
+    lista_odonto = client.get("/api/v1/usuarios", headers=rt_odonto).json()
+    assert not any(u["matricula"] == "CRZ009" for u in lista_odonto)
+
+    # Editar e desativar pelo id também é barrado: listagem filtrada não protege
+    # a escrita.
+    criado_id = res.json()["id"]
+    assert client.patch(
+        f"/api/v1/usuarios/{criado_id}", json={"nome": "Alterado"}, headers=rt_odonto
+    ).status_code == 403
+    assert client.delete(f"/api/v1/usuarios/{criado_id}", headers=rt_odonto).status_code == 403
 
 
 def test_rf009_supervisor_gerencia_apenas_estagiario():
@@ -1242,8 +1256,8 @@ def test_solicitacao_repetida_do_mesmo_email_da_409():
     assert repetido.status_code == 409
 
 
-def test_fila_de_solicitacoes_escopada_por_clinica():
-    """Cada RT só enxerga a fila da clínica dela"""
+def test_fila_de_solicitacoes_escopada_por_rt():
+    """Cada RT vê apenas a fila da própria clínica."""
     psi = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
     odonto = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
 
@@ -1255,16 +1269,21 @@ def test_fila_de_solicitacoes_escopada_por_clinica():
         curso_declarado="odontologia"))
 
     fila_psi = client.get("/api/v1/solicitacoes-cadastro/", headers=psi).json()
-    assert all(s["curso_declarado"] == "psicologia" for s in fila_psi)
     assert any(s["email"] == "fila.psi@prof.uninassau.edu.br" for s in fila_psi)
+    assert all(s["curso_declarado"] == "psicologia" for s in fila_psi)
 
     fila_odonto = client.get("/api/v1/solicitacoes-cadastro/", headers=odonto).json()
+    assert any(s["email"] == "fila.odonto@uninassau.edu.br" for s in fila_odonto)
     assert all(s["curso_declarado"] == "odontologia" for s in fila_odonto)
-    assert not any(s["email"] == "fila.psi@prof.uninassau.edu.br" for s in fila_odonto)
+
+    assert client.get(
+        "/api/v1/solicitacoes-cadastro/?curso=odontologia", headers=psi
+    ).status_code == 403
 
 
-def test_rt_nao_aprova_solicitacao_da_outra_clinica():
-    """Aprovação cruzada é 403, mesmo com token válido"""
+def test_rt_nao_aprova_solicitacao_da_outra_clinica(monkeypatch):
+    """A RT só decide sobre a fila da própria clínica."""
+    _instalar_envio_falso(monkeypatch)
     criada = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
         "cruzada.odonto@uninassau.edu.br", matricula="17060001",
         curso_declarado="odontologia"))
@@ -1277,6 +1296,16 @@ def test_rt_nao_aprova_solicitacao_da_outra_clinica():
         headers=psi,
     )
     assert res.status_code == 403
+
+    odonto = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
+    assert client.post(
+        f"/api/v1/solicitacoes-cadastro/{criada.json()['id']}/aprovar",
+        json={"perfil": "estagiario", "senha": "senha-inicial-1"},
+        headers=odonto,
+    ).status_code == 200
+    usuario = client.get("/api/v1/usuarios", headers=odonto).json()
+    assert any(u["matricula"] == "17060001" for u in usuario)
+    assert next(u for u in usuario if u["matricula"] == "17060001")["curso"] == "odontologia"
 
 
 def test_aprovacao_cria_conta_na_clinica_da_rt(monkeypatch):
@@ -1414,17 +1443,19 @@ def test_decisao_da_rt_entra_na_trilha_de_auditoria(monkeypatch):
         headers=rt_psi,
     )
 
-    # A trilha é segregada por curso: quem decidiu foi a RT de psicologia, e é
-    # com ela que a leitura tem que ser feita. Ler com a outra RT não encontraria
-    # — e não deve encontrar.
+    # A decisão entra na trilha da própria clínica; a outra RT não a enxerga.
     logs = client.get("/api/v1/auditoria/", headers=rt_psi).json()
     acoes = {log["acao"] for log in logs}
     assert "APROVACAO_SOLICITACAO_CREDENCIAL" in acoes
     assert "RECUSA_SOLICITACAO_CREDENCIAL" in acoes
 
     rt_odonto = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
-    acoes_da_outra = {log["acao"] for log in client.get("/api/v1/auditoria/", headers=rt_odonto).json()}
-    assert "APROVACAO_SOLICITACAO_CREDENCIAL" not in acoes_da_outra
+    registros_da_outra = {
+        (log["tabela_afetada"], log["registro_id"])
+        for log in client.get("/api/v1/auditoria/", headers=rt_odonto).json()
+    }
+    assert ("solicitacoes_cadastro", aprovada.json()["id"]) not in registros_da_outra
+    assert ("solicitacoes_cadastro", recusada.json()["id"]) not in registros_da_outra
 
 
 # --- Recuperação de senha por token no e-mail ---
@@ -1701,7 +1732,7 @@ def test_conta_desativada_nao_recebe_codigo(monkeypatch):
 
 
 def test_recuperacao_deixa_rastro_na_auditoria(monkeypatch):
-    """Solicitar e resgatar entram na trilha, e a trilha é segregada por curso"""
+    """Solicitar e resgatar entram na trilha da clínica da conta"""
     envio = _instalar_envio_falso(monkeypatch)
     senha_alterada = False
 
@@ -1720,7 +1751,7 @@ def test_recuperacao_deixa_rastro_na_auditoria(monkeypatch):
         assert "RECUPERACAO_SOLICITADA" in acoes
         assert "SENHA_RECUPERADA" in acoes
 
-        # A RT da outra clínica não enxerga o rastro.
+        # A outra RT não enxerga o rastro da clínica alheia.
         rt_psi = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
         acoes_psi = {log["acao"] for log in client.get("/api/v1/auditoria/", headers=rt_psi).json()}
         assert "SENHA_RECUPERADA" not in acoes_psi
@@ -3004,3 +3035,278 @@ def test_estagiario_ve_apenas_as_fichas_da_propria_dupla():
 
     supervisor = {"Authorization": f"Bearer {get_auth_token('DOC-9122')}"}
     assert ficha_id in ids_visiveis(supervisor)
+
+
+def _documento_odonto_payload(paciente_id: int, operador: str, auxiliar: str) -> dict:
+    return {
+        "paciente_id": paciente_id,
+        "operador_matricula": operador,
+        "auxiliar_matricula": auxiliar,
+        "tipo": "adulto",
+        "conteudo": {
+            "anamnese": {"identificacao": {"nome": "Paciente do documento"}},
+            "odontograma": {"26": {"faces": {"O": "carie"}, "whole": None, "note": ""}},
+        },
+    }
+
+
+def _vincular_estagiario_ao_supervisor(matricula: str, supervisor: str) -> None:
+    rt = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
+    usuarios = client.get("/api/v1/usuarios?curso=odontologia", headers=rt).json()
+    estagiario = next(u for u in usuarios if u["matricula"] == matricula)
+    res = client.post(
+        f"/api/v1/usuarios/{estagiario['id']}/vincular-supervisor",
+        json={"supervisor_matricula": supervisor},
+        headers=rt,
+    )
+    assert res.status_code == 200, res.text
+
+
+def _criar_supervisor_odonto(matricula: str, nome: str) -> dict:
+    rt = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
+    res = client.post(
+        "/api/v1/usuarios",
+        json={
+            "nome": nome,
+            "email": f"{matricula.lower()}@uninassau.edu.br",
+            "senha": "senha-teste-123",
+            "perfil": "supervisor",
+            "matricula": matricula,
+        },
+        headers=rt,
+    )
+    assert res.status_code == 201, res.text
+    return {"Authorization": f"Bearer {get_auth_token(matricula, 'senha-teste-123')}"}
+
+
+def _criar_dupla(headers: dict, operador: str, auxiliar: str):
+    return client.post(
+        "/api/v1/duplas-odonto",
+        json={
+            "operador_matricula": operador,
+            "auxiliar_matricula": auxiliar,
+        },
+        headers=headers,
+    )
+
+
+def test_supervisor_monta_dupla_e_so_ele_a_enxerga():
+    """A dupla nasce do vínculo do supervisor e não depende de ficha existir."""
+    aluno_par1 = _criar_estagiario_odonto("ODO-PAR1", "Aluno Par Um")
+    _criar_estagiario_odonto("ODO-PAR2", "Aluno Par Dois")
+    _vincular_estagiario_ao_supervisor("ODO-PAR1", "DOC-9122")
+    _vincular_estagiario_ao_supervisor("ODO-PAR2", "DOC-9122")
+
+    supervisor = {"Authorization": f"Bearer {get_auth_token('DOC-9122')}"}
+    criada = _criar_dupla(supervisor, "ODO-PAR1", "ODO-PAR2")
+    assert criada.status_code == 201, criada.text
+    dupla = criada.json()
+    assert dupla["operador_nome"] == "Aluno Par Um"
+    assert dupla["auxiliar_nome"] == "Aluno Par Dois"
+    assert dupla["supervisor_matricula"] == "DOC-9122"
+
+    minhas = client.get("/api/v1/duplas-odonto", headers=supervisor)
+    assert minhas.status_code == 200, minhas.text
+    assert any(d["id"] == dupla["id"] for d in minhas.json())
+
+    # Outro supervisor de odontologia não enxerga nem encerra a dupla alheia.
+    outro = _criar_supervisor_odonto("DOC-ODO2", "Supervisor Odonto Dois")
+    alheias = client.get("/api/v1/duplas-odonto", headers=outro)
+    assert alheias.status_code == 200, alheias.text
+    assert not any(d["id"] == dupla["id"] for d in alheias.json())
+
+    tentativa = client.delete(
+        f"/api/v1/duplas-odonto/{dupla['id']}", headers=outro
+    )
+    assert tentativa.status_code == 403, tentativa.text
+    assert "RF-005" in tentativa.json()["detail"]
+
+    # A RT vê todas, mas montar dupla é ato do supervisor.
+    rt = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
+    todas = client.get("/api/v1/duplas-odonto", headers=rt)
+    assert todas.status_code == 200, todas.text
+    assert any(d["id"] == dupla["id"] for d in todas.json())
+    assert _criar_dupla(rt, "ODO-PAR1", "ODO-PAR2").status_code == 403
+
+    # Estagiário não administra dupla (RN-001).
+    negado = client.get("/api/v1/duplas-odonto", headers=aluno_par1)
+    assert negado.status_code == 403, negado.text
+    assert "RN-001" in negado.json()["detail"]
+
+
+def test_dupla_ativa_por_aluno_e_reencontro_apos_desfazer():
+    _criar_estagiario_odonto("ODO-UNI1", "Aluno Unico Um")
+    _criar_estagiario_odonto("ODO-UNI2", "Aluno Unico Dois")
+    _criar_estagiario_odonto("ODO-UNI3", "Aluno Unico Tres")
+    for matricula in ("ODO-UNI1", "ODO-UNI2", "ODO-UNI3"):
+        _vincular_estagiario_ao_supervisor(matricula, "DOC-9122")
+
+    supervisor = {"Authorization": f"Bearer {get_auth_token('DOC-9122')}"}
+    primeira = _criar_dupla(supervisor, "ODO-UNI1", "ODO-UNI2")
+    assert primeira.status_code == 201, primeira.text
+
+    repetida = _criar_dupla(supervisor, "ODO-UNI2", "ODO-UNI1")
+    assert repetida.status_code == 409, repetida.text
+
+    ocupado = _criar_dupla(supervisor, "ODO-UNI1", "ODO-UNI3")
+    assert ocupado.status_code == 409, ocupado.text
+    assert "já pertence" in ocupado.json()["detail"]
+
+    # Aluno sem vínculo com o supervisor não entra em dupla.
+    _criar_estagiario_odonto("ODO-UNI4", "Aluno Unico Quatro")
+    sem_vinculo = _criar_dupla(supervisor, "ODO-UNI3", "ODO-UNI4")
+    assert sem_vinculo.status_code == 403, sem_vinculo.text
+    assert "RF-005" in sem_vinculo.json()["detail"]
+
+    desfeita = client.delete(
+        f"/api/v1/duplas-odonto/{primeira.json()['id']}", headers=supervisor
+    )
+    assert desfeita.status_code == 200, desfeita.text
+    assert desfeita.json()["ativo"] is False
+
+    nova = _criar_dupla(supervisor, "ODO-UNI1", "ODO-UNI3")
+    assert nova.status_code == 201, nova.text
+
+
+def test_desativar_aluno_encerra_a_dupla():
+    _criar_estagiario_odonto("ODO-OFF1", "Aluno Desativado")
+    _criar_estagiario_odonto("ODO-OFF2", "Aluno Restante")
+    _vincular_estagiario_ao_supervisor("ODO-OFF1", "DOC-9122")
+    _vincular_estagiario_ao_supervisor("ODO-OFF2", "DOC-9122")
+
+    supervisor = {"Authorization": f"Bearer {get_auth_token('DOC-9122')}"}
+    criada = _criar_dupla(supervisor, "ODO-OFF1", "ODO-OFF2")
+    assert criada.status_code == 201, criada.text
+
+    rt = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
+    usuarios = client.get("/api/v1/usuarios?curso=odontologia", headers=rt).json()
+    alvo = next(u for u in usuarios if u["matricula"] == "ODO-OFF1")
+    desativado = client.delete(f"/api/v1/usuarios/{alvo['id']}", headers=rt)
+    assert desativado.status_code == 200, desativado.text
+
+    restantes = client.get("/api/v1/duplas-odonto", headers=supervisor).json()
+    assert not any(d["id"] == criada.json()["id"] for d in restantes)
+
+
+def test_disponiveis_filtra_por_curso_para_a_rt():
+    _criar_estagiario_odonto("ODO-DISP", "Disponivel Odonto")
+    _criar_estagiario_sem_supervisor("DISP-PSI", "DISP-PSI", "Disponivel Psi")
+
+    rt_odonto = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
+    odonto = client.get(
+        "/api/v1/usuarios/estagiarios/disponiveis?curso=odontologia", headers=rt_odonto
+    )
+    assert odonto.status_code == 200, odonto.text
+    matriculas_odonto = [e["matricula"] for e in odonto.json()]
+    assert "ODO-DISP" in matriculas_odonto
+    assert "DISP-PSI" not in matriculas_odonto
+
+    assert client.get(
+        "/api/v1/usuarios/estagiarios/disponiveis?curso=psicologia", headers=rt_odonto
+    ).status_code == 403
+
+    rt_psico = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
+    psico = client.get(
+        "/api/v1/usuarios/estagiarios/disponiveis?curso=psicologia", headers=rt_psico
+    )
+    assert psico.status_code == 200, psico.text
+    matriculas_psico = [e["matricula"] for e in psico.json()]
+    assert "DISP-PSI" in matriculas_psico
+    assert "ODO-DISP" not in matriculas_psico
+
+    assert client.get(
+        "/api/v1/usuarios/estagiarios/disponiveis?curso=odontologia", headers=rt_psico
+    ).status_code == 403
+
+    invalido = client.get(
+        "/api/v1/usuarios/estagiarios/disponiveis?curso=geral", headers=rt_odonto
+    )
+    assert invalido.status_code == 400, invalido.text
+
+
+def test_documento_ficha_odonto_fluxo_completo():
+    """Documento completo: cria, consulta, homologa e recusa reenvio após visto."""
+    primeiro = _criar_estagiario_odonto("ODO-DOC1", "Operador Documento")
+    _criar_estagiario_odonto("ODO-DOC2", "Auxiliar Documento")
+    paciente_id = _criar_paciente_odonto("755.555.555-55")
+
+    criado = client.post(
+        "/api/v1/prontuarios/odonto/documentos",
+        json=_documento_odonto_payload(paciente_id, "ODO-DOC1", "ODO-DOC2"),
+        headers=primeiro,
+    )
+    assert criado.status_code == 201, criado.text
+    documento = criado.json()
+    assert documento["status"] == "AGUARDANDO_VALIDACAO"
+    assert documento["versao"] == 1
+    assert documento["conteudo"]["odontograma"]["26"]["faces"]["O"] == "carie"
+
+    detalhe = client.get(
+        f"/api/v1/prontuarios/odonto/documentos/{documento['id']}", headers=primeiro
+    )
+    assert detalhe.status_code == 200, detalhe.text
+    assert detalhe.json()["conteudo"] == documento["conteudo"]
+
+    duplicado = client.post(
+        "/api/v1/prontuarios/odonto/documentos",
+        json=_documento_odonto_payload(paciente_id, "ODO-DOC1", "ODO-DOC2"),
+        headers=primeiro,
+    )
+    assert duplicado.status_code == 409
+
+    rt = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
+    homologado = client.patch(
+        f"/api/v1/prontuarios/odonto/documentos/{documento['id']}/homologar",
+        json={"decisao": "VALIDADO", "parecer": "Ficha completa conferida."},
+        headers=rt,
+    )
+    assert homologado.status_code == 200, homologado.text
+    assert homologado.json()["status"] == "VALIDADO"
+    assert homologado.json()["supervisor_nome"]
+
+    # Depois do visto, a dupla não reescreve o documento.
+    reenvio = client.patch(
+        f"/api/v1/prontuarios/odonto/documentos/{documento['id']}",
+        json={"conteudo": {"anamnese": {"identificacao": {"nome": "Alterado"}}}},
+        headers=primeiro,
+    )
+    assert reenvio.status_code == 409
+
+
+def test_supervisor_ve_e_homologa_apenas_documentos_das_proprias_duplas():
+    """RF-005: supervisor odontológico não homologa ficha de dupla alheia."""
+    primeiro = _criar_estagiario_odonto("ODO-SUP1", "Operador Supervisionado")
+    _criar_estagiario_odonto("ODO-SUP2", "Auxiliar Supervisionado")
+    _vincular_estagiario_ao_supervisor("ODO-SUP1", "DOC-9122")
+
+    terceiro = _criar_estagiario_odonto("ODO-SUP3", "Operador Sem Supervisor")
+    _criar_estagiario_odonto("ODO-SUP4", "Auxiliar Sem Supervisor")
+
+    paciente_vinculado = _criar_paciente_odonto("766.666.666-66")
+    paciente_alheio = _criar_paciente_odonto("777.777.777-77")
+
+    doc_vinculado = client.post(
+        "/api/v1/prontuarios/odonto/documentos",
+        json=_documento_odonto_payload(paciente_vinculado, "ODO-SUP1", "ODO-SUP2"),
+        headers=primeiro,
+    )
+    assert doc_vinculado.status_code == 201, doc_vinculado.text
+    doc_alheio = client.post(
+        "/api/v1/prontuarios/odonto/documentos",
+        json=_documento_odonto_payload(paciente_alheio, "ODO-SUP3", "ODO-SUP4"),
+        headers=terceiro,
+    )
+    assert doc_alheio.status_code == 201, doc_alheio.text
+
+    supervisor = {"Authorization": f"Bearer {get_auth_token('DOC-9122')}"}
+    fila = client.get("/api/v1/prontuarios/odonto/documentos", headers=supervisor)
+    assert fila.status_code == 200, fila.text
+    ids = {d["id"] for d in fila.json()}
+    assert doc_vinculado.json()["id"] in ids
+    assert doc_alheio.json()["id"] not in ids
+
+    assert client.patch(
+        f"/api/v1/prontuarios/odonto/documentos/{doc_alheio.json()['id']}/homologar",
+        json={"decisao": "VALIDADO", "parecer": "Tentativa de dupla alheia."},
+        headers=supervisor,
+    ).status_code == 403

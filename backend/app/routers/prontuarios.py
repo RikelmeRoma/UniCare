@@ -1,21 +1,37 @@
-from typing import List
+from typing import List, Optional
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session, select, or_
 
 from app.database import get_session
-from app.models.prontuario import ProntuarioPsico, FichaOdonto, StatusProntuario
+from app.models.prontuario import (
+    ProntuarioPsico,
+    FichaOdonto,
+    DocumentoFichaOdonto,
+    StatusProntuario,
+)
 from app.models.paciente import Paciente
 from app.models.atribuicao import AtribuicaoClinica, SituacaoAtribuicao
-from app.models.usuario import Usuario, PerfilUsuario, CursoUsuario
+from app.models.usuario import Usuario, PerfilUsuario
 from app.schemas.prontuario import (
     ProntuarioPsicoCreate,
     ProntuarioPsicoRead,
     FichaOdontoCreate,
     FichaOdontoRead,
-    HomologacaoRequest
+    HomologacaoRequest,
+    DocumentoFichaOdontoCreate,
+    DocumentoFichaOdontoUpdate,
+    DocumentoFichaOdontoRead,
+    DocumentoFichaOdontoDetalhe,
 )
-from app.services.auth_service import require_roles, require_curso, autorizado_clinico
+from app.services.auth_service import (
+    require_roles,
+    require_curso,
+    autorizado_clinico,
+    exigir_perfil,
+)
 from app.services.auditoria_service import registrar_log, ip_do_cliente
+from app.services.dupla_service import resolver_estagiario_odonto
 
 router = APIRouter(prefix="/prontuarios", tags=["Prontuários Clínicos & Homologação"])
 
@@ -220,28 +236,9 @@ def _resolver_estagiario_odonto(
     A ficha odontológica é de atendimento em dupla (PDR-05), e a matrícula é o
     que permite segregar a listagem depois. Aceitar nome digitado deixaria o
     aluno gravar o próprio nome com a matrícula do colega — o mesmo defeito que
-    o modal de agendamento tinha. A validação é de existência, perfil, clínica
-    e conta ativa.
+    o modal de agendamento tinha.
     """
-    usuario = session.exec(
-        select(Usuario).where(Usuario.matricula == matricula)
-    ).first()
-
-    if (
-        usuario is None
-        or not usuario.ativo
-        or usuario.perfil != PerfilUsuario.ESTAGIARIO
-        or usuario.curso != CursoUsuario.ODONTOLOGIA
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                f"{papel} inválido: a matrícula '{matricula}' não é de "
-                "estagiário ativo da clínica de odontologia."
-            ),
-        )
-
-    return usuario
+    return resolver_estagiario_odonto(session, matricula, papel)
 
 @router.get("/odonto", response_model=List[FichaOdontoRead])
 def listar_fichas_odonto(
@@ -345,3 +342,310 @@ def homologar_ficha_odonto(
     )
 
     return ficha
+
+# --- Documento completo da ficha odontológica ---
+# `FichaOdonto` continua sendo o registro por procedimento. O documento abaixo
+# é a página Ficha Clínica inteira, com anamnese, odontograma, periograma e
+# índices. A dupla submete; o supervisor das duplas homologa; a RT homologa na
+# própria clínica.
+
+def _matriculas_supervisionadas(session: Session, supervisor: Usuario) -> List[str]:
+    return list(session.exec(
+        select(Usuario.matricula).where(
+            Usuario.perfil == PerfilUsuario.ESTAGIARIO,
+            Usuario.curso == supervisor.curso,
+            Usuario.supervisor_matricula == supervisor.matricula,
+            Usuario.ativo.is_(True),
+        )
+    ).all())
+
+
+def _pode_ver_documento(
+    session: Session,
+    usuario: Usuario,
+    documento: DocumentoFichaOdonto,
+) -> bool:
+    if usuario.perfil == PerfilUsuario.RT:
+        return True
+    if usuario.perfil == PerfilUsuario.ESTAGIARIO:
+        return usuario.matricula in (
+            documento.operador_matricula,
+            documento.auxiliar_matricula,
+        )
+    if usuario.perfil == PerfilUsuario.SUPERVISOR:
+        matriculas = set(_matriculas_supervisionadas(session, usuario))
+        return bool(
+            {documento.operador_matricula, documento.auxiliar_matricula} & matriculas
+        )
+    return False
+
+
+def _exigir_visao_documento(
+    session: Session,
+    usuario: Usuario,
+    documento: DocumentoFichaOdonto,
+) -> None:
+    if not _pode_ver_documento(session, usuario, documento):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso negado: esta ficha não é de uma dupla vinculada a você (RF-005).",
+        )
+
+
+def _exigir_dupla_do_documento(
+    usuario: Usuario,
+    operador_matricula: str,
+    auxiliar_matricula: str,
+) -> None:
+    if usuario.perfil != PerfilUsuario.ESTAGIARIO:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="A ficha clínica é preenchida pela dupla de estagiários responsável.",
+        )
+    if usuario.matricula not in (operador_matricula, auxiliar_matricula):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso negado: você não faz parte da dupla desta ficha.",
+        )
+
+
+@router.get("/odonto/documentos", response_model=List[DocumentoFichaOdontoRead])
+def listar_documentos_odonto(
+    paciente_id: Optional[int] = None,
+    status_filtro: Optional[StatusProntuario] = None,
+    session: Session = Depends(get_session),
+    current_user: Usuario = Depends(require_curso("odontologia", base=autorizado_clinico))
+):
+    query = select(DocumentoFichaOdonto)
+
+    if current_user.perfil == PerfilUsuario.ESTAGIARIO:
+        query = query.where(
+            or_(
+                DocumentoFichaOdonto.operador_matricula == current_user.matricula,
+                DocumentoFichaOdonto.auxiliar_matricula == current_user.matricula,
+            )
+        )
+    elif current_user.perfil == PerfilUsuario.SUPERVISOR:
+        matriculas = _matriculas_supervisionadas(session, current_user)
+        query = query.where(
+            or_(
+                DocumentoFichaOdonto.operador_matricula.in_(matriculas),
+                DocumentoFichaOdonto.auxiliar_matricula.in_(matriculas),
+            )
+        )
+
+    if paciente_id is not None:
+        query = query.where(DocumentoFichaOdonto.paciente_id == paciente_id)
+    if status_filtro is not None:
+        query = query.where(DocumentoFichaOdonto.status == status_filtro)
+
+    return session.exec(
+        query.order_by(DocumentoFichaOdonto.atualizado_em.desc())
+    ).all()
+
+
+@router.get(
+    "/odonto/documentos/paciente/{paciente_id}",
+    response_model=DocumentoFichaOdontoDetalhe,
+)
+def obter_documento_do_paciente(
+    paciente_id: int,
+    session: Session = Depends(get_session),
+    current_user: Usuario = Depends(require_curso("odontologia", base=autorizado_clinico))
+):
+    _validar_paciente_do_curso(session, paciente_id, "odontologia")
+
+    documento = session.exec(
+        select(DocumentoFichaOdonto)
+        .where(DocumentoFichaOdonto.paciente_id == paciente_id)
+        .order_by(DocumentoFichaOdonto.atualizado_em.desc())
+    ).first()
+
+    if not documento:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Este paciente ainda não tem ficha clínica odontológica.",
+        )
+
+    _exigir_visao_documento(session, current_user, documento)
+    return documento
+
+
+@router.get(
+    "/odonto/documentos/{documento_id}",
+    response_model=DocumentoFichaOdontoDetalhe,
+)
+def obter_documento_odonto(
+    documento_id: int,
+    session: Session = Depends(get_session),
+    current_user: Usuario = Depends(require_curso("odontologia", base=autorizado_clinico))
+):
+    documento = session.get(DocumentoFichaOdonto, documento_id)
+    if not documento:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ficha clínica odontológica não localizada.",
+        )
+    _validar_paciente_do_curso(session, documento.paciente_id, "odontologia")
+    _exigir_visao_documento(session, current_user, documento)
+    return documento
+
+
+@router.post(
+    "/odonto/documentos",
+    response_model=DocumentoFichaOdontoDetalhe,
+    status_code=status.HTTP_201_CREATED,
+)
+def criar_documento_odonto(
+    dados: DocumentoFichaOdontoCreate,
+    http_request: Request,
+    session: Session = Depends(get_session),
+    current_user: Usuario = Depends(require_curso("odontologia", base=autorizado_clinico))
+):
+    _validar_paciente_do_curso(session, dados.paciente_id, "odontologia")
+
+    operador = _resolver_estagiario_odonto(
+        session, dados.operador_matricula, "Operador"
+    )
+    auxiliar = _resolver_estagiario_odonto(
+        session, dados.auxiliar_matricula, "Auxiliar"
+    )
+    _exigir_dupla_do_documento(current_user, operador.matricula, auxiliar.matricula)
+
+    existente = session.exec(
+        select(DocumentoFichaOdonto).where(
+            DocumentoFichaOdonto.paciente_id == dados.paciente_id
+        )
+    ).first()
+    if existente:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Este paciente já tem uma ficha clínica odontológica. "
+                "Reabra a ficha existente para corrigir ou reenviar."
+            ),
+        )
+
+    agora = datetime.now(timezone.utc)
+    documento = DocumentoFichaOdonto(
+        paciente_id=dados.paciente_id,
+        tipo=dados.tipo,
+        dupla_estagiarios=f"{operador.nome} & {auxiliar.nome}",
+        operador_matricula=operador.matricula,
+        auxiliar_matricula=auxiliar.matricula,
+        conteudo=dados.conteudo,
+        status=StatusProntuario.AGUARDANDO_VALIDACAO,
+        versao=1,
+        criado_em=agora,
+        atualizado_em=agora,
+        submetido_em=agora,
+    )
+    session.add(documento)
+    session.commit()
+    session.refresh(documento)
+
+    registrar_log(
+        session, current_user, "SUBMISSAO_DOCUMENTO_ODONTO",
+        "documentos_ficha_odonto", documento.id,
+        endereco_ip=ip_do_cliente(http_request)
+    )
+    return documento
+
+
+@router.patch(
+    "/odonto/documentos/{documento_id}",
+    response_model=DocumentoFichaOdontoDetalhe,
+)
+def reenviar_documento_odonto(
+    documento_id: int,
+    dados: DocumentoFichaOdontoUpdate,
+    http_request: Request,
+    session: Session = Depends(get_session),
+    current_user: Usuario = Depends(require_curso("odontologia", base=autorizado_clinico))
+):
+    documento = session.get(DocumentoFichaOdonto, documento_id)
+    if not documento:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ficha clínica odontológica não localizada.",
+        )
+    _validar_paciente_do_curso(session, documento.paciente_id, "odontologia")
+    _exigir_dupla_do_documento(
+        current_user, documento.operador_matricula, documento.auxiliar_matricula
+    )
+
+    if documento.status not in (
+        StatusProntuario.EM_ELABORACAO,
+        StatusProntuario.DEVOLVIDO_PARA_AJUSTE,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Esta ficha não está disponível para reenvio. "
+                "Aguarde a homologação ou a devolução do supervisor."
+            ),
+        )
+
+    agora = datetime.now(timezone.utc)
+    documento.conteudo = dados.conteudo
+    documento.status = StatusProntuario.AGUARDANDO_VALIDACAO
+    documento.versao += 1
+    documento.atualizado_em = agora
+    documento.submetido_em = agora
+    session.add(documento)
+    session.commit()
+    session.refresh(documento)
+
+    registrar_log(
+        session, current_user, "REENVIO_DOCUMENTO_ODONTO",
+        "documentos_ficha_odonto", documento.id,
+        endereco_ip=ip_do_cliente(http_request)
+    )
+    return documento
+
+
+@router.patch(
+    "/odonto/documentos/{documento_id}/homologar",
+    response_model=DocumentoFichaOdontoDetalhe,
+)
+def homologar_documento_odonto(
+    documento_id: int,
+    body: HomologacaoRequest,
+    http_request: Request,
+    session: Session = Depends(get_session),
+    current_user: Usuario = Depends(
+        require_curso("odontologia", base=autorizado_homologacao)
+    )
+):
+    documento = session.get(DocumentoFichaOdonto, documento_id)
+    if not documento:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ficha clínica odontológica não localizada.",
+        )
+    _validar_paciente_do_curso(session, documento.paciente_id, "odontologia")
+    _exigir_visao_documento(session, current_user, documento)
+
+    if documento.status != StatusProntuario.AGUARDANDO_VALIDACAO:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Esta ficha não está aguardando homologação.",
+        )
+
+    documento.status = body.decisao
+    documento.parecer_supervisor = body.parecer
+    documento.supervisor_nome = current_user.nome
+    documento.atualizado_em = datetime.now(timezone.utc)
+    session.add(documento)
+    session.commit()
+    session.refresh(documento)
+
+    registrar_log(
+        session,
+        current_user,
+        f"HOMOLOGACAO_DOCUMENTO_ODONTO_{body.decisao.value}",
+        "documentos_ficha_odonto",
+        documento.id,
+        endereco_ip=ip_do_cliente(http_request),
+    )
+    return documento

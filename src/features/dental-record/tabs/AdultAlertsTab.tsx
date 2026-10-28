@@ -110,7 +110,7 @@ export function AdultAlertsTab({
               <span>Sinais Vitais da Sessão</span>
             </h3>
             <span className="rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-slate-900">
-              Rascunho local
+              Na ficha
             </span>
           </div>
 
@@ -175,7 +175,7 @@ export function AdultAlertsTab({
             Editar no Exame Clínico
           </button>
           <p className="mt-2 text-[10px] leading-relaxed text-slate-400">
-            A aferição fica no rascunho local e é editada na aba Exame Clínico.
+            A aferição faz parte da ficha clínica e é editada na aba Exame Clínico.
           </p>
         </div>
 

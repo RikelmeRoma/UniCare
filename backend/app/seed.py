@@ -19,6 +19,7 @@ from app.models.prontuario import ProntuarioPsico, FichaOdonto, StatusProntuario
 from app.models.anamnese import Anamnese
 from app.models.solicitacao import SolicitacaoCadastro, SituacaoSolicitacao
 from app.models.atribuicao import AtribuicaoClinica, SituacaoAtribuicao
+from app.models.dupla import DuplaOdonto
 from app.services.crypto_service import get_password_hash
 
 SENHA_DEMO = "unicare123"
@@ -145,6 +146,39 @@ def seed_usuarios(session: Session) -> None:
             registro_profissional="RT-PSICO"
         ),
     ])
+    session.commit()
+
+
+def seed_duplas_odonto(session: Session) -> None:
+    """Dupla de demonstração já montada para a supervisão odontológica.
+
+    Os documentos e agendamentos do seed usam Augusto + Gabriela. Sem a linha
+    em `duplas_odonto`, a tela de supervisão mostraria a dupla apenas depois de
+    uma ficha existir — que é exatamente o vazio que a tabela resolve.
+    """
+    if not _tabela_vazia(session, DuplaOdonto):
+        return
+
+    operador = session.exec(
+        select(Usuario).where(Usuario.matricula == "16024402")
+    ).first()
+    auxiliar = session.exec(
+        select(Usuario).where(Usuario.matricula == "16024404")
+    ).first()
+    if not operador or not auxiliar:
+        return
+    if (
+        not operador.supervisor_matricula
+        or operador.supervisor_matricula != auxiliar.supervisor_matricula
+    ):
+        return
+
+    session.add(DuplaOdonto(
+        operador_matricula=operador.matricula,
+        auxiliar_matricula=auxiliar.matricula,
+        supervisor_matricula=operador.supervisor_matricula,
+        criado_por_matricula=operador.supervisor_matricula,
+    ))
     session.commit()
 
 
@@ -648,6 +682,7 @@ def run_seed(session: Session) -> None:
     roda se a tabela correspondente estiver vazia.
     """
     seed_usuarios(session)
+    seed_duplas_odonto(session)
     pacientes = seed_pacientes(session)
     seed_agendamentos(session, pacientes)
     seed_prontuarios(session, pacientes)
