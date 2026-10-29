@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../features/auth/context/AuthContext';
 import {
@@ -7,16 +6,12 @@ import {
   ShieldCheckIcon,
   ChartBarIcon,
   ArrowRightOnRectangleIcon,
-  BuildingOfficeIcon,
   KeyIcon,
 } from '../icons/CorporateIcons';
 
 export function AppSidebar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-
-  // Para o perfil de RT Master: seletor de visão
-  const [rtCourseView, setRtCourseView] = useState<'psicologia' | 'odontologia' | 'global'>('global');
 
   const handleLogout = () => {
     logout();
@@ -62,6 +57,25 @@ export function AppSidebar() {
   // cada uma vê só a seção da própria clínica.
   const mostrarRecepcaoPsi = user?.curso === 'psicologia';
   const mostrarRecepcaoOdonto = user?.curso === 'odontologia';
+
+  /** Painel Executivo & Custódia da RT: item de lista como os demais.
+   *
+   *  Antes era uma seção própria, com cabeçalho "Controladoria & RT Master" e
+   *  borda divisória. A coordenação nunca teve isso — o painel dela é mais um
+   *  item dentro da lista da clínica —, e a RT passa a seguir o mesmo padrão.
+   *
+   *  Cada RT fecha a lista da própria clínica. O seletor de visão que existia
+   *  aqui oferecia as páginas da outra clínica, que o `ProtectedRoute` recusa
+   *  por `allowedCourses` — o link só levava a `/nao-autorizado`.
+   */
+  const painelExecutivo = (
+    <li>
+      <NavLink to="/rt/relatorios" className={getLinkStyle}>
+        <ChartBarIcon className="w-4 h-4 shrink-0 text-slate-500" />
+        <span>Painel Executivo & Custódia</span>
+      </NavLink>
+    </li>
+  );
 
   return (
     <aside className="w-64 shrink-0 bg-white border-r border-slate-200 flex flex-col h-screen justify-between select-none z-30 shadow-2xs">
@@ -156,48 +170,10 @@ export function AppSidebar() {
         </div>
 
 
-        {/* MÓDULO EXCLUSIVO DA RT MASTER: Seletor de Visão de Curso */}
-        {isRT && !isRTPsicologia && (
-          <div className="px-3 pt-3">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-1.5">
-              Filtrar Módulo Clínico:
-            </p>
-            <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl text-[10px] font-bold">
-              <button
-                type="button"
-                onClick={() => setRtCourseView('global')}
-                className={`py-1 rounded-lg transition-all ${
-                  rtCourseView === 'global' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                Global
-              </button>
-              <button
-                type="button"
-                onClick={() => setRtCourseView('psicologia')}
-                className={`py-1 rounded-lg transition-all ${
-                  rtCourseView === 'psicologia' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                Psico
-              </button>
-              <button
-                type="button"
-                onClick={() => setRtCourseView('odontologia')}
-                className={`py-1 rounded-lg transition-all ${
-                  rtCourseView === 'odontologia' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                Odonto
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* NAVEGAÇÃO ESTRITAMENTE SEGREGADA CONFORME PERMISSÃO DO USUÁRIO */}
         <nav className="px-3 py-3 space-y-4">
-          {/* 1. SE FOR PSICOLOGIA (OU RT NA VISÃO PSICO/GLOBAL) */}
-          {(isPsicoUser || isCoordenacao || (isRT && (isRTPsicologia || rtCourseView === 'psicologia' || rtCourseView === 'global'))) && (
+          {/* 1. SE FOR PSICOLOGIA (OU RT DE PSICOLOGIA) */}
+          {(isPsicoUser || isCoordenacao || isRTPsicologia) && (
             <div>
               <h2 className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                 {isCoordenacao ? 'Coordenação de Psicologia' : 'Serviço de Psicologia (SPA)'}
@@ -255,12 +231,16 @@ export function AppSidebar() {
                     </NavLink>
                   </li>
                 )}
+
+                {/* Painel Executivo da RT de psicologia: fecha a lista da
+                    própria clínica, como o da coordenação logo acima. */}
+                {isRT && painelExecutivo}
               </ul>
             </div>
           )}
 
-          {/* 2. SE FOR ODONTOLOGIA (OU RT NA VISÃO ODONTO/GLOBAL) */}
-          {(isOdontoUser || (isRT && !isRTPsicologia && (rtCourseView === 'odontologia' || rtCourseView === 'global'))) && (
+          {/* 2. SE FOR ODONTOLOGIA (OU RT DE ODONTOLOGIA) */}
+          {(isOdontoUser || (isRT && !isRTPsicologia)) && (
             <div>
               <h2 className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
                 Clínica Odontológica
@@ -314,6 +294,11 @@ export function AppSidebar() {
                     </NavLink>
                   </li>
                 )}
+
+                {/* Painel Executivo da RT de odontologia: fecha a lista da
+                    própria clínica, como o painel da coordenação fecha a da
+                    psicologia. */}
+                {isRT && !isRTPsicologia && painelExecutivo}
               </ul>
             </div>
           )}
@@ -341,24 +326,6 @@ export function AppSidebar() {
                     </NavLink>
                   </li>
                 )}
-              </ul>
-            </div>
-          )}
-
-          {/* 4. SE FOR RT MASTER: CONTROLADORIA, AUDITORIA & CUSTÓDIA */}
-          {isRT && (
-            <div className="pt-2 border-t border-slate-100">
-              <h2 className="px-2 text-[10px] font-bold text-indigo-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                <BuildingOfficeIcon className="w-3.5 h-3.5" />
-                <span>Controladoria & RT Master</span>
-              </h2>
-              <ul className="space-y-1">
-                <li>
-                  <NavLink to="/rt/relatorios" className={getLinkStyle}>
-                    <ChartBarIcon className="w-4 h-4 shrink-0 text-indigo-600" />
-                    <span>Painel Executivo & Custódia</span>
-                  </NavLink>
-                </li>
               </ul>
             </div>
           )}

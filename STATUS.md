@@ -1,5 +1,28 @@
 # STATUS — UniCare
 
+## Atualização — 2026-10-29 (menu da RT: sem "Controladoria" e sem seletor de clínica)
+
+**O "Painel Executivo & Custódia" deixou de ser uma seção própria no sidebar.** O
+cabeçalho "Controladoria & RT Master", o ícone de prédio e a borda divisória
+saíram; o link virou item de lista comum, como o "Painel & Gestão da Equipe" da
+coordenação. **O seletor "Filtrar Módulo Clínico" também saiu.**
+
+- `AppSidebar.tsx`: o item vive num único `const painelExecutivo` e fecha a lista
+  da própria clínica — a da psicologia para a RT de psicologia, a de odontologia
+  para a RT de odontologia. Nenhuma das duas vê mais a seção da outra.
+- **Por que o seletor saiu:** ele oferecia Global/Psico/Odonto a qualquer RT, mas
+  as rotas de cada clínica têm `allowedCourses` no `App.tsx` e o `ProtectedRoute`
+  **não dá bypass de curso para a RT** ("cada RT responde pela própria clínica").
+  Escolher a outra clínica só produzia link para `/nao-autorizado` — o mesmo
+  defeito que o menu da recepção já teve.
+- **Psicologia não mudou de comportamento:** a RT de psicologia já não via o
+  seletor, e continua vendo só a seção de psicologia mais o painel no fim.
+- `BuildingOfficeIcon` e `useState` saíram do import (ficaram sem uso).
+- Título da marca (`UniCare Controladoria`) e breadcrumb (`Controladoria & RT
+  Master`) **não** mudaram — a mudança é só no menu.
+- **Verificado:** `npm run build` verde; `npm run lint` nos mesmos 7 problemas
+  preexistentes, nenhum em `AppSidebar.tsx`.
+
 ## Atualização — 2026-10-28 (psicologia com um estagiário por sessão)
 
 **A sessão de psicologia deixou de ser dupla: cada paciente é atendido por um

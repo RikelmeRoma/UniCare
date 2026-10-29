@@ -218,6 +218,16 @@ REC-002 caía em `/psi/prontuario` e levava 403 ao entrar — e o botão de saí
 qualquer recepção para a tela de odontologia, prendendo a de psicologia em laço de
 negação. **Ao acrescentar um perfil ou clínica, mude a função, não as cópias** (não há mais
 cópias: é esse o ponto).
+
+**O sidebar não oferece página que o `ProtectedRoute` vai recusar.** As rotas de
+cada clínica declaram `allowedCourses`, e o `ProtectedRoute` **não dá bypass de
+curso para a RT** — o comentário lá é explícito: cada RT responde pela própria
+clínica. O menu da RT de odontologia tinha um seletor "Filtrar Módulo Clínico"
+(Global/Psico/Odonto) que, fora de Odonto, só produzia links para
+`/nao-autorizado`. O seletor saiu e cada RT vê apenas a seção do próprio curso
+(psicologia nunca viu o seletor). Um "RT global" de verdade exigiria modelo novo
+— perfil ou flag que o `require_curso` conheça —, não um botão no menu.
+
 **Filtrar a listagem não protege a escrita.** O `?curso=` do cliente é opcional
 e omitível, e `PATCH /{id}/status` age por id, não por lista. Toda rota que
 escreve precisa conferir o curso do registro com `validar_curso_do_registro` —
