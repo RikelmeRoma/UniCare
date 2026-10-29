@@ -659,16 +659,15 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
       isPsico ? api.getProntuariosPsico() : Promise.resolve([]),
       isOdonto ? api.getFichasOdonto() : Promise.resolve([]),
       isOdonto ? api.getDocumentosOdonto() : Promise.resolve([]),
-      // `/minha` é a rota do próprio aluno; os demais perfis montam o painel de
-      // atribuição e precisam da clínica inteira. Chamar `/minha` para todo
-      // mundo devolvia `[]` para recepção e RT — 200 com lista vazia, sem
-      // indicação de erro, e o painel dizia que ninguém tinha responsável.
-      // A distinção precisa ser por perfil, e não "chamar a da clínica para
-      // todos": o prontuário do aluno filtra a lista de pacientes por aqui, e
-      // com a clínica inteira o seletor passaria a mostrar todo mundo.
-      user?.perfil === 'estagiario'
-        ? api.getMinhasAtribuicoesPsico()
-        : api.getAtribuicoesPsico(),
+      // O vínculo paciente↔estagiário é exclusivo da psicologia. Chamar a rota
+      // para odontologia devolve 403 de clínica restrita e transformava uma
+      // regra de escopo em "falha de sincronização" na recepção. Nos demais
+      // cursos a lista fica vazia — nenhuma tela de odontologia a utiliza.
+      isPsico
+        ? user?.perfil === 'estagiario'
+          ? api.getMinhasAtribuicoesPsico()
+          : api.getAtribuicoesPsico()
+        : Promise.resolve<ApiAtribuicao[]>([]),
     ]);
 
     const falhas: string[] = [];

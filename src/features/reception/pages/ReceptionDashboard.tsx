@@ -43,13 +43,7 @@ export function ReceptionDashboard() {
       <div className="max-w-6xl mx-auto space-y-6">
         <ReceptionStats />
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3">
-            <AppointmentTable />
-          </div>
-          <div className="lg:col-span-1">
-          </div>
-        </div>
+        <AppointmentTable />
       </div>
 
       {isPatientModalOpen && (
