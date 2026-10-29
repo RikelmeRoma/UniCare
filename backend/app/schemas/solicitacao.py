@@ -26,10 +26,10 @@ def _e_institucional(email: str) -> bool:
 class SolicitacaoCreate(BaseModel):
     """Pedido de credencial. Rota pública, sem token.
 
-    Não há campo de senha: na psicologia o servidor gera a senha inicial no ato
-    da aprovação, e na odontologia a RT a define. Guardar credencial de quem nem
-    tem conta, em tabela alcançável por qualquer chamada anônima, não é uma
-    superfície que vale a pena abrir.
+    Não há campo de senha: o servidor gera a senha inicial no ato da aprovação,
+    nas duas clínicas. Guardar credencial de quem nem tem conta, em tabela
+    alcançável por qualquer chamada anônima, não é uma superfície que vale a
+    pena abrir.
     """
     nome: str = Field(min_length=3, max_length=200)
     email: EmailStr
@@ -84,11 +84,10 @@ class AprovacaoSolicitacao(BaseModel):
     O perfil enviado é o FINAL, não o declarado: a gestão pode corrigir o que o
     solicitante pediu.
 
-    `senha` é opcional no schema porque a obrigatoriedade depende de quem aprova:
-    na psicologia, RT e coordenação **não escolhem** a senha — o servidor gera e
-    envia por e-mail. Na odontologia, a RT continua definindo a senha. Quem
-    aplica essa diferença é a rota, que conhece o token; o schema sozinho não
-    tem como saber.
+    `senha` não é usada por ninguém: a senha inicial é sempre gerada pelo
+    servidor e enviada por e-mail, nas duas clínicas. O campo continua no schema
+    só para a rota **detectar e recusar** (422) quem tentar enviá-lo — ignorar
+    em silêncio faria a gestão acreditar que definiu uma credencial.
     """
     perfil: PerfilUsuario
     registro_profissional: Optional[str] = Field(default=None, max_length=64)

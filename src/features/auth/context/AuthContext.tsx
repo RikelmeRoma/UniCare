@@ -165,7 +165,7 @@ useEffect(() => {
    */
   const aprovarSolicitacao = async (
     id: number,
-    dados: { perfil: RoleType; registro_profissional?: string; senha?: string }
+    dados: { perfil: RoleType; registro_profissional?: string }
   ): Promise<{ success: boolean; message: string }> => {
     try {
       await api.aprovarSolicitacao(id, dados);

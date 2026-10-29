@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type SolicitacaoEnviada } from '../../../services/api';
+import { dominioDoPerfil } from '../dominios';
 import {
   BuildingOfficeIcon,
   UserGroupIcon,
@@ -16,10 +17,10 @@ import {
  * - **Envia de verdade.** A versão anterior tinha `alert('Solicitação
  *   credenciamento enviada')` e nenhuma chamada de API. Agora vai para
  *   `POST /solicitacoes-cadastro/`.
- * - **Sem campo de senha.** Na psicologia o servidor gera a senha inicial no
- *   ato da aprovação e a envia ao e-mail informado; na odontologia a RT a
- *   define. Guardar credencial de quem nem tem conta, em tabela alcançável por
- *   qualquer chamada anônima, não é uma superfície que vale abrir.
+ * - **Sem campo de senha.** O servidor gera a senha inicial no ato da aprovação
+ *   e a envia ao e-mail informado, nas duas clínicas. Guardar credencial de quem
+ *   nem tem conta, em tabela alcançável por qualquer chamada anônima, não é uma
+ *   superfície que vale abrir.
  * - **Sai o "Mínimo 8 caracteres" e o badge "Forte" fixo.** A regra real é 6, no
  *   servidor, e nada aqui valida força de senha — o badge aparecia em cima de um
  *   campo vazio.
@@ -46,11 +47,12 @@ export function RegisterForm() {
   const [erroMsg, setErroMsg] = useState('');
   const [protocolo, setProtocolo] = useState<SolicitacaoEnviada | null>(null);
 
-  // Domínio institucional esperado para o perfil solicitado:
-  // estagiário usa @sempreuninassau.com.br, os demais usam @prof.uninassau.edu.br.
-  // É só uma sugestão: com `PERMITIR_EMAILS_EXTERNOS` ligado, o servidor aceita
-  // qualquer endereço, e a pessoa pode sobrescrever este valor.
-  const dominioEsperado = perfil === 'estagiario' ? '@sempreuninassau.com.br' : '@prof.uninassau.edu.br';
+  // Domínio institucional esperado para o perfil solicitado, vindo do módulo
+  // compartilhado — a fila de aprovação usa a mesma lista para avisar quando o
+  // endereço de destino não é institucional. É só uma sugestão: com
+  // `PERMITIR_EMAILS_EXTERNOS` ligado, o servidor aceita qualquer endereço, e a
+  // pessoa pode sobrescrever este valor.
+  const dominioEsperado = dominioDoPerfil(perfil);
   const emailSugerido = matricula.trim().length >= 2 ? `${matricula.trim()}${dominioEsperado}` : '';
   const email = emailManual ?? emailSugerido;
   const emailPreenchido = email.trim().length > 0;

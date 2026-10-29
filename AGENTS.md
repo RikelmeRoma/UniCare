@@ -193,16 +193,17 @@ continua sendo ato exclusivo da RT. Em `solicitacoes.py`, a guarda do perfil
 **final** vem antes de `email_service.enviar`; sem isso a pessoa recebe a senha
 de uma conta que o servidor recusou criar.
 
-**Senha inicial de psicologia é gerada no servidor, não escolhida pela gestão.**
-`AprovacaoSolicitacao.senha` é opcional no schema porque a obrigatoriedade
-depende de quem aprova: RT e coordenação de psicologia **não enviam senha**
-(422 se enviarem), e o servidor gera com `gerar_senha_inicial()`; a RT de
-odontologia continua exigindo a senha. A resolução fica depois de
-`_pode_gerenciar` e antes do e-mail — inverter isso faz o 403 de alçada virar
-422, ou dispara mensagem com senha de conta que não será criada. Os testes leem
-a senha gerada do corpo do e-mail simulado (`_EnvioAprovacao.senha_do_ultimo()`);
-não há senha fixa para logar. Não reintroduza o campo editável em
-`SolicitacoesCadastro` para a psicologia.
+**Senha inicial é gerada no servidor, em qualquer clínica.**
+Nenhuma gestão escolhe a credencial: RT e coordenação **não enviam senha**
+(422 se enviarem), e o servidor gera com `gerar_senha_inicial()` — a mesma regra
+para psicologia e odontologia. `AprovacaoSolicitacao.senha` continua no schema
+só para a rota **detectar e recusar** o campo; ignorá-lo em silêncio faria a
+gestão acreditar que definiu uma senha que nunca foi usada. A resolução fica
+depois de `_pode_gerenciar` e antes do e-mail — inverter isso faz o 403 de
+alçada virar 422, ou dispara mensagem com senha de conta que não será criada.
+Os testes leem a senha gerada do corpo do e-mail simulado
+(`_EnvioAprovacao.senha_do_ultimo()`); não há senha fixa para logar. Não
+reintroduza o campo editável em `SolicitacoesCadastro`.
 
 **`require_roles([ESTAGIARIO])` não restringe a escrita ao estagiário.**
 `exigir_perfil` deixa RT e coordenação passarem por bypass, então a rota de

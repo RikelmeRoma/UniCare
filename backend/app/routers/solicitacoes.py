@@ -158,39 +158,25 @@ def _recusar_se_ja_decidida(solicitacao: SolicitacaoCadastro) -> None:
         )
 
 
-def _senha_inicial_para(current_user: Usuario, dados: AprovacaoSolicitacao) -> str:
-    """Resolve a senha inicial conforme quem aprova.
+def _senha_inicial_para(dados: AprovacaoSolicitacao) -> str:
+    """Gera a senha inicial. Nenhuma clínica escolhe a credencial.
 
-    Na psicologia, RT e coordenação não escolhem a senha: ela é gerada pelo
-    servidor e só existe no e-mail do solicitante. A recusa de uma senha enviada
-    é explícita (422) porque ignorá-la faria a gestão acreditar que definiu uma
-    credencial que nunca foi usada.
+    A regra é a mesma nas duas clínicas: RT e coordenação aprovam sem ver a
+    senha, e o servidor gera uma aleatória que só existe no e-mail do
+    solicitante. Assim a gestão nunca fica com uma credencial em mãos.
 
-    Na odontologia o contrato antigo continua: a RT define a senha, e a ausência
-    dela é erro — não há geração automática lá.
+    Enviar `senha` no corpo é recusado com 422 de propósito: ignorar o campo
+    faria a gestão acreditar que definiu uma senha que nunca foi usada.
     """
-    gestor_psicologia = (
-        current_user.curso == CursoUsuario.PSICOLOGIA
-        and current_user.perfil in (PerfilUsuario.RT, PerfilUsuario.COORDENACAO)
-    )
-
-    if gestor_psicologia:
-        if dados.senha is not None:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=(
-                    "Na psicologia, a senha inicial é gerada pelo servidor e "
-                    "enviada por e-mail. Não envie o campo 'senha' na aprovação."
-                ),
-            )
-        return gerar_senha_inicial()
-
-    if dados.senha is None:
+    if dados.senha is not None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Informe a senha inicial para criar a conta.",
+            detail=(
+                "A senha inicial é gerada pelo servidor e enviada por e-mail. "
+                "Não envie o campo 'senha' na aprovação."
+            ),
         )
-    return dados.senha
+    return gerar_senha_inicial()
 
 
 @router.post("/{solicitacao_id}/aprovar", response_model=SolicitacaoRead)
@@ -204,11 +190,10 @@ def aprovar_solicitacao(
     """Aprova e **cria a conta no mesmo ato**, só se o e-mail com a senha inicial for enviado.
 
     O fluxo é: primeiro valida se quem aprova pode criar o perfil final, depois
-    resolve a senha inicial — gerada pelo servidor quando quem aprova é a RT ou a
-    coordenação de psicologia, enviada no corpo quando é a RT de odontologia — e
-    só então tenta enviar o e-mail. Se o e-mail não for entregue (SMTP não
-    configurado ou falha de rede), a conta **não é criada** e a solicitação
-    permanece PENDENTE — a gestão tenta novamente depois.
+    gera a senha inicial no servidor e só então tenta enviar o e-mail. Se o
+    e-mail não for entregue (SMTP não configurado ou falha de rede), a conta
+    **não é criada** e a solicitação permanece PENDENTE — a gestão tenta
+    novamente depois.
 
     Se o e-mail for enviado com sucesso, a conta é criada e a solicitação
     marcada como APROVADA.
@@ -227,9 +212,8 @@ def aprovar_solicitacao(
     if not _pode_gerenciar(current_user, dados.perfil):
         raise _negar_gestao(current_user, dados.perfil)
 
-    # A senha é resolvida antes do e-mail: na psicologia ela vem do servidor,
-    # na odontologia vem do corpo. Um erro aqui não pode disparar mensagem.
-    senha_inicial = _senha_inicial_para(current_user, dados)
+    # A senha é gerada antes do e-mail. Um erro aqui não pode disparar mensagem.
+    senha_inicial = _senha_inicial_para(dados)
 
     # 1. PRIMEIRO: tenta enviar o e-mail com a senha inicial.
     # Só cria a conta se o envio tiver sucesso.

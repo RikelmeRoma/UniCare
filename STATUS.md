@@ -23,6 +23,32 @@ coordenação. **O seletor "Filtrar Módulo Clínico" também saiu.**
 - **Verificado:** `npm run build` verde; `npm run lint` nos mesmos 7 problemas
   preexistentes, nenhum em `AppSidebar.tsx`.
 
+## Atualização — 2026-10-29 (senha inicial automática nas duas clínicas)
+
+**A odontologia deixou de exigir que a RT digitasse a senha inicial.** Ao aprovar
+um pedido de credencial, o servidor gera a senha nas duas clínicas e a envia por
+e-mail; a tela da gestão perdeu o campo de senha e o botão "Gerar senha".
+
+- **Backend:** `_senha_inicial_para` perdeu o ramo por clínica — sempre
+  `gerar_senha_inicial()` — e enviar `senha` no corpo responde **422** em
+  qualquer clínica, com a mesma mensagem da psicologia.
+  `AprovacaoSolicitacao.senha` continua no schema só para a rota **detectar e
+  recusar** o campo; ignorá-lo em silêncio faria a gestão acreditar que definiu
+  uma credencial que nunca foi usada.
+- **Tela:** `SolicitacoesCadastro` não decide mais por curso; o campo de senha, o
+  gerador via Web Crypto e o estado `senha` foram removidos. O aviso de destino
+  do e-mail continua, agora com o texto fixo "a senha inicial só existe nele".
+- **Teste:** `test_odontologia_continua_definindo_a_senha` virou
+  `test_odontologia_tambem_recebe_senha_gerada` (422 ao mandar senha, 200 sem,
+  senha de 12 lida do e-mail, login com ela). O teste de RT cruzada deixou de
+  mandar `senha` na aprovação de odontologia.
+- **Efeito colateral:** a RT de odontologia não conhece mais a senha gerada. Se o
+  e-mail não chegar, a saída é `PATCH /usuarios/{id}` com uma `senha` nova no
+  modal de edição de usuário — ainda **não** existe botão de reenvio.
+- **Sem migração:** nenhuma coluna mudou. `alembic check` limpo.
+- **Verificado:** `pytest` **136 passed**, 1 deselected; `npm run build` verde;
+  `npm run lint` com os mesmos 7 problemas preexistentes.
+
 ## Atualização — 2026-10-28 (psicologia com um estagiário por sessão)
 
 **A sessão de psicologia deixou de ser dupla: cada paciente é atendido por um
@@ -1961,9 +1987,10 @@ numerado como RF — conforme a regra de citar por descrição.
 
 ### Decisões de projeto
 
-- **A senha não viaja na solicitação.** A RT define no ato de aprovar. Guardar
-  credencial de quem nem tem conta, em tabela alcançável por qualquer chamada
-  anônima, é superfície que não vale abrir.
+- **A senha não viaja na solicitação.** O servidor gera no ato de aprovar e
+  envia por e-mail, nas duas clínicas. Guardar credencial de quem nem tem conta,
+  em tabela alcançável por qualquer chamada anônima, é superfície que não vale
+  abrir.
 - **Quem pede declara; a RT decide.** `perfil_declarado` e `curso_declarado` são
   o que o solicitante afirma, e a tela avisa isso. O perfil enviado na aprovação é
   o **final**, e o curso nunca vem do pedido: sai do token da RT.

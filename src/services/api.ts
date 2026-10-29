@@ -586,11 +586,11 @@ class ApiService {
 
   /** Aprova e cria a conta no mesmo ato.
    *
-   *  Na psicologia o servidor gera a senha inicial e a envia por e-mail; na
-   *  odontologia a RT ainda define a senha e a manda neste campo. */
+   *  A senha inicial é gerada pelo servidor e enviada por e-mail, nas duas
+   *  clínicas. O corpo não leva senha. */
   async aprovarSolicitacao(
     id: number,
-    dados: { perfil: string; registro_profissional?: string; senha?: string }
+    dados: { perfil: string; registro_profissional?: string }
   ): Promise<SolicitacaoCadastro> {
     return this.request<SolicitacaoCadastro>(`/solicitacoes-cadastro/${id}/aprovar`, {
       method: 'POST',

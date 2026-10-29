@@ -1585,7 +1585,7 @@ def test_rt_nao_aprova_solicitacao_da_outra_clinica(monkeypatch):
     psi = {"Authorization": f"Bearer {get_auth_token('RT-002')}"}
     res = client.post(
         f"/api/v1/solicitacoes-cadastro/{criada.json()['id']}/aprovar",
-        json={"perfil": "estagiario", "senha": "senha-inicial-1"},
+        json={"perfil": "estagiario"},
         headers=psi,
     )
     assert res.status_code == 403
@@ -1593,7 +1593,7 @@ def test_rt_nao_aprova_solicitacao_da_outra_clinica(monkeypatch):
     odonto = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
     assert client.post(
         f"/api/v1/solicitacoes-cadastro/{criada.json()['id']}/aprovar",
-        json={"perfil": "estagiario", "senha": "senha-inicial-1"},
+        json={"perfil": "estagiario"},
         headers=odonto,
     ).status_code == 200
     usuario = client.get("/api/v1/usuarios", headers=odonto).json()
@@ -1702,8 +1702,12 @@ def test_cada_aprovacao_da_psicologia_gera_uma_senha_diferente(monkeypatch):
     assert all(len(s) == 12 for s in senhas)
 
 
-def test_odontologia_continua_definindo_a_senha(monkeypatch):
-    """A geração automática é da psicologia; o contrato da odontologia não muda."""
+def test_odontologia_tambem_recebe_senha_gerada(monkeypatch):
+    """A geração automática vale para as duas clínicas.
+
+    A odontologia já exigiu que a RT digitasse a senha; agora o servidor gera,
+    igual à psicologia, e o campo `senha` é recusado em qualquer clínica.
+    """
     envio = _EnvioAprovacao()
     monkeypatch.setattr("app.routers.solicitacoes.email_service", envio)
     criada = client.post("/api/v1/solicitacoes-cadastro/", json=_pedido(
@@ -1712,23 +1716,25 @@ def test_odontologia_continua_definindo_a_senha(monkeypatch):
     assert criada.status_code == 201
     odonto = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
 
-    # Sem senha não há geração automática na odontologia.
-    sem_senha = client.post(
-        f"/api/v1/solicitacoes-cadastro/{criada.json()['id']}/aprovar",
-        json={"perfil": "estagiario"}, headers=odonto)
-    assert sem_senha.status_code == 422
-    assert "Informe a senha inicial" in sem_senha.json()["detail"]
-    assert envio.chamadas == 0
-
+    # Mandar senha é 422: quem gera é o servidor, e ignorar o campo faria a
+    # gestão acreditar que definiu uma credencial.
     com_senha = client.post(
         f"/api/v1/solicitacoes-cadastro/{criada.json()['id']}/aprovar",
         json={"perfil": "estagiario", "senha": "senha-da-rt-odonto"},
         headers=odonto)
-    assert com_senha.status_code == 200, com_senha.text
-    assert envio.senha_do_ultimo() == "senha-da-rt-odonto"
+    assert com_senha.status_code == 422
+    assert "gerada pelo servidor" in com_senha.json()["detail"]
+    assert envio.chamadas == 0
+
+    sem_senha = client.post(
+        f"/api/v1/solicitacoes-cadastro/{criada.json()['id']}/aprovar",
+        json={"perfil": "estagiario"}, headers=odonto)
+    assert sem_senha.status_code == 200, sem_senha.text
+    senha_gerada = envio.senha_do_ultimo()
+    assert len(senha_gerada) == 12
 
     login = client.post("/api/v1/auth/login", json={
-        "email_ou_matricula": "17120005", "senha": "senha-da-rt-odonto"})
+        "email_ou_matricula": "17120005", "senha": senha_gerada})
     assert login.status_code == 200
     assert login.json()["curso"] == "odontologia"
 
@@ -1858,9 +1864,9 @@ def test_decisao_da_rt_entra_na_trilha_de_auditoria(monkeypatch):
 class _EnvioAprovacao:
     """Dublê mínimo: a aprovação só cria conta se o envio disser que saiu.
 
-    Guarda o corpo porque na psicologia a senha inicial é gerada no servidor e
-    **só existe aqui** — é daqui que o teste a lê para provar que o login
-    funciona com a credencial que o solicitante receberia.
+    Guarda o corpo porque a senha inicial é gerada no servidor e **só existe
+    aqui** — é daqui que o teste a lê para provar que o login funciona com a
+    credencial que o solicitante receberia.
     """
 
     def __init__(self):

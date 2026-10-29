@@ -32,7 +32,7 @@ class SenhaLongaError(ValueError):
 
 
 # Alfabeto da senha inicial gerada pelo servidor. É o mesmo conjunto que a tela
-# usava quando a gestão gerava no navegador, para a senha não mudar de formato.
+# usava quando o navegador gerava a senha, para o formato não mudar.
 ALFABETO_SENHA = string.ascii_letters + string.digits + "!@#$%^&*()"
 TAMANHO_SENHA_INICIAL = 12
 
