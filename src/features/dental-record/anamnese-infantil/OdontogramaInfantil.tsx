@@ -145,7 +145,7 @@ function LinhaArcada({
       </div>
 
       <div className="overflow-x-auto pb-1">
-        <div className="mx-auto" style={{ minWidth: larguraMinima }}>
+        <div className="mx-auto pb-2" style={{ minWidth: larguraMinima }}>
           <div className="mb-1 flex justify-between px-1 text-[10px] font-medium text-slate-400">
             <span>Direita</span>
             <span>Esquerda</span>
