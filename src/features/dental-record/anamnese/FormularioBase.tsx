@@ -139,7 +139,7 @@ interface RadioGroupProps<T extends string> {
   label?: string;
   valor: T | '';
   opcoes: Opcao<T>[];
-  onChange: (valor: T) => void;
+  onChange: (valor: T | '') => void;
   className?: string;
 }
 
@@ -161,7 +161,12 @@ export function RadioGroup<T extends string>({
           return (
             <label
               key={opcao.valor}
-              className={`cursor-pointer rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+              onClick={(event) => {
+                if (!ativo) return;
+                event.preventDefault();
+                onChange('');
+              }}
+              className={`relative cursor-pointer rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
                 ativo
                   ? 'border-slate-900 bg-slate-900 text-white'
                   : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:text-slate-900'
@@ -186,7 +191,7 @@ export function RadioGroup<T extends string>({
 interface YesNoGroupProps {
   label: string;
   valor: SimNao | '';
-  onChange: (valor: SimNao) => void;
+  onChange: (valor: SimNao | '') => void;
   className?: string;
 }
 
@@ -226,7 +231,7 @@ export function CheckboxGroup({
           return (
             <label
               key={opcao}
-              className={`cursor-pointer rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+              className={`relative cursor-pointer rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
                 ativo
                   ? 'border-slate-900 bg-slate-100 text-slate-900'
                   : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:text-slate-900'
@@ -322,7 +327,7 @@ export function SignatureField({ label, value, onChange }: SignatureFieldProps) 
   const id = useId();
 
   return (
-    <div>
+    <div className="relative">
       <label htmlFor={id} className="sr-only">
         {label}
       </label>

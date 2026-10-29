@@ -299,7 +299,7 @@ export const Pagina2ExameFisico = memo(function Pagina2ExameFisico({
                   return (
                     <label
                       key={regiao.numero}
-                      className={`cursor-pointer rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                      className={`relative cursor-pointer rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
                         ativo
                           ? 'border-slate-900 bg-slate-100 text-slate-900'
                           : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:text-slate-900'

@@ -529,7 +529,7 @@ export default function OdontogramApp({ valor, onChange, somenteLeitura = false 
 
         <div className="rounded-lg p-4 mb-5" style={{ background: "#FFFFFF", border: "1px solid #D7DEDD" }}>
           <div className="overflow-x-auto">
-            <div style={{ minWidth: 780 }}>
+            <div className="pb-4" style={{ minWidth: 780 }}>
               <div className="flex justify-between text-xs font-medium mb-2 px-1" style={{ color: "#5C6B6D" }}>
                 <span>Superior direita</span>
                 <span>Superior esquerda</span>
