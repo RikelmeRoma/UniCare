@@ -370,6 +370,33 @@ aviso. Prefira `—` mais um estado de erro visível. Dado clínico inventado
 **`Promise.allSettled` nunca rejeita.** Um `catch` externo depois dele é código
 morto. Ao absorver 401/403/500 sem log, a falha fica invisível.
 
+**Erro de escrita só existe se a tela o renderizar.** "Nada acontece quando eu
+desativo" era isto: `deleteUser` devolvia `{ success: false, message }` e o
+`setUserErrorMsg` gravava a mensagem num estado que **só os modais de criar e
+editar renderizavam**. O modal de desativar ficava aberto, idêntico, com a
+requisição recusada por trás. Todo `setXxxError` precisa de um lugar visível no
+fluxo que o dispara — no próprio modal **e** um banner na aba para as ações de
+linha (reativar não abre modal nenhum).
+
+**Tela de gestão relê do servidor depois de escrever.** O merge local do
+`AuthContext` não é fonte de verdade: uma resposta fora do formato esperado
+deixava o badge em "Habilitado" com a conta já desativada. Depois de
+`createUser`/`updateUser`/`deleteUser`, chame `carregarUsuarios()` (e
+`carregarDados()` quando a tela lista duplas).
+
+**Desativar e reativar são verbos diferentes.** `DELETE /usuarios/{id}` só marca
+`ativo = false` — não apaga (a auditoria referencia a linha). Reativar é
+`PATCH {"ativo": true}`, e a tela alterna lixeira ↔ `ArrowPathIcon` por
+`usuario.ativo`. Reativar **não** recria a dupla encerrada pela desativação; o
+estagiário volta a logar e a vincular-se de novo.
+
+**Campo que o `PATCH` não aceita não pode ser um `<select>` na tela.** O modal de
+edição de usuário oferecia "Tipo de Perfil RBAC", mas `UsuarioUpdate` não tem
+`perfil` e o `api.updateUsuario` nunca o enviava: a gestão "promovia" alguém e
+nada mudava. Trocar perfil é ato próprio, com regra e auditoria — na edição
+cadastral ele é leitura, como a clínica. Antes de editar um campo, confira o
+schema do `PATCH`, não só o estado do formulário.
+
 **Documento impresso não é print de tela.** `RelatorioImpressao` (em
 `src/shared/impressao/`) renderiza num portal em `document.body`, e o `@media
 print` do `relatorio.css` esconde o `#root`. Reintroduzir um fluxo com

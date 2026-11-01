@@ -886,6 +886,44 @@ def test_rf009_desativar_corta_acesso_e_preserva_registro():
     assert desativado["ativo"] is False
 
 
+def test_rf009_reativar_devolve_o_acesso():
+    """PATCH com `ativo=true` desfaz a desativação.
+
+    `DELETE` é desativar, não apagar — e sem a volta a conta ficaria morta para
+    sempre: a linha sobrevive no banco para a auditoria, mas ninguém conseguiria
+    restaurar o acesso pela tela.
+    """
+    headers = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
+    novo = {
+        "nome": "Usuário Para Reativar",
+        "email": "reativar.teste@uninassau.edu.br",
+        "senha": "senha-teste-123",
+        "perfil": "estagiario",
+        "matricula": "REA009",
+    }
+    criado = client.post("/api/v1/usuarios", json=novo, headers=headers).json()
+
+    assert client.delete(
+        f"/api/v1/usuarios/{criado['id']}", headers=headers
+    ).status_code == 200
+    assert client.post(
+        "/api/v1/auth/login",
+        json={"email_ou_matricula": "REA009", "senha": "senha-teste-123"},
+    ).status_code == 401
+
+    res = client.patch(
+        f"/api/v1/usuarios/{criado['id']}", json={"ativo": True}, headers=headers
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["ativo"] is True
+
+    # Reativar não troca credencial: a mesma senha volta a entrar.
+    assert client.post(
+        "/api/v1/auth/login",
+        json={"email_ou_matricula": "REA009", "senha": "senha-teste-123"},
+    ).status_code == 200
+
+
 def test_rf009_rt_nao_altera_o_proprio_cadastro():
     """Auto-edição e auto-desativação são barradas"""
     headers = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
@@ -3829,6 +3867,29 @@ def test_desativar_aluno_encerra_a_dupla():
 
     restantes = client.get("/api/v1/duplas-odonto", headers=supervisor).json()
     assert not any(d["id"] == criada.json()["id"] for d in restantes)
+
+
+def test_supervisor_reativa_o_estagiario_vinculado():
+    """O supervisor da clínica devolve o acesso pelo PATCH, não pelo DELETE."""
+    estagiario = _criar_estagiario_odonto("ODO-REA1", "Aluno Reativado")
+    _vincular_estagiario_ao_supervisor("ODO-REA1", "DOC-9122")
+
+    supervisor = {"Authorization": f"Bearer {get_auth_token('DOC-9122')}"}
+    lista = client.get("/api/v1/usuarios", headers=supervisor).json()
+    alvo = next(u for u in lista if u["matricula"] == "ODO-REA1")
+
+    assert client.delete(
+        f"/api/v1/usuarios/{alvo['id']}", headers=supervisor
+    ).status_code == 200
+    # Desativado, o token dele deixa de valer.
+    assert client.get("/api/v1/auth/me", headers=estagiario).status_code == 401
+
+    reativado = client.patch(
+        f"/api/v1/usuarios/{alvo['id']}", json={"ativo": True}, headers=supervisor
+    )
+    assert reativado.status_code == 200, reativado.text
+    assert reativado.json()["ativo"] is True
+    assert client.get("/api/v1/auth/me", headers=estagiario).status_code == 200
 
 
 def test_disponiveis_filtra_por_curso_para_a_rt():

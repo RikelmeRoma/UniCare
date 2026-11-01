@@ -34,7 +34,16 @@ import {
   KeyIcon,
   PencilSquareIcon,
   TrashIcon,
+  ArrowPathIcon,
 } from '../../../components/icons/CorporateIcons';
+
+const ROTULOS_PERFIL: Record<string, string> = {
+  rt: 'Responsável Técnico (RT)',
+  coordenacao: 'Coordenação',
+  supervisor: 'Supervisor Docente',
+  estagiario: 'Acadêmico Estagiário',
+  recepcao: 'Operador de Recepção',
+};
 
 interface RTStatsDashboardProps {
   modo?: 'rt' | 'coordenacao';
@@ -62,7 +71,7 @@ const mapearDocumentoOdonto = (
 
 export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
   const { pacientes, agendamentos, evolucoesPsico, planosTratamento } = useClinic();
-  const { allUsers, createUser, updateUser, deleteUser, user } = useAuth();
+  const { allUsers, createUser, updateUser, deleteUser, carregarUsuarios, user } = useAuth();
   const [stats, setStats] = useState<RelatorioEstatisticas | null>(null);
   const [logs, setLogs] = useState<ApiLogAuditoria[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -364,7 +373,6 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
       nome: editNome.trim(),
       matricula: editMatricula.trim(),
       email: editEmail.trim(),
-      perfil: editPerfil,
       registro_profissional: editRegistro.trim() || undefined,
     });
 
@@ -381,13 +389,35 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
 
   const handleExecuteDeleteUser = async () => {
     if (!userToDelete) return;
+    setUserErrorMsg('');
     const resultado = await deleteUser(userToDelete.key);
     if (!resultado.success) {
+      // O modal fica aberto com o motivo. Antes o erro era engolido (só os
+      // modais de criar/editar renderizavam `userErrorMsg`), então a tela
+      // parecia "não fazer nada".
       setUserErrorMsg(resultado.message);
       return;
     }
     setUserSuccessMsg(resultado.message);
     setUserToDelete(null);
+    // Relê do servidor: o merge local do contexto não é fonte de verdade e uma
+    // resposta fora do esperado deixava o badge como estava.
+    await carregarUsuarios();
+    setTimeout(() => setUserSuccessMsg(''), 5000);
+  };
+
+  /** Reativa um usuário desativado. `DELETE` só desativa; reativar é PATCH. */
+  const handleAtivarUsuario = async (key: string) => {
+    setUserErrorMsg('');
+    const resultado = await updateUser(key, { ativo: true });
+
+    if (!resultado.success) {
+      setUserErrorMsg(resultado.message);
+      return;
+    }
+
+    setUserSuccessMsg(resultado.message);
+    await carregarUsuarios();
     setTimeout(() => setUserSuccessMsg(''), 5000);
   };
 
@@ -1003,6 +1033,23 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
               porque é o trabalho que chega agora: quem pede não tem conta, e a
               RT é quem autoriza. */}
           <SolicitacoesCadastro />
+
+          {/* Falha de escrita fora dos modais (ex.: reativar pela tabela) não
+              pode sumir: os modais de criar/editar têm o próprio aviso. */}
+          {userErrorMsg && !showCreateUserModal && !showEditUserModal && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start justify-between gap-3 text-xs text-red-700">
+              <span>{userErrorMsg}</span>
+              <button
+                type="button"
+                onClick={() => setUserErrorMsg('')}
+                className="shrink-0 text-red-700 hover:text-red-900"
+                title="Fechar aviso"
+              >
+                <XMarkIcon className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-slate-100">
             <div>
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -1176,14 +1223,28 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
                             >
                               <PencilSquareIcon className="w-4 h-4" />
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => setUserToDelete({ key, nome: u.nome })}
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Excluir usuário"
-                            >
-                              <TrashIcon className="w-4 h-4" />
-                            </button>
+                            {u.ativo ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setUserErrorMsg('');
+                                  setUserToDelete({ key, nome: u.nome });
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Desativar acesso do usuário"
+                              >
+                                <TrashIcon className="w-4 h-4" />
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => void handleAtivarUsuario(key)}
+                                className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
+                                title="Reativar acesso do usuário"
+                              >
+                                <ArrowPathIcon className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         )}
                       </td>
@@ -1389,25 +1450,16 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Tipo de Perfil RBAC *
+                    Tipo de Perfil RBAC
                   </label>
-                  <select
-                    value={editPerfil}
-                    onChange={(e) => setEditPerfil(e.target.value as RoleType)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-[#002B49]"
-                  >
-                    <option value="supervisor">Supervisor Docente</option>
-                    <option value="estagiario">Acadêmico Estagiário</option>
-                    <option value="recepcao">Operador de Recepção</option>
-                    {!isCoordenacao && (
-                      <>
-                        <option value="rt">Responsável Técnico (RT)</option>
-                        {user?.curso === 'psicologia' && (
-                          <option value="coordenacao">Coordenação de Psicologia</option>
-                        )}
-                      </>
-                    )}
-                  </select>
+                  {/* `UsuarioUpdate` não tem `perfil` e o `api.updateUsuario` nem
+                      envia: o select era inerte e a tela prometia uma promoção
+                      de cargo que nunca acontecia. Trocar perfil é ato próprio,
+                      com regra e auditoria — não é edição de dado cadastral. */}
+                  <div className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-700 font-semibold flex items-center justify-between">
+                    <span>{ROTULOS_PERFIL[editPerfil] ?? editPerfil}</span>
+                    <span className="text-[10px] font-mono text-slate-500">não é editável</span>
+                  </div>
                 </div>
 
                 <div>
@@ -1507,7 +1559,7 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
         </div>
       )}
 
-      {/* Modal de Confirmação de Exclusão de Usuário */}
+      {/* Modal de Confirmação de Desativação de Usuário */}
       {userToDelete && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
@@ -1517,14 +1569,21 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                  Confirmar Exclusão de Usuário
-                  <InfoTooltip texto="Revogação imediata de credenciais." />
+                  Desativar Acesso
+                  <InfoTooltip texto="Revogação imediata de credenciais. O cadastro e o histórico de auditoria são preservados, e a conta pode ser reativada depois." />
                 </h3>
               </div>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Tem certeza de que deseja excluir permanentemente o cadastro de <strong className="text-slate-900">{userToDelete.nome}</strong>? Este perfil não aparecerá mais na tela de login e seus acessos serão desativados.
+              Desativar o acesso de <strong className="text-slate-900">{userToDelete.nome}</strong>?
+              Ele não entra mais no sistema, mas o cadastro continua no banco —
+              a auditoria depende dele. Dá para reativar depois pela mesma tabela.
             </p>
+            {userErrorMsg && (
+              <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs">
+                {userErrorMsg}
+              </div>
+            )}
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
               <button
                 type="button"
@@ -1539,7 +1598,7 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
               >
                 <TrashIcon className="w-4 h-4" />
-                <span>Excluir Usuário</span>
+                <span>Desativar Acesso</span>
               </button>
             </div>
           </div>

@@ -38,7 +38,7 @@ const mensagemDeErro = (err: unknown, padrao: string) =>
   err instanceof Error && err.message ? err.message : padrao;
 
 export function ClinicalPairs() {
-  const { user, allUsers, vincularSupervisor, updateUser, deleteUser } = useAuth();
+  const { user, allUsers, vincularSupervisor, updateUser, deleteUser, carregarUsuarios } = useAuth();
   const { documentosOdonto } = useClinic();
   const isRT = user?.perfil === 'rt';
 
@@ -331,7 +331,25 @@ export function ClinicalPairs() {
 
     setFeedbackSuccess(resultado.message);
     setInternToDelete(null);
+    // Relê do servidor: o merge local do contexto não é fonte de verdade.
+    await carregarUsuarios();
     await carregarDados();
+    setTimeout(() => setFeedbackSuccess(''), 5000);
+  };
+
+  /** Reativa um estagiário desativado. `DELETE` só desativa; reativar é PATCH. */
+  const handleAtivarEstagiario = async (key: string) => {
+    setValidationError('');
+
+    const resultado = await updateUser(key, { ativo: true });
+
+    if (!resultado.success) {
+      setValidationError(resultado.message);
+      return;
+    }
+
+    setFeedbackSuccess(resultado.message);
+    await carregarUsuarios();
     setTimeout(() => setFeedbackSuccess(''), 5000);
   };
 
@@ -384,6 +402,22 @@ export function ClinicalPairs() {
             className="font-bold underline underline-offset-2"
           >
             Tentar novamente
+          </button>
+        </div>
+      )}
+
+      {/* Falha de escrita fora dos modais (ex.: reativar pelo cartão) não pode
+          sumir: dentro dos modais o aviso aparece na própria caixa. */}
+      {validationError && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center justify-between gap-3 text-xs text-red-700">
+          <span>{validationError}</span>
+          <button
+            type="button"
+            onClick={() => setValidationError('')}
+            className="shrink-0 text-red-700 hover:text-red-900"
+            title="Fechar aviso"
+          >
+            <XMarkIcon className="w-4 h-4" />
           </button>
         </div>
       )}
@@ -511,14 +545,28 @@ export function ClinicalPairs() {
                           >
                             <PencilSquareIcon className="w-3.5 h-3.5" />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setInternToDelete({ key, nome: intern.nome })}
-                            className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                            title="Desativar acesso do estagiário"
-                          >
-                            <TrashIcon className="w-3.5 h-3.5" />
-                          </button>
+                          {intern.ativo ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setValidationError('');
+                                setInternToDelete({ key, nome: intern.nome });
+                              }}
+                              className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                              title="Desativar acesso do estagiário"
+                            >
+                              <TrashIcon className="w-3.5 h-3.5" />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => void handleAtivarEstagiario(key)}
+                              className="p-1 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-md transition-colors"
+                              title="Reativar acesso do estagiário"
+                            >
+                              <ArrowPathIcon className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -940,8 +988,14 @@ export function ClinicalPairs() {
             <p className="text-xs text-slate-600 leading-relaxed">
               Desativar o acesso de <strong className="text-slate-900">{internToDelete.nome}</strong>?
               A dupla ativa dele será encerrada e ele não entrará mais no módulo de
-              Odontologia. O cadastro e o histórico de auditoria são preservados.
+              Odontologia. O cadastro e o histórico de auditoria são preservados, e
+              a conta pode ser reativada depois pelo botão de reativar.
             </p>
+            {validationError && (
+              <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs">
+                {validationError}
+              </div>
+            )}
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
               <button
                 type="button"

@@ -1,5 +1,46 @@
 # STATUS — UniCare
 
+## Atualização — 2026-11-01 (desativar e reativar estagiário na odontologia)
+
+**A desativação de estagiário não estava "quebrada no servidor" — o erro era
+engolido pela tela.** Diagnosticado com a API no ar: `DELETE /usuarios/{id}`
+responde 200 com `ativo: false` e `PATCH /usuarios/{id}` com `{ativo: true}`
+responde 200. O que faltava era a tela dizer o que aconteceu.
+
+- **Por que "nada mudava":** em `RTStatsDashboard` o `userErrorMsg` só era
+  renderizado dentro dos modais de **criar** e **editar**. O modal de desativar
+  não tinha onde mostrar a falha — a requisição podia ser recusada e o modal
+  ficava aberto, idêntico. Em `ClinicalPairs`, o modal de desativar também não
+  renderizava `validationError` (o de desfazer dupla renderizava).
+- **A lista não relia o servidor:** as duas telas confiavam só no merge local do
+  `AuthContext`. Agora, depois de qualquer escrita, chamam `carregarUsuarios()`
+  (e `carregarDados()` na supervisão, que também atualiza as duplas).
+- **Reativar chegou à odontologia:** `ClinicalPairs` passou a alternar lixeira ↔
+  `ArrowPathIcon` conforme `intern.ativo`, como a `PsySupervisionPage` já fazia.
+  No painel da RT, a linha de um usuário desativado mostra **Reativar** em vez de
+  **Desativar**.
+- **Texto honesto no painel da RT:** o modal dizia "excluir permanentemente o
+  cadastro" quando a rota só marca `ativo = false`. Virou "Desativar Acesso",
+  com a explicação de que o cadastro e a auditoria são preservados.
+- **Perfil deixou de ser editável:** o select "Tipo de Perfil RBAC" do modal de
+  edição era inerte — `AuthContext.updateUser` nunca enviou `perfil` e
+  `UsuarioUpdate` não tem o campo. Virou leitura, como a clínica já era. Trocar
+  perfil é ato próprio, com regra e auditoria; não é edição de dado cadastral.
+- **Backend:** `PATCH` que reativa passa a gravar `REATIVACAO_USUARIO` na trilha
+  (RF-007) em vez de `EDICAO_USUARIO` genérico.
+- **Testes novos:** `test_rf009_reativar_devolve_o_acesso` (RT desativa, login dá
+  401, PATCH devolve o acesso com a mesma senha) e
+  `test_supervisor_reativa_o_estagiario_vinculado` (supervisor da clínica).
+
+**Achado de dados, não de código:** no banco de dev **nenhum estagiário de
+odontologia tem `supervisor_matricula`**, então logado como `DOC-9122` o
+`GET /usuarios` volta vazio — a supervisão de odonto não tem estagiário para
+desativar. O seed só roda com a tabela `usuarios` vazia. A correção é vincular
+pela própria tela, em "Vincular Aluno".
+
+**Verificação:** `pytest -q` verde (139 testes); `npm run build` verde;
+`npm run lint` nos mesmos **7 problemas preexistentes**.
+
 ## Atualização — 2026-11-01 (PDF da ficha odontológica no padrão do dossiê de custódia)
 
 **O "Exportar PDF" da odontologia deixou de ser `window.print()` da tela e passou

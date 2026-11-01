@@ -583,6 +583,9 @@ def atualizar_usuario(
     muda_matricula = nova_matricula != matricula_original
     muda_supervisor = novo_supervisor != supervisor_original
     desativando = dados.ativo is False and usuario.ativo
+    # Reativar é o inverso de desativar e merece ação própria na trilha: uma
+    # conta que voltou a logar não pode ficar registrada como "edição" genérica.
+    reativando = dados.ativo is True and not usuario.ativo
     if muda_matricula or muda_supervisor or desativando:
         _encerrar_duplas_do_usuario(session, current_user, usuario, http_request)
 
@@ -616,7 +619,9 @@ def atualizar_usuario(
     session.refresh(usuario)
 
     registrar_log(
-        session, current_user, "EDICAO_USUARIO", "usuarios",
+        session, current_user,
+        "REATIVACAO_USUARIO" if reativando else "EDICAO_USUARIO",
+        "usuarios",
         usuario.id, endereco_ip=ip_do_cliente(http_request)
     )
 
