@@ -11,7 +11,7 @@ import {
 import { useClinic, type DocumentoFichaOdonto } from '../../clinic/context/ClinicContext';
 import { useAuth, type RoleType, type CourseType } from '../../auth/context/AuthContext';
 import { SolicitacoesCadastro } from './SolicitacoesCadastro';
-import { RelatorioImpressao } from '../report/RelatorioImpressao';
+import { RelatorioImpressao } from '../../../shared/impressao/RelatorioImpressao';
 import { RelatorioExecutivo } from '../report/RelatorioExecutivo';
 import { DossieCustodia } from '../report/DossieCustodia';
 import { InfoTooltip } from '../../../components/ui/InfoTooltip';
@@ -1549,7 +1549,7 @@ export function RTStatsDashboard({ modo = 'rt' }: RTStatsDashboardProps) {
       {/* Documentos impressos.
           O portal vive em `document.body`, fora do `#root` — é isso que faz o
           navegador imprimir o papel A4 e não a tela do painel (ver
-          `report/relatorio.css` e `print/print.css`). */}
+          `shared/impressao/relatorio.css` e `print/print.css`). */}
       {relatorioAberto === 'executivo' && (
         <RelatorioImpressao
           titulo="Relatório Executivo de Gestão"

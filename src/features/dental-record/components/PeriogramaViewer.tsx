@@ -660,6 +660,7 @@ const Periograma: React.FC<PeriogramaProps> = ({
           <button
             type="button"
             onClick={() => toggleFlag(fdi, "missing")}
+            className="documento-dado"
             style={{
               ...styles.toggleBtn,
               ...(tooth.missing ? styles.toggleBtnActive : {}),
@@ -671,6 +672,7 @@ const Periograma: React.FC<PeriogramaProps> = ({
           <button
             type="button"
             onClick={() => toggleFlag(fdi, "implant")}
+            className="documento-dado"
             style={{
               ...styles.toggleBtn,
               ...(tooth.implant ? styles.toggleBtnActive : {}),

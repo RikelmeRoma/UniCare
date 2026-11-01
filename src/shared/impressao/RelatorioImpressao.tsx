@@ -1,6 +1,6 @@
 import { useCallback, useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { PrinterIcon, XMarkIcon } from '../../../components/icons/CorporateIcons';
+import { PrinterIcon, XMarkIcon } from '../../components/icons/CorporateIcons';
 import './relatorio.css';
 
 interface RelatorioImpressaoProps {
@@ -13,7 +13,7 @@ interface RelatorioImpressaoProps {
 }
 
 /**
- * Moldura de impressão do relatório.
+ * Moldura de impressão de documento clínico.
  *
  * Renderiza num portal em `document.body`, fora do `#root`. É o que resolve a
  * "impressão que parece print de tela": o layout da aplicação usa
@@ -21,6 +21,9 @@ interface RelatorioImpressaoProps {
  * `window.print()` capturava só o pedaço visível, com sidebar e abas. No
  * `@media print` (ver `relatorio.css`) o `#root` é escondido e sobra apenas
  * este documento — texto vetorial, selecionável, paginado em A4.
+ *
+ * Vive em `shared/` porque dois módulos usam a mesma moldura: o painel da RT
+ * (relatório executivo e dossiê de custódia) e a ficha odontológica.
  */
 export function RelatorioImpressao({
   titulo,

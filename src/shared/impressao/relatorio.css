@@ -1,0 +1,156 @@
+/*
+ * Estilos do documento impresso (relatórios da RT e ficha odontológica).
+ *
+ * O `window.print()` antigo imprimia o viewport da aplicação: o AppLayout usa
+ * `h-screen overflow-hidden` e `<main overflow-y-auto>`, então o navegador
+ * recortava a tela visível — sidebar, header e abas incluídos. O documento é
+ * renderizado num portal em `document.body`, fora do `#root`; na impressão o
+ * `#root` desaparece e sobra apenas o documento.
+ */
+
+@page {
+  size: A4;
+  /* Margem zero de propósito: com margem, o Chrome desenha o cabeçalho e o
+     rodapé dele (data + URL do `localhost`). O respiro do papel é feito pelo
+     padding do próprio documento. */
+  margin: 0;
+}
+
+.relatorio-doc {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 14mm 12mm 18mm;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 9pt;
+  line-height: 1.45;
+}
+
+.relatorio-doc table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* Cabeçalho de tabela repetido em cada página — sem isso a segunda página de
+   auditoria sai sem coluna nenhuma. */
+.relatorio-doc thead {
+  display: table-header-group;
+}
+
+.relatorio-doc tr,
+.relatorio-bloco {
+  break-inside: avoid;
+}
+
+/* Título de seção não fica órfão no pé da página: a regra cola o `h2` no
+   primeiro bloco de conteúdo abaixo dele. */
+.relatorio-bloco > h2 {
+  break-after: avoid;
+}
+
+/*
+ * Documento de ficha clínica (odontologia).
+ *
+ * As seções são os mesmos componentes da tela, que são formulários: no papel,
+ * campo de formulário vira texto. Sem isso o PDF sai com caixinhas, bordas e
+ * ícones de edição no meio do conteúdo clínico.
+ */
+.documento-ficha input,
+.documento-ficha select,
+.documento-ficha textarea {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font: inherit !important;
+  color: inherit !important;
+  /* Só altura mínima aqui. `field-sizing: content` no `input` faria o campo
+     encolher até o texto e desalinhar a grade; ele fica no `textarea` abaixo,
+     que é o único que precisa crescer. */
+  min-height: 1.45em;
+}
+
+.documento-ficha textarea {
+  resize: none !important;
+  overflow: visible !important;
+  /* Cresce com o conteúdo onde houver suporte (Chrome). O fallback é o
+     `min-height` acima, para não cortar evolução e plano de tratamento. */
+  field-sizing: content;
+}
+
+/* A seta do `<select>` é afordância de tela; no papel o valor selecionado já
+   está escrito. */
+.documento-ficha select {
+  appearance: none !important;
+}
+
+/*
+ * Ação de tela não vai para o papel (adicionar linha, limpar marcações,
+ * ferramenta do odontograma). A exceção `.documento-dado` é obrigatória: em
+ * alguns gráficos o botão **é o dado** — o número do dente no odontograma, o
+ * "Aus"/"Imp" do periograma, a numeração do mapa de higiene. Esconder todos
+ * deixava o PDF com gráficos sem identificação de dente.
+ *
+ * `[role='button']` fica de fora de propósito: as faces do mapa de higiene são
+ * `<polygon role="button">`, ou seja, o desenho clínico em si.
+ */
+.documento-ficha button:not(.documento-dado) {
+  display: none !important;
+}
+
+/* Rótulo de campo é o que dá sentido ao valor no papel; o placeholder do
+   formulário some, então o rótulo precisa ficar legível. */
+.documento-ficha label {
+  color: #334155 !important;
+}
+
+.documento-ficha .clinical-chart-card,
+.documento-ficha .rounded-xl,
+.documento-ficha .rounded-lg {
+  border-color: #cbd5e1 !important;
+  box-shadow: none !important;
+}
+
+@media print {
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+
+  /* Some a aplicação inteira; fica só o portal do relatório. */
+  #root {
+    display: none !important;
+  }
+
+  .relatorio-impressao {
+    position: static !important;
+    inset: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+
+  .relatorio-impressao__barra {
+    display: none !important;
+  }
+
+  .relatorio-doc {
+    width: auto;
+    min-height: 0;
+    margin: 0 !important;
+    padding: 14mm 12mm 16mm;
+    box-shadow: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  /* A faixa institucional, as barras e os selos precisam sair coloridos mesmo
+     com "gráficos de plano de fundo" desmarcado no diálogo. */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

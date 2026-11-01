@@ -203,7 +203,7 @@ function ToothSVG({ fdi, data, activeTool, onCellClick, onSelect, isSelected }: 
     <div className="flex flex-col items-center select-none group" style={{ width: w }}>
       <button
         onClick={() => onSelect(fdi)}
-        className="mb-1.5 text-xs font-semibold rounded-full px-2 py-0.5 transition-colors"
+        className="documento-dado mb-1.5 text-xs font-semibold rounded-full px-2 py-0.5 transition-colors"
         style={{
           fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
           color: isSelected ? "#FFFFFF" : "#3D4C4D",

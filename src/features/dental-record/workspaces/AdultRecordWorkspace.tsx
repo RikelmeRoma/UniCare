@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useState } from 'react';
 import type {
   Anamnese,
   DocumentoFichaOdonto,
   Paciente,
 } from '../../clinic/context/ClinicContext';
+import { RelatorioImpressao } from '../../../shared/impressao/RelatorioImpressao';
 import OdontogramApp, { type TeethMap } from '../components/OdontogramaViewer';
 import Periograma, { type ToothMap as PeriogramaToothMap } from '../components/PeriogramaViewer';
 import { DocumentoFichaBar } from '../components/DocumentoFichaBar';
@@ -68,7 +68,7 @@ export function AdultRecordWorkspace({
   somenteLeitura = false,
 }: AdultRecordWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<ClinicalTabKey>('anamnese');
-  const [imprimindo, setImprimindo] = useState(false);
+  const [previaAberta, setPreviaAberta] = useState(false);
   const conteudoDocumento = documento?.conteudo as
     | {
         anamnese?: AnamneseCliFor45;
@@ -124,30 +124,6 @@ export function AdultRecordWorkspace({
 
   const idade = calcularIdade(dados.identificacao.dataNascimento);
 
-  useEffect(() => {
-    if (!imprimindo) return;
-
-    const tituloAnterior = document.title;
-    document.body.classList.add('ficha-print-mode');
-    document.title = `Ficha Odontológica - ${paciente?.nome ?? 'Paciente'}`;
-
-    const encerrar = () => {
-      document.body.classList.remove('ficha-print-mode');
-      document.title = tituloAnterior;
-      setImprimindo(false);
-    };
-
-    window.addEventListener('afterprint', encerrar);
-    const temporizador = window.setTimeout(() => window.print(), 100);
-
-    return () => {
-      window.clearTimeout(temporizador);
-      window.removeEventListener('afterprint', encerrar);
-      document.body.classList.remove('ficha-print-mode');
-      document.title = tituloAnterior;
-    };
-  }, [imprimindo, paciente?.nome]);
-
   return (
     <div className="space-y-6 font-sans">
       <AnamneseHeader
@@ -162,7 +138,7 @@ export function AdultRecordWorkspace({
         rotuloAlternar="ficha"
         onSalvar={salvarManual}
         onExportar={exportar}
-        onExportarPdf={() => setImprimindo(true)}
+        onExportarPdf={() => setPreviaAberta(true)}
         onLimpar={() => setConfirmandoLimpeza(true)}
         confirmandoLimpeza={confirmandoLimpeza}
         onCancelarLimpeza={() => setConfirmandoLimpeza(false)}
@@ -278,8 +254,12 @@ export function AdultRecordWorkspace({
       )}
       </div>
 
-      {imprimindo &&
-        createPortal(
+      {previaAberta && (
+        <RelatorioImpressao
+          titulo="Ficha Clínica Odontológica — Adulto e Idoso"
+          nomeArquivo={`UniCare-Ficha-Odonto-${paciente?.nome ?? 'Paciente'}`}
+          onClose={() => setPreviaAberta(false)}
+        >
           <FichaOdontoAdultoPrint
             paciente={paciente}
             documento={documento}
@@ -288,9 +268,9 @@ export function AdultRecordWorkspace({
             periograma={periograma}
             indices={indices}
             ultima={ultima}
-          />,
-          document.body
-        )}
+          />
+        </RelatorioImpressao>
+      )}
     </div>
   );
 }

@@ -155,7 +155,7 @@ export function DenteOdontogramaInfantilSVG({
             ? 'Marcar dente como ausente'
             : 'Marcar dente como presente'
         }
-        className={`mb-1.5 flex h-6 w-6 items-center justify-center rounded-full border-2 font-mono text-[10px] font-bold transition-colors ${
+        className={`documento-dado mb-1.5 flex h-6 w-6 items-center justify-center rounded-full border-2 font-mono text-[10px] font-bold transition-colors ${
           dente.presente
             ? 'border-slate-900 bg-white text-slate-900 hover:bg-slate-100'
             : 'border-transparent bg-slate-100 text-slate-400 line-through hover:text-slate-600'

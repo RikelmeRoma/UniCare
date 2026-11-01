@@ -136,7 +136,7 @@ function NumeroDente({
       onClick={() => onAlternarDente(dente)}
       aria-pressed={ausente}
       title={ausente ? 'Marcar dente como presente' : 'Marcar dente como ausente'}
-      className={`w-full border-r border-black py-0.5 text-center font-mono text-[10px] font-bold transition-colors first:border-l ${
+      className={`documento-dado w-full border-r border-black py-0.5 text-center font-mono text-[10px] font-bold transition-colors first:border-l ${
         comBordaInferior ? 'border-b' : ''
       } ${
         ausente

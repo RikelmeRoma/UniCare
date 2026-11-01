@@ -144,6 +144,7 @@ export function DossiePacientePrint({
                     documento={documento}
                     dados={anamneseInfantil ?? criarAnamneseInfantilVazia(paciente)}
                     containerId="dossie-ficha-odonto"
+                    comCabecalho={false}
                   />
                 ) : (
                   <FichaOdontoAdultoPrint
@@ -154,6 +155,7 @@ export function DossiePacientePrint({
                     periograma={periograma}
                     indices={indices}
                     containerId="dossie-ficha-odonto"
+                    comCabecalho={false}
                   />
                 )}
               </>

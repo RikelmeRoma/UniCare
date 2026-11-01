@@ -44,6 +44,24 @@ const ROTULOS_STATUS: Record<string, string> = {
 const semAlteracaoAdulto: Dispatch<SetStateAction<AnamneseCliFor45>> = () => {};
 const semAlteracaoInfantil: Dispatch<SetStateAction<AnamneseInfantil>> = () => {};
 
+function formatarData(valor?: string | null): string {
+  if (!valor) return '—';
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(valor);
+  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+  return valor;
+}
+
+function Campo({ rotulo, valor }: { rotulo: string; valor: string }) {
+  return (
+    <div>
+      <p className="text-[7pt] font-bold uppercase tracking-wider text-slate-500">
+        {rotulo}
+      </p>
+      <p className="text-[8.5pt] font-semibold text-slate-900">{valor}</p>
+    </div>
+  );
+}
+
 interface CabecalhoProps {
   titulo: string;
   paciente?: Paciente;
@@ -51,66 +69,116 @@ interface CabecalhoProps {
   idade?: string;
 }
 
+/**
+ * Cabeçalho institucional do documento.
+ *
+ * Mesmo desenho do dossiê de custódia: faixa navy com filete amarelo, emissor
+ * à esquerda e registro à direita. O número não é um id de banco exposto — é o
+ * identificador do documento impresso, formado pelo ano e pelo paciente.
+ */
 function CabecalhoFicha({ titulo, paciente, documento, idade }: CabecalhoProps) {
+  const agora = new Date();
+  const numeroDocumento = `FICHA-${agora.getFullYear()}-${String(paciente?.id ?? 0).padStart(4, '0')}`;
+
   return (
-    <header className="border-b-2 border-slate-900 pb-3 mb-4">
-      <div className="flex items-start justify-between gap-4">
+    <header className="relatorio-bloco border-b-[3px] border-[#FFD100] bg-[#002B49] px-6 py-5 text-white">
+      <div className="flex items-start justify-between gap-6">
+        <div className="min-w-0">
+          <p className="text-[8pt] font-bold uppercase tracking-[0.22em] text-[#FFD100]">
+            UNINASSAU Aracaju
+          </p>
+          <h1 className="mt-1 text-[16pt] font-bold leading-tight">{titulo}</h1>
+          <p className="mt-1 text-[8.5pt] text-slate-200">
+            UniCare · Clínica Odontológica Integrada
+          </p>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-[7pt] uppercase tracking-[0.16em] text-slate-300">
+            Registro da ficha
+          </p>
+          <p className="font-mono text-[10pt] font-bold">{numeroDocumento}</p>
+          <p className="mt-1 text-[7.5pt] text-slate-300">
+            Emitido em {agora.toLocaleString('pt-BR')}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-x-5 gap-y-3">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
-            UNINASSAU Aracaju • Clínica Odontológica Integrada
-          </p>
-          <h1 className="mt-1 text-lg font-bold tracking-tight text-slate-900">
-            {titulo}
-          </h1>
-          <p className="mt-1 text-[11px] text-slate-600">
-            Documento gerado em {new Date().toLocaleString('pt-BR')}
+          <p className="text-[7pt] font-bold uppercase tracking-wider text-slate-300">Paciente</p>
+          <p className="text-[8.5pt] font-semibold text-white">
+            {paciente?.nome ?? 'Não selecionado'}
           </p>
         </div>
-        <div className="rounded-lg border border-slate-300 px-3 py-2 text-right text-[10px]">
-          <p className="font-bold uppercase tracking-wider text-slate-500">
-            Situação da ficha
+        <div>
+          <p className="text-[7pt] font-bold uppercase tracking-wider text-slate-300">CPF</p>
+          <p className="text-[8.5pt] font-semibold text-white">
+            {paciente?.cpf || 'Não informado'}
           </p>
-          <p className="mt-0.5 font-bold text-slate-900">
-            {documento ? ROTULOS_STATUS[documento.status] ?? documento.status : 'Ainda não enviada'}
+        </div>
+        <div>
+          <p className="text-[7pt] font-bold uppercase tracking-wider text-slate-300">Nascimento</p>
+          <p className="text-[8.5pt] font-semibold text-white">
+            {formatarData(paciente?.dataNascimento)}
           </p>
-          {documento && <p className="text-slate-500">Versão {documento.versao}</p>}
+        </div>
+        <div>
+          <p className="text-[7pt] font-bold uppercase tracking-wider text-slate-300">Idade</p>
+          <p className="text-[8.5pt] font-semibold text-white">
+            {idade ? `${idade} anos` : 'Não informada'}
+          </p>
+        </div>
+        <div>
+          <p className="text-[7pt] font-bold uppercase tracking-wider text-slate-300">Dupla</p>
+          <p className="text-[8.5pt] font-semibold text-white">
+            {documento?.duplaEstagiarios || 'Não informada'}
+          </p>
+        </div>
+        <div>
+          <p className="text-[7pt] font-bold uppercase tracking-wider text-slate-300">Supervisão</p>
+          <p className="text-[8.5pt] font-semibold text-white">
+            {documento?.supervisorNome || 'Não informada'}
+          </p>
         </div>
       </div>
+    </header>
+  );
+}
 
-      <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-1 text-[11px]">
-        <p>
-          <strong>Paciente:</strong> {paciente?.nome ?? 'Não selecionado'}
-        </p>
-        <p>
-          <strong>CPF:</strong> {paciente?.cpf ?? 'Não informado'}
-        </p>
-        <p>
-          <strong>Nascimento:</strong> {paciente?.dataNascimento || 'Não informado'}
-        </p>
-        <p>
-          <strong>Idade:</strong> {idade ? `${idade} anos` : 'Não informada'}
-        </p>
-        <p>
-          <strong>Dupla:</strong> {documento?.duplaEstagiarios || 'Não informada'}
-        </p>
-        <p>
-          <strong>Supervisão:</strong> {documento?.supervisorNome || 'Não informada'}
-        </p>
+function SituacaoDaFicha({ documento }: { documento?: DocumentoFichaOdonto | null }) {
+  return (
+    <section className="relatorio-bloco mt-4 rounded border border-slate-200 bg-slate-50 px-4 py-3">
+      <h2 className="text-[9pt] font-bold uppercase tracking-wide text-[#002B49]">
+        Situação do documento
+      </h2>
+      <div className="mt-2 grid grid-cols-3 gap-x-5 gap-y-3">
+        <Campo
+          rotulo="Status"
+          valor={
+            documento
+              ? ROTULOS_STATUS[documento.status] ?? documento.status
+              : 'Ainda não enviada à supervisão'
+          }
+        />
+        <Campo rotulo="Versão" valor={documento ? String(documento.versao) : '—'} />
+        <Campo
+          rotulo="Homologação"
+          valor={documento?.parecerSupervisor ? 'Com parecer registrado' : 'Sem parecer'}
+        />
       </div>
-
       {documento?.parecerSupervisor && (
-        <p className="mt-2 rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-[11px]">
+        <p className="mt-3 border-t border-slate-200 pt-2 text-[8pt] leading-relaxed text-slate-700">
           <strong>Parecer da supervisão:</strong> {documento.parecerSupervisor}
         </p>
       )}
-    </header>
+    </section>
   );
 }
 
 function Secao({ numero, titulo, children }: { numero: number; titulo: string; children: ReactNode }) {
   return (
-    <section className="print-section">
-      <h2 className="mb-3 border-b border-slate-300 pb-1 text-sm font-bold uppercase tracking-wider text-slate-900">
+    <section className="relatorio-bloco mt-5">
+      <h2 className="mb-3 border-b border-slate-300 pb-1 text-[10pt] font-bold uppercase tracking-wide text-[#002B49]">
         {numero}. {titulo}
       </h2>
       {children}
@@ -120,7 +188,7 @@ function Secao({ numero, titulo, children }: { numero: number; titulo: string; c
 
 function ExamesComplementaresPrint({ exameDental }: { exameDental: ExameDental }) {
   return (
-    <div className="rounded-xl border border-slate-200 p-4 text-[11px] space-y-2">
+    <div className="rounded border border-slate-200 px-4 py-3 text-[8.5pt] space-y-2">
       <p>
         <strong>Hematológico:</strong> {exameDental.exames.hematologico || 'Não informado'}
       </p>
@@ -128,6 +196,40 @@ function ExamesComplementaresPrint({ exameDental }: { exameDental: ExameDental }
         <strong>Outros exames:</strong> {exameDental.exames.outros || 'Não informado'}
       </p>
     </div>
+  );
+}
+
+/** Fecho do documento: quem responde pela ficha e pelo caso. */
+function Assinaturas({ documento }: { documento?: DocumentoFichaOdonto | null }) {
+  return (
+    <section className="relatorio-bloco mt-8 grid grid-cols-2 gap-10 text-[8pt]">
+      <div>
+        <div className="border-t border-slate-400 pt-1">
+          <p className="font-semibold text-slate-900">
+            {documento?.duplaEstagiarios || 'Estagiário(a) responsável'}
+          </p>
+          <p className="text-[7pt] text-slate-500">Dupla de estagiários · Clínica Odontológica</p>
+        </div>
+      </div>
+      <div>
+        <div className="border-t border-slate-400 pt-1">
+          <p className="font-semibold text-slate-900">
+            {documento?.supervisorNome || 'Supervisor(a) docente'}
+          </p>
+          <p className="text-[7pt] text-slate-500">Supervisão docente</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Rodape({ paciente }: { paciente?: Paciente }) {
+  const agora = new Date();
+  const numeroDocumento = `FICHA-${agora.getFullYear()}-${String(paciente?.id ?? 0).padStart(4, '0')}`;
+  return (
+    <p className="mt-4 font-mono text-[7pt] text-slate-400">
+      {numeroDocumento} · emitido em {agora.toLocaleString('pt-BR')} · UniCare
+    </p>
   );
 }
 
@@ -139,7 +241,10 @@ interface FichaAdultaPrintProps {
   periograma: PeriogramaToothMap | null;
   indices: IndicesGengivais | null;
   ultima?: Anamnese;
+  /** Id do container, usado por quem embute a ficha em outro documento. */
   containerId?: string;
+  /** `false` quando a ficha entra dentro de um documento que já tem cabeçalho. */
+  comCabecalho?: boolean;
 }
 
 export function FichaOdontoAdultoPrint({
@@ -150,16 +255,22 @@ export function FichaOdontoAdultoPrint({
   periograma,
   indices,
   ultima,
-  containerId = 'ficha-odonto-print',
+  containerId,
+  comCabecalho = true,
 }: FichaAdultaPrintProps) {
   return (
-    <div id={containerId} className="bg-white text-slate-900 font-sans text-[11px] leading-relaxed">
-      <CabecalhoFicha
-        titulo="Ficha Clínica Odontológica — Adulto e Idoso"
-        paciente={paciente}
-        documento={documento}
-        idade={calcularIdade(dados.identificacao.dataNascimento)}
-      />
+    <article id={containerId} className="documento-ficha text-slate-900">
+      {comCabecalho && (
+        <>
+          <CabecalhoFicha
+            titulo="Ficha Clínica Odontológica — Adulto e Idoso"
+            paciente={paciente}
+            documento={documento}
+            idade={calcularIdade(dados.identificacao.dataNascimento)}
+          />
+          <SituacaoDaFicha documento={documento} />
+        </>
+      )}
 
       <Secao numero={1} titulo="Anamnese">
         <Pagina1IdentificacaoHistoria
@@ -215,7 +326,14 @@ export function FichaOdontoAdultoPrint({
       <Secao numero={6} titulo="Exames Complementares">
         <ExamesComplementaresPrint exameDental={dados.exameDental} />
       </Secao>
-    </div>
+
+      {comCabecalho && (
+        <>
+          <Assinaturas documento={documento} />
+          <Rodape paciente={paciente} />
+        </>
+      )}
+    </article>
   );
 }
 
@@ -224,22 +342,30 @@ interface FichaInfantilPrintProps {
   documento?: DocumentoFichaOdonto | null;
   dados: AnamneseInfantil;
   containerId?: string;
+  /** `false` quando a ficha entra dentro de um documento que já tem cabeçalho. */
+  comCabecalho?: boolean;
 }
 
 export function FichaOdontoInfantilPrint({
   paciente,
   documento,
   dados,
-  containerId = 'ficha-odonto-print',
+  containerId,
+  comCabecalho = true,
 }: FichaInfantilPrintProps) {
   return (
-    <div id={containerId} className="bg-white text-slate-900 font-sans text-[11px] leading-relaxed">
-      <CabecalhoFicha
-        titulo="Ficha Clínica Odontológica — Odontopediatria"
-        paciente={paciente}
-        documento={documento}
-        idade={calcularIdadeInfantil(dados.identificacao.dataNascimento)}
-      />
+    <article id={containerId} className="documento-ficha text-slate-900">
+      {comCabecalho && (
+        <>
+          <CabecalhoFicha
+            titulo="Ficha Clínica Odontológica — Odontopediatria"
+            paciente={paciente}
+            documento={documento}
+            idade={calcularIdadeInfantil(dados.identificacao.dataNascimento)}
+          />
+          <SituacaoDaFicha documento={documento} />
+        </>
+      )}
 
       <Secao numero={1} titulo="Anamnese">
         <div className="space-y-4">
@@ -303,6 +429,13 @@ export function FichaOdontoInfantilPrint({
           setDados={semAlteracaoInfantil}
         />
       </Secao>
-    </div>
+
+      {comCabecalho && (
+        <>
+          <Assinaturas documento={documento} />
+          <Rodape paciente={paciente} />
+        </>
+      )}
+    </article>
   );
 }

@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useState } from 'react';
 import type { DocumentoFichaOdonto, Paciente } from '../../clinic/context/ClinicContext';
+import { RelatorioImpressao } from '../../../shared/impressao/RelatorioImpressao';
 import { DocumentoFichaBar } from '../components/DocumentoFichaBar';
 import { AnamneseHeader } from '../anamnese/AnamneseHeader';
 import { Pagina1IdentificacaoPsicologica } from '../anamnese-infantil/Pagina1IdentificacaoPsicologica';
@@ -64,7 +64,7 @@ export function ChildRecordWorkspace({
   somenteLeitura = false,
 }: ChildRecordWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<ClinicalTabKey>('anamnese');
-  const [imprimindo, setImprimindo] = useState(false);
+  const [previaAberta, setPreviaAberta] = useState(false);
   const conteudoDocumento = documento?.conteudo as
     | { anamnese?: AnamneseInfantil }
     | undefined;
@@ -101,30 +101,6 @@ export function ChildRecordWorkspace({
 
   const idade = calcularIdadeInfantil(dados.identificacao.dataNascimento);
 
-  useEffect(() => {
-    if (!imprimindo) return;
-
-    const tituloAnterior = document.title;
-    document.body.classList.add('ficha-print-mode');
-    document.title = `Ficha Odontológica - ${paciente?.nome ?? 'Paciente'}`;
-
-    const encerrar = () => {
-      document.body.classList.remove('ficha-print-mode');
-      document.title = tituloAnterior;
-      setImprimindo(false);
-    };
-
-    window.addEventListener('afterprint', encerrar);
-    const temporizador = window.setTimeout(() => window.print(), 100);
-
-    return () => {
-      window.clearTimeout(temporizador);
-      window.removeEventListener('afterprint', encerrar);
-      document.body.classList.remove('ficha-print-mode');
-      document.title = tituloAnterior;
-    };
-  }, [imprimindo, paciente?.nome]);
-
   return (
     <div className="space-y-6 font-sans">
       <AnamneseHeader
@@ -139,7 +115,7 @@ export function ChildRecordWorkspace({
         rotuloAlternar="ficha"
         onSalvar={salvarManual}
         onExportar={exportar}
-        onExportarPdf={() => setImprimindo(true)}
+        onExportarPdf={() => setPreviaAberta(true)}
         onLimpar={() => setConfirmandoLimpeza(true)}
         confirmandoLimpeza={confirmandoLimpeza}
         onCancelarLimpeza={() => setConfirmandoLimpeza(false)}
@@ -257,15 +233,19 @@ export function ChildRecordWorkspace({
       )}
       </div>
 
-      {imprimindo &&
-        createPortal(
+      {previaAberta && (
+        <RelatorioImpressao
+          titulo="Ficha Clínica Odontológica — Odontopediatria"
+          nomeArquivo={`UniCare-Ficha-Odonto-Infantil-${paciente?.nome ?? 'Paciente'}`}
+          onClose={() => setPreviaAberta(false)}
+        >
           <FichaOdontoInfantilPrint
             paciente={paciente}
             documento={documento}
             dados={dados}
-          />,
-          document.body
-        )}
+          />
+        </RelatorioImpressao>
+      )}
     </div>
   );
 }

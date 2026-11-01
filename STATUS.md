@@ -1,5 +1,40 @@
 # STATUS — UniCare
 
+## Atualização — 2026-11-01 (PDF da ficha odontológica no padrão do dossiê de custódia)
+
+**O "Exportar PDF" da odontologia deixou de ser `window.print()` da tela e passou
+a abrir a mesma prévia A4 do dossiê de custódia da psicologia.** Vale para a ficha
+adulta e para a infantil (odontopediatria).
+
+- **Uma moldura só:** `RelatorioImpressao` e `relatorio.css` saíram de
+  `features/supervision/report/` e foram para `src/shared/impressao/`. A ficha
+  odontológica não depende do módulo de supervisão, e a RT continua usando a
+  mesma moldura no relatório executivo e no dossiê de custódia.
+- **Prévia antes de imprimir:** o botão abre a prévia; o `window.print()` ficou
+  no botão "Imprimir / Salvar em PDF" da barra. O fluxo antigo (`body.ficha-print-mode`
+  + `#ficha-odonto-print` + `setTimeout(window.print)`) foi removido do
+  `index.css` e dos dois workspaces.
+- **Conteúdo é a própria tela:** `FichaOdontoPrint` reusa as seções do
+  formulário (anamnese, alertas, exame clínico com odontograma/periograma/índices,
+  plano, evolução, exames complementares) e o CSS achata campo de formulário em
+  texto — sem borda, sem fundo, sem ícone de edição.
+- **Documento ganhou cabeçalho institucional:** faixa navy `#002B49` com filete
+  `#FFD100`, registro `FICHA-<ano>-<id>`, bloco "Situação do documento"
+  (status, versão, parecer), seções numeradas, assinaturas da dupla e do
+  supervisor e rodapé. A ficha odonto **mantém o CPF** (é ficha de atendimento);
+  o dossiê de custódia omite por política própria.
+- **Sem cabeçalho duplicado:** `FichaOdontoAdultoPrint`/`FichaOdontoInfantilPrint`
+  aceitam `comCabecalho` e `containerId`. O `DossiePacientePrint` (dossiê antigo
+  da RT) passa `comCabecalho={false}`, porque ele já tem o próprio cabeçalho.
+- **Gráficos continuam identificados no papel:** a regra de impressão esconde
+  ação de tela, mas preserva os botões que **são dado** (número do dente no
+  odontograma, "Aus"/"Imp" do periograma, numeração do mapa de higiene) pela
+  classe `.documento-dado`. As faces do mapa de higiene são `<polygon
+  role="button">` e por isso `[role='button']` não entra na regra.
+
+**Verificação:** `npm run build` verde; `npm run lint` nos mesmos **7 problemas
+preexistentes**, nenhum nos arquivos tocados.
+
 ## Atualização — 2026-10-29 (menu da RT: sem "Controladoria" e sem seletor de clínica)
 
 **O "Painel Executivo & Custódia" deixou de ser uma seção própria no sidebar.** O

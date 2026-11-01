@@ -370,6 +370,17 @@ aviso. Prefira `—` mais um estado de erro visível. Dado clínico inventado
 **`Promise.allSettled` nunca rejeita.** Um `catch` externo depois dele é código
 morto. Ao absorver 401/403/500 sem log, a falha fica invisível.
 
+**Documento impresso não é print de tela.** `RelatorioImpressao` (em
+`src/shared/impressao/`) renderiza num portal em `document.body`, e o `@media
+print` do `relatorio.css` esconde o `#root`. Reintroduzir um fluxo com
+`body.ficha-print-mode` + `setTimeout(window.print)` volta a imprimir o viewport:
+sidebar, abas e só o pedaço visível do formulário. **E ao achatar formulário no
+papel não esconda todo `<button>`:** em gráfico clínico o botão *é* o dado —
+número do dente no odontograma, "Aus"/"Imp" do periograma, numeração do mapa de
+higiene. A exceção é a classe `.documento-dado`; `[role='button']` fica de fora
+da regra porque as faces do mapa de higiene são `<polygon role="button">` e
+desapareceriam junto.
+
 **O `ClinicContext` sincroniza depois do login.** O `useEffect` depende de
 `user.matricula` via `sincronizar` (`useCallback`). Não reintroduza `deps: []`:
 isso disparava a carga antes do token existir e deixava a tela nos mocks até um F5.
