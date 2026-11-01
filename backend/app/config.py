@@ -76,6 +76,12 @@ class Settings(BaseSettings):
     # recuperação é um segredo de uso único, não uma credencial de sessão.
     TOKEN_RECUPERACAO_MINUTOS: int = 15
 
+    # Intervalo mínimo entre dois pedidos de código para a mesma conta. A rota
+    # é pública e sem autenticação: sem isto, qualquer um dispara e-mails
+    # ilimitados pela conta institucional e queima a credencial do SMTP. Curto
+    # de propósito — reenviar precisa funcionar quando a mensagem se perde.
+    TOKEN_RECUPERACAO_INTERVALO_SEGUNDOS: int = 60
+
     @property
     def mail_configurado(self) -> bool:
         """E-mail só é considerado configurado com host, usuário e senha.

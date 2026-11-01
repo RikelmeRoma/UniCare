@@ -32,6 +32,22 @@ def hash_token(codigo: str) -> str:
     return hashlib.sha256(codigo.encode("utf-8")).hexdigest()
 
 
+def como_utc(valor: datetime) -> datetime:
+    """Interpreta um datetime vindo do banco como UTC.
+
+    O Postgres devolve `timestamptz` com fuso; o SQLite, que é o dialeto dos
+    testes, devolve naive — mas o valor gravado sempre foi UTC. Tratar naive
+    como UTC mantém a mesma regra nos dois dialetos.
+
+    Comparar com `datetime.now()` (hora local) era o erro: em Brasília o prazo
+    de 15 minutos virava 3 h 15, e o teste de expiração só passava porque
+    envelhecia o token manualmente.
+    """
+    if valor.tzinfo is None:
+        return valor.replace(tzinfo=timezone.utc)
+    return valor.astimezone(timezone.utc)
+
+
 class TokenRecuperacaoSenha(SQLModel, table=True):
     """Token de uso único para a pessoa escolher a própria senha.
 
@@ -51,18 +67,23 @@ class TokenRecuperacaoSenha(SQLModel, table=True):
 
     @property
     def expirado(self) -> bool:
-        # `expira_em` volta do banco sem fuso quando o SQLite é o dialeto de
-        # teste; normalizar evita comparar naive com aware e estourar.
-        expira = self.expira_em
-        agora = datetime.now(timezone.utc)
-        if expira.tzinfo is None:
-            expira = expira.replace(tzinfo=timezone.utc)
-            agora = datetime.now()
-        return expira <= agora
+        return como_utc(self.expira_em) <= datetime.now(timezone.utc)
 
     @property
     def utilizavel(self) -> bool:
         return self.usado_em is None and not self.expirado
+
+    def liberado_para_reenvio(self, intervalo_segundos: int) -> bool:
+        """Já passou tempo suficiente desde a emissão deste token?
+
+        O pedido de recuperação é público e sem autenticação: sem um intervalo
+        mínimo, qualquer um dispara e-mails ilimitados pela conta institucional
+        e queima a credencial do SMTP. O intervalo é curto porque reenviar
+        precisa funcionar quando o e-mail se perde.
+        """
+        return (
+            datetime.now(timezone.utc) - como_utc(self.criado_em)
+        ).total_seconds() >= intervalo_segundos
 
 
 def definir_validade(minutos: int) -> datetime:

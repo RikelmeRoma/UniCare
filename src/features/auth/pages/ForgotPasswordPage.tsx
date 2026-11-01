@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../../services/api';
 import {
@@ -10,6 +10,15 @@ import {
   MapPinIcon,
   ArrowPathIcon,
 } from '../../../components/icons/CorporateIcons';
+
+/**
+ * Intervalo mínimo entre pedidos de código, espelhando
+ * `TOKEN_RECUPERACAO_INTERVALO_SEGUNDOS` do backend. O servidor é quem manda
+ * (ele recusa o reenvio antes do prazo), e aqui o botão só evita a tentativa
+ * inútil: sem isso a pessoa clicaria, receberia a mesma mensagem e acharia que
+ * um novo código foi enviado.
+ */
+const INTERVALO_REENVIO_SEGUNDOS = 60;
 
 /**
  * Recuperação de senha por código enviado no e-mail.
@@ -41,6 +50,15 @@ export function ForgotPasswordPage() {
   const [erroMsg, setErroMsg] = useState('');
   const [envioIndisponivel, setEnvioIndisponivel] = useState(false);
   const [okMsg, setOkMsg] = useState('');
+  const [segundosReenvio, setSegundosReenvio] = useState(0);
+
+  // Contagem do intervalo de reenvio. `setTimeout` de 1 s em vez de `setInterval`
+  // para não deixar timer pendente entre renders.
+  useEffect(() => {
+    if (segundosReenvio <= 0) return;
+    const timer = setTimeout(() => setSegundosReenvio((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [segundosReenvio]);
 
   const campo =
     'w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-600 transition-colors font-mono pr-10';
@@ -55,8 +73,7 @@ export function ForgotPasswordPage() {
     confirmacao === novaSenha &&
     !isSaving;
 
-  const pedirCodigo = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const enviarPedido = async () => {
     setErroMsg('');
     setEnvioIndisponivel(false);
     setOkMsg('');
@@ -71,6 +88,7 @@ export function ForgotPasswordPage() {
       const res = await api.solicitarRecuperacaoSenha(identificador.trim());
       setOkMsg(res.message);
       setEtapa('codigo');
+      setSegundosReenvio(INTERVALO_REENVIO_SEGUNDOS);
     } catch (err) {
       const mensagem = err instanceof Error ? err.message : 'Não foi possível pedir o código.';
       // 503 é o estado de ambiente: o SMTP não está configurado ou falhou. Não
@@ -79,6 +97,11 @@ export function ForgotPasswordPage() {
       setErroMsg(mensagem);
     }
     setIsSaving(false);
+  };
+
+  const pedirCodigo = (e: React.FormEvent) => {
+    e.preventDefault();
+    void enviarPedido();
   };
 
   const resgatar = async (e: React.FormEvent) => {
@@ -142,8 +165,8 @@ export function ForgotPasswordPage() {
             <h2 className="text-2xl font-bold mb-2 tracking-tight">Recuperar senha</h2>
             <p className="text-xs text-slate-300 px-4 leading-relaxed">
               {etapa === 'pedido'
-                ? 'Enviamos um código de uso único para o e-mail cadastrado na sua conta.'
-                : 'Digite o código recebido e escolha uma nova senha.'}
+                ? 'Informe o e-mail ou a matrícula do seu cadastro e enviaremos um código de uso único.'
+                : 'Se houver conta com esse identificador, o código chega em instantes no e-mail cadastrado. Digite o código e escolha a nova senha.'}
             </p>
           </div>
 
@@ -298,6 +321,41 @@ export function ForgotPasswordPage() {
                   </button>
                 </div>
               </form>
+            )}
+
+            {/* Saída para quem não recebeu. Sem este bloco, digitar um endereço
+                que não está no cadastro (o Gmail institucional que ENVIA as
+                mensagens, por exemplo) levava a uma tela parada esperando um
+                código que nunca viria — a resposta é genérica de propósito,
+                mas o silêncio não podia ser a única resposta. */}
+            {etapa === 'codigo' && (
+              <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 text-[11px] text-slate-600 leading-relaxed space-y-1.5">
+                <p className="font-bold text-slate-700 flex items-center gap-1.5">
+                  <ExclamationTriangleIcon className="w-3.5 h-3.5 text-amber-600" />
+                  Não recebi o código
+                </p>
+                <p>
+                  O código vai para o e-mail <strong>registrado na sua conta</strong> —
+                  não para o endereço digitado, se forem diferentes. O e-mail
+                  institucional que envia as mensagens não é uma conta de acesso.
+                </p>
+                <p>Confira também a caixa de spam.</p>
+                <button
+                  type="button"
+                  onClick={() => void enviarPedido()}
+                  disabled={segundosReenvio > 0 || isSaving}
+                  className={`mt-1 inline-flex items-center gap-1.5 font-bold ${
+                    segundosReenvio > 0 || isSaving
+                      ? 'text-slate-400 cursor-not-allowed'
+                      : 'text-blue-700 hover:underline'
+                  }`}
+                >
+                  <ArrowPathIcon className="w-3.5 h-3.5" />
+                  {segundosReenvio > 0
+                    ? `Enviar outro código em ${segundosReenvio}s`
+                    : 'Enviar outro código'}
+                </button>
+              </div>
             )}
 
             {/* O que a tela não promete: revogação de sessões já abertas. */}

@@ -192,8 +192,21 @@ def solicitar_recuperacao(
     # continua genérica, porque revelar "essa conta está desativada" também é
     # vazar informação de cadastro.
     if usuario and usuario.ativo:
+        # Intervalo mínimo entre pedidos da mesma conta. A rota é pública: sem
+        # isto, qualquer um dispara e-mails ilimitados pela conta institucional
+        # e o Gmail bloqueia a credencial. A resposta continua a mesma — dizer
+        # "aguarde 60 s" confirmaria que a conta existe.
+        ultimo = session.exec(
+            select(TokenRecuperacaoSenha)
+            .where(TokenRecuperacaoSenha.usuario_id == usuario.id)
+            .order_by(TokenRecuperacaoSenha.criado_em.desc())
+        ).first()
+        if ultimo and not ultimo.liberado_para_reenvio(
+            settings.TOKEN_RECUPERACAO_INTERVALO_SEGUNDOS
+        ):
+            return {"message": _MENSAGEM_GENERICA_SOLICITACAO}
+
         codigo = gerar_codigo()
-        agora = datetime.now(timezone.utc)
 
         # Emitir um novo token invalida os anteriores da mesma pessoa: sem isso
         # dava para acumular códigos válidos por conta.

@@ -64,6 +64,15 @@ def initialize_database():
     command.downgrade(cfg, "base")
     command.upgrade(cfg, "head")
 
+    from app.config import settings
+
+    # O intervalo mínimo entre pedidos protege o SMTP real. Na suíte ele fica
+    # desligado: os testes pedem o código duas vezes seguidas para provar que o
+    # novo invalida o anterior, e esperar 60 s não cabe num teste. O teste do
+    # intervalo fixa o valor com monkeypatch, então a regra não fica sem
+    # cobertura — e nenhum outro teste depende do relógio.
+    settings.TOKEN_RECUPERACAO_INTERVALO_SEGUNDOS = 0
+
     from app.main import app
 
     with TestClient(app):

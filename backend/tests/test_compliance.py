@@ -2232,6 +2232,72 @@ def test_token_expirado_e_recusado(monkeypatch):
     }).status_code == 200
 
 
+def test_token_sem_fuso_e_comparado_em_utc():
+    """`expira_em` sem tzinfo é UTC, não hora local.
+
+    O Postgres devolve `timestamptz` com fuso e o SQLModel recusa gravar naive,
+    então este ramo é defesa para um dialeto que devolva a coluna sem fuso (o
+    comentário antigo falava em SQLite). O defeito que ele escondia era real:
+    comparar naive com `datetime.now()` (hora local) esticava o prazo em três
+    horas no fuso de Brasília, e um código vencido há cinco minutos ainda
+    trocava senha.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from app.models.token_recuperacao import TokenRecuperacaoSenha
+
+    vencido = TokenRecuperacaoSenha(
+        usuario_id=1,
+        token_hash="a" * 64,
+        expira_em=(datetime.now(timezone.utc) - timedelta(minutes=5)).replace(tzinfo=None),
+    )
+    assert vencido.expirado is True
+
+    valido = TokenRecuperacaoSenha(
+        usuario_id=1,
+        token_hash="b" * 64,
+        expira_em=(datetime.now(timezone.utc) + timedelta(minutes=5)).replace(tzinfo=None),
+    )
+    assert valido.expirado is False
+
+
+def test_pedido_repetido_nao_reenvia_antes_do_intervalo(monkeypatch):
+    """O intervalo mínimo protege a caixa institucional de spam.
+
+    A rota é pública e não pede autenticação: sem intervalo, qualquer um
+    dispara e-mails ilimitados pela mesma conta e o Gmail bloqueia a
+    credencial. A resposta continua genérica — uma mensagem própria de
+    "aguarde" confirmaria que a conta existe.
+    """
+    from app.config import settings
+
+    envio = _instalar_envio_falso(monkeypatch)
+    monkeypatch.setattr(settings, "TOKEN_RECUPERACAO_INTERVALO_SEGUNDOS", 60)
+
+    # Conta criada aqui: usar uma do seed faria o teste depender de nenhum
+    # outro ter pedido código para ela antes na mesma execução.
+    rt = {"Authorization": f"Bearer {get_auth_token('RT-001')}"}
+    novo = {
+        "nome": "Usuário Do Intervalo",
+        "email": "intervalo.teste@uninassau.edu.br",
+        "senha": "senha-teste-123",
+        "perfil": "estagiario",
+        "matricula": "INT009",
+    }
+    assert client.post("/api/v1/usuarios", json=novo, headers=rt).status_code == 201
+
+    primeiro = client.post("/api/v1/auth/senha/recuperar/solicitar",
+                           json={"email_ou_matricula": "INT009"})
+    segundo = client.post("/api/v1/auth/senha/recuperar/solicitar",
+                          json={"email_ou_matricula": "INT009"})
+
+    assert primeiro.status_code == 200
+    assert segundo.status_code == 200
+    assert primeiro.json()["message"] == segundo.json()["message"]
+    # Só o primeiro pedido gerou e-mail.
+    assert len(envio.enviados) == 1
+
+
 def test_nenhum_codigo_ou_hash_vaza_na_resposta_ou_na_trilha(monkeypatch):
     """Nem a resposta nem a trilha podem carregar o código"""
     envio = _instalar_envio_falso(monkeypatch)

@@ -275,6 +275,39 @@ reset vem de provar que *você* recebeu o token. Sem SMTP, não há como. O que 
 para fazer sem depender de ninguém é o inverso: `PATCH /auth/senha` com a senha
 atual (Bloco 12) e `/cadastro` passando pela RT (Bloco 13).
 
+**O Gmail institucional é o remetente, não uma conta de acesso.** `MAIL_USER`
+(`unicare616@gmail.com`) envia as mensagens; a recuperação procura o
+identificador em `usuarios.email` / `usuarios.matricula`. Pedir o código com o
+endereço do remetente responde a mensagem genérica e **não envia nada** — por
+desenho, porque a resposta não pode dizer que a conta não existe. E os e-mails do
+seed (`camila.rt@uninassau.edu.br` e cia.) são fabricados: o Outlook aceita e
+devolve bounce, então "enviamos" sem e-mail é o resultado normal para eles.
+Antes de concluir que o envio quebrou, peça o código para um endereço que esteja
+**no cadastro**.
+
+**Resposta genérica sem saída vira silêncio.** A mensagem do pedido de
+recuperação não pode confirmar se a conta existe (oráculo de enumeração), mas
+também não pode ser a única coisa na tela: quem digitou um endereço fora do
+cadastro ficava esperando um código que nunca viria. O passo do código tem um
+bloco "Não recebi o código" que explica que o destino é o e-mail do cadastro,
+lembra do spam e oferece reenvio. Não troque isso por mostrar o e-mail
+mascarado: revelar o endereço só quando a conta existe recria o oráculo.
+
+**A rota de pedido de código é pública — precisa de intervalo mínimo.** Sem
+`TOKEN_RECUPERACAO_INTERVALO_SEGUNDOS`, qualquer cliente dispara e-mails
+ilimitados pela conta institucional e o Gmail bloqueia a credencial. O limite é
+por conta (último token), a resposta continua a mesma, e a tela conta os
+segundos porque o servidor recusa em silêncio. **Na suíte o intervalo é
+desligado no `conftest.py`**: `test_novo_pedido_invalida_o_codigo_anterior` pede
+o código duas vezes seguidas e não pode esperar 60 s. O teste do intervalo fixa
+o valor com `monkeypatch`.
+
+**`DateTime` do model sem fuso é UTC, não hora local.** O Postgres devolve
+`timestamptz` com fuso e o SQLModel recusa gravar naive, mas o ramo defensivo
+existia e comparava com `datetime.now()` (hora local): em Brasília, um código
+vencido há cinco minutos continuava trocando senha. Use `como_utc()` de
+`app/models/token_recuperacao.py` antes de comparar qualquer data vinda do banco.
+
 **"Enviamos o e-mail" sem e-mail enviado é a pior falha possível.** Se o SMTP está
 desligado ou quebrado, a resposta é 503 dizendo que o envio está indisponível, e
 a tela orienta procurar a coordenação. O `email_service` separa `NAO_CONFIGURADO`

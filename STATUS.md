@@ -1,5 +1,61 @@
 # STATUS — UniCare
 
+## Atualização — 2026-11-01 (recuperação de senha: o código só vai para o e-mail do cadastro)
+
+**Relato:** "a tela de recuperar a senha não funciona — diz que enviou, mas o
+e-mail não chega." O identificador usado foi o **Gmail institucional**
+(`unicare616@gmail.com`), que é a conta que **envia** as mensagens, não uma conta
+de acesso no cadastro.
+
+**O motor estava certo.** Verificado no ambiente real: `POST
+/auth/senha/recuperar/solicitar` responde 200, o SMTP está configurado no
+container, o login e o `send_message` contra o Gmail funcionam
+(`StatusEnvio.ENVIADO`), e um pedido para o único Gmail cadastrado
+(`augustocsar97@gmail.com`, matrícula `16024402`) criou o token com **exatos 15
+minutos** de validade (`17:38:54 → 17:53:54`) e registrou
+`RECUPERACAO_SOLICITADA` na trilha.
+
+**O defeito era a tela.** Ela avançava para "digite o código" mesmo quando a
+conta não existia — decisão correta contra enumeração, mas sem nenhuma saída:
+quem digitou um endereço fora do cadastro ficava esperando um código que nunca
+viria, e o cabeçalho afirmava "Enviamos um código de uso único" antes mesmo do
+primeiro envio.
+
+- **Textos honestos:** o passo do pedido diz "informe o e-mail ou a matrícula do
+  seu cadastro e enviaremos um código"; o passo do código diz "se houver conta
+  com esse identificador, o código chega em instantes". Nenhum dos dois confirma
+  envio que não aconteceu.
+- **Bloco "Não recebi o código"** no passo do código: explica que o destino é o
+  e-mail **do cadastro** (não o digitado, se forem diferentes), que o e-mail
+  institucional que envia as mensagens não é conta de acesso, lembra do spam e
+  oferece **"Enviar outro código"**.
+- **Intervalo mínimo de 60 s entre pedidos** (`TOKEN_RECUPERACAO_INTERVALO_SEGUNDOS`).
+  A rota é pública: sem isso, qualquer um dispara e-mails ilimitados pela conta
+  institucional e o Gmail bloqueia a credencial. A resposta continua genérica —
+  dizer "aguarde 60 s" confirmaria que a conta existe. O botão da tela conta os
+  segundos, porque o servidor recusaria o reenvio em silêncio.
+- **Fuso do token:** `TokenRecuperacaoSenha.expirado` comparava `expira_em` com
+  `datetime.now()` **local** quando o valor voltava sem fuso, esticando o prazo
+  em três horas. Agora `como_utc()` trata naive como UTC. (No Postgres a coluna
+  é `timestamptz` e nunca houve o problema; o ramo é defesa para outro dialeto.)
+- **Testes:** `test_pedido_repetido_nao_reenvia_antes_do_intervalo` (conta criada
+  no próprio teste) e `test_token_sem_fuso_e_comparado_em_utc`. O `conftest.py`
+  desliga o intervalo na suíte — `test_novo_pedido_invalida_o_codigo_anterior`
+  pede o código duas vezes seguidas e não pode esperar 60 s.
+
+**Para quem for testar:** a recuperação só encontra **e-mail ou matrícula que
+estejam em `usuarios`**. No seed, só `augustocsar97@gmail.com` / `16024402` tem
+caixa real; os demais endereços (`camila.rt@uninassau.edu.br` etc.) são
+fabricados e o Outlook devolve bounce — o envio é aceito e nada chega. O Gmail
+institucional (`unicare616@gmail.com`) é o **remetente** das mensagens, não uma
+conta de acesso: pedir recuperação com ele não encontra ninguém.
+
+**Verificação:** `pytest -q` → **140 passed, 1 deselected** (marcador `rede`);
+`npm run build` verde; `npm run lint` nos mesmos **7 problemas preexistentes**.
+O container recarregou `config.py`, `auth.py` e `token_recuperacao.py`
+(`WatchFiles detected changes`), então a API em `:8000` já responde com o
+intervalo de 60 s.
+
 ## Atualização — 2026-11-01 (desativar e reativar estagiário na odontologia)
 
 **A desativação de estagiário não estava "quebrada no servidor" — o erro era
