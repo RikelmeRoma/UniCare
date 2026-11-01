@@ -3,15 +3,47 @@
 ## Atualização — 2026-11-01 (recuperação de senha: o código só vai para o e-mail do cadastro)
 
 **Relato:** "a tela de recuperar a senha não funciona — diz que enviou, mas o
-e-mail não chega." O identificador usado foi o **Gmail institucional**
-(`unicare616@gmail.com`), que é a conta que **envia** as mensagens, não uma conta
-de acesso no cadastro.
+e-mail não chega." Foram três camadas, nenhuma delas o envio.
 
-**O motor estava certo.** Verificado no ambiente real: `POST
-/auth/senha/recuperar/solicitar` responde 200, o SMTP está configurado no
+### 1. Identificador sem `@`
+
+O caso concreto: `16032935sempreuninassau.com.br` (faltando o `@`) não é
+matrícula nem e-mail, então não casa com nada. A resposta genérica — que existe
+para não revelar cadastro — fazia o erro de digitação parecer falha de envio.
+
+- Backend: `_identificador_incompleto()` recusa (422) identificador **sem `@` e
+  com ponto**, nas duas rotas. A checagem é sintática, não consulta o banco, e
+  por isso não revela se a conta existe. A resposta genérica continua valendo
+  para identificador **bem formado** que não casa.
+- Frontend: a mesma regra antes de chamar a API, com o texto do erro no campo e
+  o exemplo completo. O valor não é corrigido automaticamente — inserir o `@`
+  por conta própria esconderia o erro.
+
+### 2. O e-mail institucional é o remetente, não uma conta de acesso
+
+`unicare616@gmail.com` é o `MAIL_USER`, a conta que **envia**. A recuperação
+procura o identificador em `usuarios.email`/`usuarios.matricula`. Pedir o código
+com o endereço do remetente responde a mensagem genérica e não envia nada.
+
+### 3. O banco de dev pode divergir do seed
+
+O `seed.py` define `rikelmeroma13@gmail.com` para a matrícula `16032935`, mas o
+banco de dev tinha `16032935@sempreuninassau.com.br`: `seed_usuarios` é
+idempotente por tabela e **não reescreve linha existente**, e o banco foi
+populado antes dessa mudança (ou veio de dump). Confirmado com o usuário que o
+endereço institucional é o correto e que ele tem acesso à caixa — nenhum dado
+foi alterado.
+
+**Teste de entregabilidade nos MX reais** (RCPT, sem enviar mensagem):
+`16032935@sempreuninassau.com.br` → `250 2.1.5 Recipient OK`;
+`16032935sempreuninassau.com.br` (sem @) → não é e-mail;
+`camila.rt@uninassau.edu.br` → `550 5.4.1 Access denied`. Ou seja: o domínio
+`sempreuninassau` aceita no SMTP (por isso "enviado" não prova entrega) e os
+endereços `@uninassau.edu.br` do seed são recusados na hora.
+
+**O motor estava certo.** Verificado no ambiente real: o SMTP está configurado no
 container, o login e o `send_message` contra o Gmail funcionam
-(`StatusEnvio.ENVIADO`), e um pedido para o único Gmail cadastrado
-(`augustocsar97@gmail.com`, matrícula `16024402`) criou o token com **exatos 15
+(`StatusEnvio.ENVIADO`), e um pedido para `16024402` criou o token com **exatos 15
 minutos** de validade (`17:38:54 → 17:53:54`) e registrou
 `RECUPERACAO_SOLICITADA` na trilha.
 
@@ -39,22 +71,25 @@ primeiro envio.
   em três horas. Agora `como_utc()` trata naive como UTC. (No Postgres a coluna
   é `timestamptz` e nunca houve o problema; o ramo é defesa para outro dialeto.)
 - **Testes:** `test_pedido_repetido_nao_reenvia_antes_do_intervalo` (conta criada
-  no próprio teste) e `test_token_sem_fuso_e_comparado_em_utc`. O `conftest.py`
-  desliga o intervalo na suíte — `test_novo_pedido_invalida_o_codigo_anterior`
-  pede o código duas vezes seguidas e não pode esperar 60 s.
+  no próprio teste), `test_token_sem_fuso_e_comparado_em_utc` e
+  `test_identificador_sem_arroba_e_recusado` (422 nas duas rotas, sem e-mail).
+  O `conftest.py` desliga o intervalo na suíte —
+  `test_novo_pedido_invalida_o_codigo_anterior` pede o código duas vezes seguidas
+  e não pode esperar 60 s.
 
 **Para quem for testar:** a recuperação só encontra **e-mail ou matrícula que
-estejam em `usuarios`**. No seed, só `augustocsar97@gmail.com` / `16024402` tem
-caixa real; os demais endereços (`camila.rt@uninassau.edu.br` etc.) são
-fabricados e o Outlook devolve bounce — o envio é aceito e nada chega. O Gmail
+estejam em `usuarios`**. Digite só a matrícula (`16032935`) ou o e-mail completo
+com `@` — sem o `@` a rota agora responde 422 em vez de fingir envio. O Gmail
 institucional (`unicare616@gmail.com`) é o **remetente** das mensagens, não uma
-conta de acesso: pedir recuperação com ele não encontra ninguém.
+conta de acesso. Os endereços `@uninassau.edu.br` do seed (`camila.rt@…` e cia.)
+são recusados pelo Outlook (`550`); os `@sempreuninassau.com.br` são aceitos
+(`250`) e entregues na caixa do aluno.
 
-**Verificação:** `pytest -q` → **140 passed, 1 deselected** (marcador `rede`);
+**Verificação:** `pytest -q` → **141 passed, 1 deselected** (marcador `rede`);
 `npm run build` verde; `npm run lint` nos mesmos **7 problemas preexistentes**.
-O container recarregou `config.py`, `auth.py` e `token_recuperacao.py`
-(`WatchFiles detected changes`), então a API em `:8000` já responde com o
-intervalo de 60 s.
+O container recarregou os módulos alterados e a API em `:8000` responde 422 para
+`16032935sempreuninassau.com.br` e 200 para `16032935` (token criado às
+`18:41:06`, expirando às `18:56:06`).
 
 ## Atualização — 2026-11-01 (desativar e reativar estagiário na odontologia)
 

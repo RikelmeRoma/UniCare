@@ -164,6 +164,25 @@ def _buscar_por_identificador(session: Session, identificador: str) -> Optional[
     ).first()
 
 
+def _identificador_incompleto(identificador: str) -> bool:
+    """Parece um e-mail mas está sem o `@`?
+
+    `16032935sempreuninassau.com.br` não é matrícula nem e-mail: não casa com
+    nada. A resposta genérica existe para não revelar cadastro, mas ela também
+    escondia o erro de digitação — a pessoa concluía que o envio tinha falhado
+    e ficava esperando um código que nunca seria gerado. A checagem é sintática
+    e não consulta o banco, então recusar não revela se a conta existe.
+    """
+    ident = identificador.strip()
+    return "@" not in ident and "." in ident
+
+
+_IDENTIFICADOR_INCOMPLETO = (
+    "Identificador incompleto: falta o @ no e-mail. Use a matrícula "
+    "(ex.: 16032935) ou o e-mail completo (ex.: 16032935@sempreuninassau.com.br)."
+)
+
+
 @router.post("/senha/recuperar/solicitar")
 def solicitar_recuperacao(
     dados: RecuperacaoSolicitada,
@@ -176,6 +195,15 @@ def solicitar_recuperacao(
     "enviamos" sem ter enviado é o que deixa a pessoa esperando para sempre. Com
     SMTP quebrado, o mesmo aviso e o motivo vai para o log.
     """
+    # Formato antes de ambiente: um identificador truncado nunca vai casar com
+    # o cadastro, e a resposta genérica transformaria erro de digitação em
+    # "não chegou". Ver `_identificador_incompleto`.
+    if _identificador_incompleto(dados.email_ou_matricula):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=_IDENTIFICADOR_INCOMPLETO,
+        )
+
     if not settings.mail_configurado:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -287,6 +315,12 @@ def resgatar_recuperacao(
     Quem não tem sessão não consegue usar `PATCH /auth/senha`: é exatamente o
     caso que vem para cá.
     """
+    if _identificador_incompleto(dados.identificador):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=_IDENTIFICADOR_INCOMPLETO,
+        )
+
     usuario = _buscar_por_identificador(session, dados.identificador)
 
     token_utilizavel: Optional[TokenRecuperacaoSenha] = None

@@ -21,6 +21,19 @@ import {
 const INTERVALO_REENVIO_SEGUNDOS = 60;
 
 /**
+ * E-mail digitado sem o `@` — `16032935sempreuninassau.com.br`.
+ *
+ * O backend recusa esse formato com 422. Validar aqui evita a viagem e mostra
+ * o erro no próprio campo, em vez da mensagem genérica de "se houver conta…",
+ * que fazia o erro de digitação parecer falha de envio. O valor não é
+ * corrigido automaticamente: inserir o `@` esconderia o erro.
+ */
+const faltaArroba = (valor: string) => !valor.includes('@') && valor.includes('.');
+
+const AVISO_FALTA_ARROBA =
+  'Faltou o @ no e-mail. Digite o endereço completo (ex.: 16032935@sempreuninassau.com.br) ou só a matrícula (ex.: 16032935).';
+
+/**
  * Recuperação de senha por código enviado no e-mail.
  *
  * Antes esta tela era um formulário inerte que prometia "emissão de token
@@ -83,6 +96,11 @@ export function ForgotPasswordPage() {
       return;
     }
 
+    if (faltaArroba(identificador.trim())) {
+      setErroMsg(AVISO_FALTA_ARROBA);
+      return;
+    }
+
     setIsSaving(true);
     try {
       const res = await api.solicitarRecuperacaoSenha(identificador.trim());
@@ -111,6 +129,13 @@ export function ForgotPasswordPage() {
 
     if (!podeResgatar) {
       setErroMsg('Preencha o código e as duas senhas. A nova senha precisa de ao menos 6 caracteres.');
+      return;
+    }
+
+    // O identificador veio do passo anterior, mas "Voltar" permite editá-lo:
+    // sem esta guarda o 422 do servidor seria a primeira notícia do erro.
+    if (faltaArroba(identificador.trim())) {
+      setErroMsg(`${AVISO_FALTA_ARROBA} Volte para corrigir.`);
       return;
     }
 

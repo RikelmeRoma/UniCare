@@ -293,6 +293,23 @@ bloco "Não recebi o código" que explica que o destino é o e-mail do cadastro,
 lembra do spam e oferece reenvio. Não troque isso por mostrar o e-mail
 mascarado: revelar o endereço só quando a conta existe recria o oráculo.
 
+**Identificador sem `@` não é matrícula — recuse o formato antes de prometer
+envio.** `16032935sempreuninassau.com.br` não casa com nada, e a resposta
+genérica transformava erro de digitação em "o e-mail não chegou". As duas rotas
+de recuperação chamam `_identificador_incompleto()` (sem `@` **e** com ponto →
+422). A checagem é sintática e não consulta o banco, então não revela cadastro;
+a resposta genérica continua valendo para identificador bem formado que não
+existe. **Não normalizar o `@` automaticamente** — corrigir a digitação por
+conta própria esconde o erro de quem escreveu.
+
+**`seed_usuarios` não reescreve linha existente — o banco de dev pode divergir
+do `seed.py`.** O seed diz `rikelmeroma13@gmail.com` para `16032935` desde
+outubro, e o banco de dev tinha `16032935@sempreuninassau.com.br` (populado
+antes, ou restaurado de dump). Antes de acusar o código de recuperação, compare
+`select email from usuarios` com o seed. E lembre que "enviado" não prova
+entrega: `sempreuninassau.com.br` responde `250` no RCPT para qualquer endereço,
+enquanto `@uninassau.edu.br` responde `550`.
+
 **A rota de pedido de código é pública — precisa de intervalo mínimo.** Sem
 `TOKEN_RECUPERACAO_INTERVALO_SEGUNDOS`, qualquer cliente dispara e-mails
 ilimitados pela conta institucional e o Gmail bloqueia a credencial. O limite é

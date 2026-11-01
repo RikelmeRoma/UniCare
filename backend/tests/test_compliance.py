@@ -2128,6 +2128,32 @@ def test_codigo_errado_ou_conta_inexistente_dao_a_mesma_resposta(monkeypatch):
     assert res_identificador.json()["detail"] == res_conta.json()["detail"]
 
 
+def test_identificador_sem_arroba_e_recusado(monkeypatch):
+    """E-mail digitado sem `@` não é matrícula: recusa antes de prometer envio.
+
+    `16032935sempreuninassau.com.br` não casa com nenhum cadastro. Antes, a
+    resposta genérica fazia o erro de digitação parecer falha de envio, e a
+    pessoa esperava um código que nunca seria gerado.
+    """
+    envio = _instalar_envio_falso(monkeypatch)
+
+    res = client.post("/api/v1/auth/senha/recuperar/solicitar",
+                      json={"email_ou_matricula": "16032935sempreuninassau.com.br"})
+    assert res.status_code == 422
+    assert "@" in res.json()["detail"]
+    assert envio.enviados == []
+
+    # O resgate tem a mesma guarda: um identificador truncado nunca casa com
+    # token, e a resposta genérica de "código inválido" esconderia o formato.
+    resgate = client.post("/api/v1/auth/senha/recuperar/redeem", json={
+        "identificador": "16032935sempreuninassau.com.br",
+        "codigo": "AAAAAA",
+        "nova_senha": "senha-nova-123",
+    })
+    assert resgate.status_code == 422
+    assert "@" in resgate.json()["detail"]
+
+
 def test_pedido_nao_revela_se_a_conta_existe(monkeypatch):
     """Conta existente e inexistente dão a MESMA resposta de sucesso"""
     envio = _instalar_envio_falso(monkeypatch)
