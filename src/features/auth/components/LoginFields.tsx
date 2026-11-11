@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getDestinationRoute } from '../routes';
-import { BackendStatus } from './BackendStatus';
 import {
   KeyIcon,
   ExclamationTriangleIcon,
@@ -121,9 +120,6 @@ export function LoginFields({ onDomainChange }: LoginFieldsProps) {
             </span>
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Autenticação Corporativa</h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Digite sua credencial acadêmica para identificação e roteamento automático pelo backend.
-          </p>
         </div>
 
         {/* Formulário de Acesso Direto */}
@@ -203,17 +199,13 @@ export function LoginFields({ onDomainChange }: LoginFieldsProps) {
           </button>
         </form>
 
-        {/* Estado real do serviço */}
-        <div className="mt-6 pt-5 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-2.5">
-          <BackendStatus />
-
-          <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-            <span className="flex items-center gap-1.5">
-              <LockClosedIcon className="w-3.5 h-3.5 text-slate-400" />
-              <span>Autenticação RBAC</span>
-            </span>
-            <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300">Bearer JWT Criptografado</span>
-          </div>
+        {/* Rodapé de segurança da autenticação */}
+        <div className="mt-6 pt-5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+          <span className="flex items-center gap-1.5">
+            <LockClosedIcon className="w-3.5 h-3.5 text-slate-400" />
+            <span>Autenticação RBAC</span>
+          </span>
+          <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300">Bearer JWT Criptografado</span>
         </div>
       </div>
 
