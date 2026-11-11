@@ -32,19 +32,41 @@ export function LoginFields({ onDomainChange }: LoginFieldsProps) {
   // a tela de acesso negado: quando as duas coppias divergiram, a recepção de
   // psicologia passou a cair no prontuário e a tomar 403 ao entrar.
 
-  // Reação dinâmica na digitação da credencial para alternar a atmosfera visual do painel lateral
+  // Reação dinâmica na digitação da credencial para alternar as cores e os brilhos do painel lateral
   const handleIdentifierChange = (val: string) => {
     setIdentifier(val);
     const low = val.toLowerCase();
-    if (low.includes('psi') || low.includes('crp') || low.includes('8821')) {
+    if (low.includes('rec') || low.includes('balcao') || low.includes('recep')) {
+      onDomainChange('recepcao');
+    } else if (
+      low.includes('psi') ||
+      low.includes('crp') ||
+      low.includes('8821') ||
+      low.includes('160329') ||
+      low.includes('160512') ||
+      low.includes('rikelme') ||
+      low.includes('leticia') ||
+      low.includes('robert')
+    ) {
       onDomainChange('psicologia');
-    } else if (low.includes('odo') || low.includes('cro') || low.includes('9122') || low.includes('dente')) {
+    } else if (
+      low.includes('odo') ||
+      low.includes('cro') ||
+      low.includes('9122') ||
+      low.includes('dente') ||
+      low.includes('160244') ||
+      low.includes('augusto') ||
+      low.includes('bianca')
+    ) {
       onDomainChange('odontologia');
     } else if (
-      low.includes('rec') ||
-      low.includes('rt') ||
+      low.startsWith('rt') ||
+      low.includes('rt-') ||
+      low.includes('.rt') ||
       low.includes('adm') ||
-      low.includes('coord')
+      low.includes('coord') ||
+      low.includes('camila') ||
+      low.includes('renato')
     ) {
       onDomainChange('institucional');
     } else {

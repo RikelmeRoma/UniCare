@@ -211,3 +211,88 @@
     page-break-after: avoid;
   }
 }
+
+/*
+ * Modo Claro (e folhas de relatório em papel branco): reforça a visibilidade das
+ * bordas suaves em cartões, inputs, tabelas e divisórias para manter contraste nítido
+ * sem alterar o Modo Escuro (html.dark) nem estados de hover/focus.
+ */
+@layer utilities {
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-slate-100 {
+    border-color: #a8b4c4;
+  }
+
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-slate-200,
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-slate-200\/90,
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-slate-200\/80,
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-slate-200\/70,
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-slate-200\/60,
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-\[\#D7DEDD\] {
+    border-color: #8c9cb0;
+  }
+
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-slate-300 {
+    border-color: #64748b;
+  }
+
+  :where(html:not(.dark), .relatorio-doc, #rt-print) :where(.divide-slate-100 > :not(:last-child)) {
+    border-color: #a8b4c4;
+  }
+
+  :where(html:not(.dark), .relatorio-doc, #rt-print) :where(.divide-slate-200 > :not(:last-child)) {
+    border-color: #8c9cb0;
+  }
+
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-blue-100 {
+    border-color: #93c5fd;
+  }
+
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-blue-200,
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-blue-200\/80,
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-blue-200\/70 {
+    border-color: #60a5fa;
+  }
+
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-emerald-100 {
+    border-color: #6ee7b7;
+  }
+
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-emerald-200,
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-emerald-200\/80,
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-emerald-200\/70,
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-emerald-200\/60 {
+    border-color: #34d399;
+  }
+
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-amber-100 {
+    border-color: #fcd34d;
+  }
+
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-amber-200,
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-amber-200\/80,
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-amber-200\/70 {
+    border-color: #f59e0b;
+  }
+
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-rose-100 {
+    border-color: #fda4af;
+  }
+
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-rose-200,
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-rose-200\/90,
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-rose-200\/80,
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-rose-200\/70 {
+    border-color: #fb7185;
+  }
+
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-indigo-100 {
+    border-color: #a5b4fc;
+  }
+
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-indigo-200,
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-indigo-200\/80,
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-indigo-200\/70,
+  :where(html:not(.dark), .relatorio-doc, #rt-print) .border-indigo-200\/60 {
+    border-color: #818cf8;
+  }
+}

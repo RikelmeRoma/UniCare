@@ -4,7 +4,7 @@ import { AuthFooter } from './AuthFooter';
 import { LoginFields } from './LoginFields';
 import { LoginInfoPanel } from './LoginInfoPanel';
 
-export type ActiveDomain = 'psicologia' | 'odontologia' | 'institucional' | 'credenciais';
+export type ActiveDomain = 'psicologia' | 'odontologia' | 'recepcao' | 'institucional' | 'credenciais';
 
 export function LoginForm() {
   const [activeDomain, setActiveDomain] = useState<ActiveDomain>('credenciais');
