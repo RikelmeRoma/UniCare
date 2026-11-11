@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useClinic } from '../../../clinic/context/ClinicContext';
+import { CONSULTORIOS_SPA, TOTAL_CONSULTORIOS_SPA } from '../../constants/psico';
 import {
   CalendarIcon,
   ClockIcon,
@@ -84,7 +85,7 @@ export function PsyReceptionStats() {
     {
       rotulo: 'Em Psicoterapia',
       valor: indicadores.emAtendimento,
-      rodape: `${indicadores.salasEmUso} consultório(s) em uso`,
+      rodape: `${indicadores.salasEmUso} de ${TOTAL_CONSULTORIOS_SPA} consultórios em uso (${Math.max(TOTAL_CONSULTORIOS_SPA - indicadores.salasEmUso, 0)} disponíveis)`,
       numero: 'text-emerald-800',
       rodapeClass: 'text-emerald-800',
       icone: <UserGroupIcon className="w-4 h-4" />,
@@ -174,6 +175,54 @@ export function PsyReceptionStats() {
             <span className={`p-2.5 rounded-xl ${c.iconeClass}`}>{c.icone}</span>
           </div>
         ))}
+      </div>
+
+      {/* Mapa rápido dos 6 consultórios disponíveis no SPA */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+            Consultórios do SPA ({TOTAL_CONSULTORIOS_SPA} disponíveis)
+          </p>
+          <span className="text-[11px] text-slate-500">
+            {indicadores.salasEmUso} em atendimento agora · {Math.max(TOTAL_CONSULTORIOS_SPA - indicadores.salasEmUso, 0)} livre(s)
+          </span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+          {CONSULTORIOS_SPA.map((sala) => {
+            const ativoAgora = agendamentos.find(
+              (a) =>
+                a.curso === 'psicologia' &&
+                a.salaOuCadeira === sala &&
+                a.status === 'EM_ATENDIMENTO'
+            );
+            return (
+              <div
+                key={sala}
+                className={`rounded-xl border px-3 py-2 text-xs ${
+                  ativoAgora
+                    ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+                    : 'bg-slate-50/70 border-slate-200/80 text-slate-700'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-1">
+                  <span className="font-bold text-[11px]">
+                    {sala.replace('Consultório ', '')}
+                  </span>
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      ativoAgora ? 'bg-emerald-500' : 'bg-slate-300'
+                    }`}
+                  />
+                </div>
+                <p className="text-[10px] mt-0.5 truncate text-slate-500">
+                  {ativoAgora
+                    ? `${ativoAgora.horario} · ${ativoAgora.estagiarioNome.split(' ')[0]}`
+                    : 'Disponível'}
+                </p>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </>
   );

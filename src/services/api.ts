@@ -146,6 +146,56 @@ export interface ApiAtribuicao {
   data_encerramento?: string | null;
 }
 
+export type TipoRegistroPsico = 'SESSAO' | 'DEMANDA' | 'ENCERRAMENTO';
+
+export interface ConteudoDemandaPsico {
+  avaliacao_demanda: string;
+  objetivos_intervencao: string;
+  hipotese_diagnostica: string;
+}
+
+export interface ConteudoEncerramentoPsico {
+  avaliacao_final: string;
+  motivos_encerramento: string[];
+  informacoes_adicionais?: string;
+}
+
+export type TipoOcorrenciaPsico =
+  | 'ATRASO'
+  | 'FALTA'
+  | 'CONDUTA'
+  | 'ATENDIMENTO'
+  | 'ADMINISTRATIVO'
+  | 'OUTRO';
+
+export interface ApiOcorrenciaEstagiario {
+  id: number;
+  estagiario_matricula: string;
+  estagiario_nome: string;
+  curso: string;
+  tipo: TipoOcorrenciaPsico | string;
+  data_ocorrencia: string;
+  descricao: string;
+  registrado_por_nome: string;
+  registrado_por_matricula: string;
+  criado_em: string;
+}
+
+export interface ApiSalaPsico {
+  nome: string;
+  disponivel: boolean;
+  ocupacao?: {
+    horario: string;
+    estagiario_nome: string;
+    paciente_nome: string;
+  } | null;
+}
+
+export interface ApiSalasPsicoResponse {
+  total_salas: number;
+  salas: ApiSalaPsico[];
+}
+
 export interface ApiProntuarioPsico {
   id: number;
   paciente_id: number;
@@ -155,6 +205,8 @@ export interface ApiProntuarioPsico {
   supervisor_nome?: string;
   data_sessao: string;
   numero_sessao: string;
+  tipo_registro?: TipoRegistroPsico;
+  conteudo_estruturado?: Record<string, unknown> | null;
   redacao_texto: string;
   parecer_supervisor?: string;
   status: 'EM_ELABORACAO' | 'AGUARDANDO_VALIDACAO' | 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE';
@@ -698,6 +750,31 @@ class ApiService {
     });
   }
 
+  async getSalasPsico(dataSessao?: string, horario?: string): Promise<ApiSalasPsicoResponse> {
+    const params = new URLSearchParams();
+    if (dataSessao) params.append('data_sessao', dataSessao);
+    if (horario) params.append('horario', horario);
+    const qs = params.toString();
+    return this.request<ApiSalasPsicoResponse>(`/agendamentos/salas-psico${qs ? `?${qs}` : ''}`);
+  }
+
+  // --- Ocorrências de Estagiários (Psicologia) ---
+  async getOcorrenciasPsico(): Promise<ApiOcorrenciaEstagiario[]> {
+    return this.request<ApiOcorrenciaEstagiario[]>('/ocorrencias/psico');
+  }
+
+  async createOcorrenciaPsico(dados: {
+    estagiario_matricula: string;
+    tipo: TipoOcorrenciaPsico;
+    data_ocorrencia: string;
+    descricao: string;
+  }): Promise<ApiOcorrenciaEstagiario> {
+    return this.request<ApiOcorrenciaEstagiario>('/ocorrencias/psico', {
+      method: 'POST',
+      body: JSON.stringify(dados),
+    });
+  }
+
   // --- Prontuários Psicológicos ---
   async getProntuariosPsico(): Promise<ApiProntuarioPsico[]> {
     return this.request<ApiProntuarioPsico[]>('/prontuarios/psico');
@@ -711,7 +788,14 @@ class ApiService {
     supervisor_nome?: string;
     data_sessao: string;
     numero_sessao: string;
-    redacao_texto: string;
+    tipo_registro?: TipoRegistroPsico;
+    redacao_texto?: string;
+    avaliacao_demanda?: string;
+    objetivos_intervencao?: string;
+    hipotese_diagnostica?: string;
+    avaliacao_final?: string;
+    motivos_encerramento?: string[];
+    informacoes_adicionais?: string;
   }): Promise<ApiProntuarioPsico> {
     return this.request<ApiProntuarioPsico>('/prontuarios/psico', {
       method: 'POST',

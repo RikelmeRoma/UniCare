@@ -4,6 +4,7 @@ import type {
   Paciente,
 } from '../../clinic/context/ClinicContext';
 import type { User } from '../../auth/context/AuthContext';
+import { META_TIPO_REGISTRO_PSICO } from '../../psychology/constants/psico';
 
 interface DossieCustodiaProps {
   paciente: Paciente;
@@ -115,9 +116,9 @@ export function DossieCustodia({
       {cursoPainel === 'psicologia' && (
         <section className="mt-5">
           <h2 className="relatorio-bloco flex items-center justify-between border-b border-slate-300 pb-1 text-[10pt] font-bold uppercase tracking-wide text-[#002B49]">
-            <span>Evoluções clínicas</span>
+            <span>Evoluções e fichas clínicas</span>
             <span className="text-[7.5pt] font-semibold normal-case tracking-normal text-slate-500">
-              {evolucoes.length} sessão(ões)
+              {evolucoes.length} registro(s)
             </span>
           </h2>
 
@@ -134,7 +135,7 @@ export function DossieCustodia({
                 >
                   <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 pb-1.5">
                     <p className="font-mono text-[8pt] font-bold text-slate-900">
-                      {evolucao.numeroSessao} · {formatarData(evolucao.dataSessao)}
+                      {META_TIPO_REGISTRO_PSICO[evolucao.tipoRegistro]?.badge ?? 'Sessão Clínica'} · {evolucao.numeroSessao} · {formatarData(evolucao.dataSessao)}
                     </p>
                     <p className="text-[7.5pt] text-slate-600">
                       {evolucao.estagiarioNome} ({evolucao.estagiarioMatricula})

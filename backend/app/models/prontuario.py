@@ -21,6 +21,14 @@ class ProntuarioPsico(SQLModel, table=True):
     supervisor_nome: Optional[str] = Field(default=None, max_length=200)
     data_sessao: str = Field(max_length=10)
     numero_sessao: str = Field(max_length=32)
+    # Tipo da folha do prontuário psicológico (SESSAO | DEMANDA | ENCERRAMENTO).
+    # `SESSAO` preserva compatibilidade integral com as evoluções anteriores.
+    tipo_registro: str = Field(default="SESSAO", max_length=20, index=True)
+    # Campos estruturados das folhas de Avaliação da Demanda e Encerramento
+    # (UNINASSAU-AJU). Nulo nas sessões clínicas livres.
+    conteudo_estruturado: Optional[dict] = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
     # Narrativas clinicas em Text, sem limite. Fixar max_length aqui seria
     # arbitrario e truncaria registro de prontuario — sob LGPD/CFP isso e perda
     # de documentacao, nao apenas um erro de validacao.

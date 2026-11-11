@@ -4,6 +4,7 @@ import { AppLayout } from '../../../../components/layout/AppLayout';
 import { useAuth } from '../../../auth/context/AuthContext';
 import { useClinic, type Agendamento } from '../../../clinic/context/ClinicContext';
 import { rotuloStatus } from '../../../../shared/statusAgendamento';
+import { OcorrenciasEstagiarioCard } from '../../components/OcorrenciasEstagiarioCard';
 import {
   ArrowPathIcon,
   CalendarIcon,
@@ -316,6 +317,14 @@ export function PsyAppointmentsPage() {
               </ul>
             </div>
           ))}
+
+        {user?.perfil === 'estagiario' && (
+          <OcorrenciasEstagiarioCard
+            titulo="Minhas Ocorrências Operacionais"
+            subtitulo="Registros administrativos feitos pela recepção do SPA vinculados à sua matrícula."
+            filtrarPorMatricula={user.matricula}
+          />
+        )}
       </div>
     </AppLayout>
   );

@@ -14,6 +14,7 @@ from app.models.solicitacao import SolicitacaoCadastro, SituacaoSolicitacao
 from app.models.token_recuperacao import TokenRecuperacaoSenha
 from app.models.atribuicao import AtribuicaoClinica, SituacaoAtribuicao
 from app.models.dupla import DuplaOdonto
+from app.models.ocorrencia import OcorrenciaEstagiario
 
 __all__ = [
     "Usuario",
@@ -35,4 +36,5 @@ __all__ = [
     "AtribuicaoClinica",
     "SituacaoAtribuicao",
     "DuplaOdonto",
+    "OcorrenciaEstagiario",
 ]

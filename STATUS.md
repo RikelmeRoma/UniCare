@@ -1,5 +1,34 @@
 # STATUS — UniCare
 
+## Atualização — 2026-11-11 (extensões do SPA de Psicologia: Demanda, Encerramento, PDF com assinaturas, 6 consultórios e ocorrências pela recepção)
+
+- **Prontuário Psicológico (`DEMANDA` e `ENCERRAMENTO` + linha do tempo unificada)**:
+  `ProntuarioPsico` (`prontuarios_psico`) recebeu `tipo_registro` (`SESSAO` | `DEMANDA` | `ENCERRAMENTO`)
+  e `conteudo_estruturado` (JSON) na migration `8b4e2a9c1f07`. O schema
+  `ProntuarioPsicoCreate` aplica `RN-002` (CFP nº 06/2019, sem aspas literais) em
+  todos os campos das novas fichas, valida as seis opções oficiais do quadro
+  `Registro de Encerramento` e sintetiza `redacao_texto` para homologação e
+  dossiê. Na UI (`PsyRecordPage`), o estagiário passa a contar com as abas
+  `Demanda` e `Encerramento` além de `Registrar Nova Sessão Clínica` e
+  `Linha do Tempo Cronológica`, onde todas as entradas aparecem ordenadas
+  cronologicamente.
+- **Exportação em PDF com campos de assinatura**: botão `Exportar PDF` em
+  `PsyRecordPage` conectado ao portal A4 `RelatorioImpressao` com o componente
+  `ProntuarioPsicoPrint` (cabeçalho institucional UNINASSAU-AJU, quadro cadastral,
+  folhas cronológicas de Demanda/Sessões/Encerramento e blocos explícitos para
+  `Assinatura Estagiário` e `Assinatura Supervisão`).
+- **6 Consultórios SPA disponíveis**: `GET /agendamentos/salas-psico` expõe os
+  6 consultórios oficiais (`Consultório SPA-01` .. `Consultório SPA-06`) e sua
+  ocupação por data/horário; `NewAppointmentModal` passa a oferecer seleção
+  exclusiva entre os 6 consultórios (bloqueando conflito no mesmo horário/data)
+  e `PsyReceptionStats` exibe a ocupação em tempo real sobre os 6 consultórios.
+- **Ocorrências de estagiários pela recepção**: nova tabela
+  `ocorrencias_estagiarios` e endpoints `GET/POST /ocorrencias/psico` restritos
+  ao curso de psicologia (escrita exclusiva `RECEPCAO`/`RT`/`COORDENACAO`;
+  leitura escopada por papel: aluno vê apenas as próprias, supervisor vê apenas
+  as dos seus orientandos), integrados em `PsyReceptionDashboard`,
+  `PsySupervisionPage` e `PsyAppointmentsPage`.
+
 ## Atualização — 2026-11-01 (recuperação de senha: o código só vai para o e-mail do cadastro)
 
 **Relato:** "a tela de recuperar a senha não funciona — diz que enviou, mas o

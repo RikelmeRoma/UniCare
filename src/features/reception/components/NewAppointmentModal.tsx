@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useClinic } from '../../clinic/context/ClinicContext';
 import { api, type ApiEstagiario } from '../../../services/api';
 import { XMarkIcon } from '../../../components/icons/CorporateIcons';
+import { CONSULTORIOS_SPA, TOTAL_CONSULTORIOS_SPA } from '../../psychology/constants/psico';
 
 interface NewAppointmentModalProps {
   onClose: () => void;
@@ -21,7 +22,7 @@ function hojeIso(): string {
 }
 
 export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: NewAppointmentModalProps) {
-  const { pacientes, adicionarAgendamento, atribuicoes, recarregarAtribuicoes } =
+  const { pacientes, agendamentos, adicionarAgendamento, atribuicoes, recarregarAtribuicoes } =
     useClinic();
 
   // Só psicologia tem vínculo paciente-estagiário, e é por ele que o select
@@ -48,9 +49,26 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
   // uncontrolled + ref: o navegador dono do campo, e o que é enviado é
   // literalmente o que está escrito nele.
   const dataSessaoRef = useRef<HTMLInputElement>(null);
+  const [dataDisponibilidade, setDataDisponibilidade] = useState(hojeIso);
   const [salaOuCadeira, setSalaOuCadeira] = useState(
-    defaultCurso === 'psicologia' ? 'Consultório SPA-01' : 'Cadeira Odonto 04'
+    defaultCurso === 'psicologia' ? CONSULTORIOS_SPA[0] : 'Cadeira Odonto 04'
   );
+
+  const salasOcupadasNoSlot = useMemo(() => {
+    const mapa = new Map<string, (typeof agendamentos)[number]>();
+    if (curso !== 'psicologia' || !dataDisponibilidade) return mapa;
+    for (const ag of agendamentos) {
+      if (
+        ag.curso === 'psicologia' &&
+        ag.dataSessao === dataDisponibilidade &&
+        ag.horario === horario &&
+        (ag.status === 'AGENDADO' || ag.status === 'PRESENTE' || ag.status === 'EM_ATENDIMENTO')
+      ) {
+        mapa.set(ag.salaOuCadeira, ag);
+      }
+    }
+    return mapa;
+  }, [agendamentos, curso, dataDisponibilidade, horario]);
   const [tipoConsulta, setTipoConsulta] = useState(
     defaultCurso === 'psicologia' ? 'Psicoterapia Individual' : 'Dentística Restauradora'
   );
@@ -168,6 +186,11 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
       return;
     }
 
+    if (curso === 'psicologia' && salasOcupadasNoSlot.has(salaOuCadeira)) {
+      setErrorMsg('Este consultório já possui sessão agendada para esta data e horário. Escolha outro dos 6 consultórios disponíveis.');
+      return;
+    }
+
     setIsSaving(true);
     const res = await adicionarAgendamento({
       pacienteId,
@@ -262,7 +285,7 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
                   setAuxiliarMatricula('');
                   setEscolheuEstagiario(false);
                   setSalaOuCadeira(
-                    val === 'psicologia' ? 'Consultório SPA-02' : 'Cadeira Odonto 03'
+                    val === 'psicologia' ? CONSULTORIOS_SPA[0] : 'Cadeira Odonto 03'
                   );
                 }}
                 className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none"
@@ -296,6 +319,7 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
                 type="date"
                 defaultValue={hojeIso()}
                 min={hojeIso()}
+                onChange={(e) => setDataDisponibilidade(e.target.value)}
                 className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none font-mono"
               />
             </div>
@@ -314,27 +338,93 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Local / Box Clínico</label>
-              <input
-                type="text"
-                value={salaOuCadeira}
-                onChange={(e) => setSalaOuCadeira(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none"
-              />
-            </div>
+          {curso === 'psicologia' ? (
+            <div className="space-y-3">
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Local / Consultório SPA (6 disponíveis)
+                  </label>
+                  <span className="text-[10px] font-semibold text-slate-500">
+                    {Math.max(TOTAL_CONSULTORIOS_SPA - salasOcupadasNoSlot.size, 0)} de {TOTAL_CONSULTORIOS_SPA} livre(s) às {horario}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {CONSULTORIOS_SPA.map((sala) => {
+                    const ocupacao = salasOcupadasNoSlot.get(sala);
+                    const selecionada = salaOuCadeira === sala;
+                    return (
+                      <button
+                        key={sala}
+                        type="button"
+                        disabled={Boolean(ocupacao)}
+                        onClick={() => setSalaOuCadeira(sala)}
+                        title={
+                          ocupacao
+                            ? `Ocupado por ${ocupacao.estagiarioNome} (${ocupacao.pacienteNome})`
+                            : `${sala} disponível`
+                        }
+                        className={`px-2.5 py-2 rounded-xl border text-left ${
+                          ocupacao
+                            ? 'bg-red-50/70 border-red-200 text-red-400 cursor-not-allowed'
+                            : selecionada
+                              ? 'bg-blue-700 border-blue-700 text-white shadow-xs'
+                              : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-blue-400 hover:bg-white'
+                        }`}
+                      >
+                        <span className="block text-[11px] font-bold">
+                          {sala.replace('Consultório ', '')}
+                        </span>
+                        <span
+                          className={`block text-[10px] truncate ${
+                            ocupacao
+                              ? 'text-red-500'
+                              : selecionada
+                                ? 'text-blue-100'
+                                : 'text-emerald-700'
+                          }`}
+                        >
+                          {ocupacao ? `Ocupada (${ocupacao.estagiarioNome.split(' ')[0]})` : 'Disponível'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Procedimento ou Demanda Prevista</label>
-              <input
-                type="text"
-                value={tipoConsulta}
-                onChange={(e) => setTipoConsulta(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none"
-              />
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Procedimento ou Demanda Prevista</label>
+                <input
+                  type="text"
+                  value={tipoConsulta}
+                  onChange={(e) => setTipoConsulta(e.target.value)}
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none"
+                />
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Local / Box Clínico</label>
+                <input
+                  type="text"
+                  value={salaOuCadeira}
+                  onChange={(e) => setSalaOuCadeira(e.target.value)}
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Procedimento ou Demanda Prevista</label>
+                <input
+                  type="text"
+                  value={tipoConsulta}
+                  onChange={(e) => setTipoConsulta(e.target.value)}
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none"
+                />
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">

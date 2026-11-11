@@ -3,6 +3,7 @@ import { AppLayout } from '../../../../components/layout/AppLayout';
 import { PsyTeacherHeader } from '../components/PsyTeacherHeader';
 import { PsySupervisionStats } from '../components/PsySupervisionStats';
 import { PsyApprovalQueue } from '../components/PsyApprovalQueue';
+import { OcorrenciasEstagiarioCard } from '../../components/OcorrenciasEstagiarioCard';
 import {
   UserGroupIcon,
   XMarkIcon,
@@ -252,6 +253,15 @@ export function PsySupervisionPage() {
 
         {/* Fila de Homologação Real e Devolutiva Pedagógica */}
         <PsyApprovalQueue />
+
+        {/* Ocorrências Operacionais de Estagiários registradas pela recepção */}
+        <OcorrenciasEstagiarioCard
+          subtitulo={
+            isGestor
+              ? 'Ocorrências registradas pela recepção do SPA para todos os estagiários.'
+              : 'Ocorrências registradas pela recepção para os estagiários sob sua orientação.'
+          }
+        />
 
         {/* Estagiários sob Orientação Docente */}
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6">

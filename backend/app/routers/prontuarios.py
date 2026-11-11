@@ -187,6 +187,8 @@ def criar_evolucao_psico(
         supervisor_nome=dados.supervisor_nome,
         data_sessao=dados.data_sessao,
         numero_sessao=dados.numero_sessao,
+        tipo_registro=dados.tipo_registro,
+        conteudo_estruturado=dados.extrair_conteudo_estruturado(),
         redacao_texto=dados.redacao_texto,
         status=StatusProntuario.AGUARDANDO_VALIDACAO
     )

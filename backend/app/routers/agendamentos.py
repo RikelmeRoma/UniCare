@@ -1,3 +1,4 @@
+from datetime import date
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session, select, or_
@@ -12,6 +13,7 @@ from app.services.auth_service import (
     validar_curso_do_registro,
     validar_curso_solicitado,
     exigir_perfil,
+    require_curso,
 )
 from app.services.auditoria_service import registrar_log, ip_do_cliente
 from app.services.vinculo_service import (
@@ -25,6 +27,8 @@ router = APIRouter(prefix="/agendamentos", tags=["Agendamentos & Recepção"])
 CLINICA_PSICO = "psicologia"
 CLINICA_ODONTO = "odontologia"
 
+SALAS_PSICO_DISPONIVEIS = tuple(f"Consultório SPA-0{i}" for i in range(1, 7))
+
 # Agendar sessão psicológica é ato da recepção (RN-001), igual a atribuir o
 # paciente. Conferido aqui porque o `require_roles` é dependência do FastAPI e
 # age antes de o corpo dizer a que clínica a sessão pertence.
@@ -33,6 +37,50 @@ AUTORIZADO_AGENDAR_PSICO = [PerfilUsuario.RECEPCAO, PerfilUsuario.RT]
 # paciente e marcar sessão. A psicologia não entra aqui: o supervisor clínico
 # não substitui a recepção da outra clínica.
 AUTORIZADO_AGENDAR_ODONTO = [PerfilUsuario.RECEPCAO, PerfilUsuario.SUPERVISOR, PerfilUsuario.RT]
+
+
+@router.get("/salas-psico")
+def listar_salas_psico(
+    data_sessao: Optional[date] = None,
+    horario: Optional[str] = None,
+    session: Session = Depends(get_session),
+    current_user: Usuario = Depends(require_curso(CLINICA_PSICO)),
+):
+    """Lista os 6 consultórios disponíveis do SPA e sua ocupação na data/horário."""
+    ocupadas_por_sala: dict[str, dict[str, str]] = {}
+    if data_sessao is not None:
+        query = select(Agendamento).where(
+            Agendamento.curso == CLINICA_PSICO,
+            Agendamento.data_sessao == data_sessao,
+            Agendamento.status.in_(
+                [
+                    StatusAgendamento.AGENDADO,
+                    StatusAgendamento.PRESENTE,
+                    StatusAgendamento.EM_ATENDIMENTO,
+                ]
+            ),
+        )
+        if horario:
+            query = query.where(Agendamento.horario == horario)
+        for ag in session.exec(query).all():
+            if ag.sala_ou_cadeira in SALAS_PSICO_DISPONIVEIS:
+                ocupadas_por_sala[ag.sala_ou_cadeira] = {
+                    "horario": ag.horario,
+                    "estagiario_nome": ag.estagiario_nome,
+                    "paciente_nome": ag.paciente_nome,
+                }
+
+    return {
+        "total_salas": len(SALAS_PSICO_DISPONIVEIS),
+        "salas": [
+            {
+                "nome": sala,
+                "disponivel": sala not in ocupadas_por_sala,
+                "ocupacao": ocupadas_por_sala.get(sala),
+            }
+            for sala in SALAS_PSICO_DISPONIVEIS
+        ],
+    }
 
 @router.get("", response_model=List[AgendamentoRead])
 @router.get("/", response_model=List[AgendamentoRead], include_in_schema=False)

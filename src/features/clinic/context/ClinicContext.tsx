@@ -1,5 +1,18 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { api, ApiError, type ApiPaciente, type ApiAgendamento, type ApiProntuarioPsico, type ApiFichaOdonto, type ApiDocumentoFichaOdonto, type ApiAnamnese, type ApiAtribuicao } from '../../../services/api';
+import {
+  api,
+  ApiError,
+  type ApiPaciente,
+  type ApiAgendamento,
+  type ApiProntuarioPsico,
+  type ApiFichaOdonto,
+  type ApiDocumentoFichaOdonto,
+  type ApiAnamnese,
+  type ApiAtribuicao,
+  type ApiOcorrenciaEstagiario,
+  type TipoOcorrenciaPsico,
+  type TipoRegistroPsico,
+} from '../../../services/api';
 import { useAuth } from '../../auth/context/AuthContext';
 
 export type StatusAgendamento = 'AGENDADO' | 'PRESENTE' | 'EM_ATENDIMENTO' | 'CONCLUIDO' | 'FALTOU' | 'CANCELADO';
@@ -67,10 +80,43 @@ export interface EvolucaoPsico {
   supervisorNome: string;
   dataSessao: string;
   numeroSessao: string;
+  tipoRegistro: TipoRegistroPsico;
+  conteudoEstruturado?: Record<string, unknown> | null;
   redacaoTexto: string;
   parecerSupervisor?: string;
   status: StatusProntuario;
   submetidoEm: string;
+}
+
+export interface NovaEvolucaoPsico {
+  pacienteId: number;
+  pacienteNome: string;
+  estagiarioNome: string;
+  estagiarioMatricula: string;
+  supervisorNome: string;
+  dataSessao: string;
+  numeroSessao: string;
+  tipoRegistro?: TipoRegistroPsico;
+  redacaoTexto: string;
+  avaliacaoDemanda?: string;
+  objetivosIntervencao?: string;
+  hipoteseDiagnostica?: string;
+  avaliacaoFinal?: string;
+  motivosEncerramento?: string[];
+  informacoesAdicionais?: string;
+}
+
+export interface OcorrenciaEstagiario {
+  id: number;
+  estagiarioMatricula: string;
+  estagiarioNome: string;
+  curso: string;
+  tipo: string;
+  dataOcorrencia: string;
+  descricao: string;
+  registradoPorNome: string;
+  registradoPorMatricula: string;
+  criadoEm: string;
 }
 
 export interface FichaOdonto {
@@ -184,6 +230,13 @@ interface ClinicContextType {
   transferirPaciente: (dados: { id: number; estagiarioNome: string; estagiarioMatricula: string; motivo: string }) => Promise<{ success: boolean; message: string }>;
   recarregarAtribuicoes: () => Promise<void>;
   evolucoesPsico: EvolucaoPsico[];
+  ocorrenciasPsico: OcorrenciaEstagiario[];
+  registrarOcorrenciaPsico: (dados: {
+    estagiarioMatricula: string;
+    tipo: TipoOcorrenciaPsico;
+    dataOcorrencia: string;
+    descricao: string;
+  }) => Promise<{ success: boolean; message: string; ocorrencia?: OcorrenciaEstagiario }>;
   fichasOdonto: FichaOdonto[];
   documentosOdonto: DocumentoFichaOdonto[];
   carregarDocumentoOdontoPaciente: (pacienteId: number) => Promise<DocumentoFichaOdonto | null>;
@@ -220,7 +273,7 @@ interface ClinicContextType {
     motivoFalta?: string
   ) => Promise<{ success: boolean; message: string }>;
   homologarEvolucaoPsico: (id: number, decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE', parecer: string) => Promise<{ success: boolean; message: string }>;
-  adicionarEvolucaoPsico: (e: Omit<EvolucaoPsico, 'id' | 'status' | 'submetidoEm'>) => Promise<{ success: boolean; message: string; evolucao?: EvolucaoPsico }>;
+  adicionarEvolucaoPsico: (e: NovaEvolucaoPsico) => Promise<{ success: boolean; message: string; evolucao?: EvolucaoPsico }>;
   adicionarFichaOdonto: (f: NovaFichaOdonto) => Promise<{ success: boolean; message: string; ficha?: FichaOdonto }>;
   homologarFichaOdonto: (id: number, decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE', parecer: string) => Promise<{ success: boolean; message: string }>;
 }
@@ -359,6 +412,7 @@ const INITIAL_EVOLUCOES: EvolucaoPsico[] = [
     supervisorNome: 'Prof. Dr. Robert Santos do Carmo',
     dataSessao: '15/09/2026',
     numeroSessao: 'Sessão 04',
+    tipoRegistro: 'SESSAO',
     redacaoTexto: 'Acolhimento pontual e receptivo. Paciente relata persistência dos gatilhos de sobrecarga com avaliações acadêmicas. Aplicação da técnica de questionamento socrático sobre catastrofização. Paciente identificou padrões de autoexigência com flexibilização cognitiva orientada. Pactuado automonitoramento diário de pensamentos disfuncionais (RPD). Sem risco autolesivo ou queixas agudas.',
     status: 'AGUARDANDO_VALIDACAO',
     submetidoEm: '15/09/2026 14:52',
@@ -372,6 +426,7 @@ const INITIAL_EVOLUCOES: EvolucaoPsico[] = [
     supervisorNome: 'Prof. Dr. Robert Santos do Carmo',
     dataSessao: '14/09/2026',
     numeroSessao: 'Sessão 02',
+    tipoRegistro: 'SESSAO',
     redacaoTexto: 'Sessão iniciada no horário. Acolhimento e validação dos sentimentos relativos à escolha profissional. Aplicação da primeira bateria do questionário de interesses ocupacionais. Boa compreensão das instruções e colaboração ativa. Encerramento com agendamento da aplicação da escala complementar na sessão seguinte.',
     parecerSupervisor: 'Excelente condução técnica e síntese clínica sem transcrições literais. Aprovado com visto digital.',
     status: 'VALIDADO',
@@ -469,10 +524,25 @@ const mapearEvolucao = (pr: ApiProntuarioPsico): EvolucaoPsico => ({
   supervisorNome: pr.supervisor_nome || '',
   dataSessao: pr.data_sessao,
   numeroSessao: pr.numero_sessao,
-      redacaoTexto: pr.redacao_texto,
+  tipoRegistro: pr.tipo_registro ?? 'SESSAO',
+  conteudoEstruturado: pr.conteudo_estruturado ?? null,
+  redacaoTexto: pr.redacao_texto,
   parecerSupervisor: pr.parecer_supervisor,
   status: pr.status,
   submetidoEm: pr.criado_em ? new Date(pr.criado_em).toLocaleDateString('pt-BR') : 'Hoje',
+});
+
+const mapearOcorrencia = (o: ApiOcorrenciaEstagiario): OcorrenciaEstagiario => ({
+  id: o.id,
+  estagiarioMatricula: o.estagiario_matricula,
+  estagiarioNome: o.estagiario_nome,
+  curso: o.curso,
+  tipo: o.tipo,
+  dataOcorrencia: o.data_ocorrencia,
+  descricao: o.descricao,
+  registradoPorNome: o.registrado_por_nome,
+  registradoPorMatricula: o.registrado_por_matricula,
+  criadoEm: o.criado_em ? new Date(o.criado_em).toLocaleDateString('pt-BR') : 'Hoje',
 });
 
 // A ficha odontológica não guarda o nome do paciente: ele vem por FK. O mapper
@@ -610,6 +680,7 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // estado já refletia o banco.
   const [fichasOdonto, setFichasOdonto] = useState<FichaOdonto[]>([]);
   const [documentosOdonto, setDocumentosOdonto] = useState<DocumentoFichaOdonto[]>([]);
+  const [ocorrenciasPsico, setOcorrenciasPsico] = useState<OcorrenciaEstagiario[]>([]);
 
   // Derivado das fichas reais, sem mock.
 const planosTratamento = useMemo(() => planosDasFichas(fichasOdonto), [fichasOdonto]);
@@ -653,7 +724,7 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
     const isPsico = user?.curso === 'psicologia';
     const isOdonto = user?.curso === 'odontologia';
 
-    const [apiPacientes, apiAgendamentos, apiProntuarios, apiFichasOdonto, apiDocumentosOdonto, apiVinculos] = await Promise.allSettled([
+    const [apiPacientes, apiAgendamentos, apiProntuarios, apiFichasOdonto, apiDocumentosOdonto, apiVinculos, apiOcorrencias] = await Promise.allSettled([
       api.getPacientes(),
       api.getAgendamentos(),
       isPsico ? api.getProntuariosPsico() : Promise.resolve([]),
@@ -668,6 +739,7 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
           ? api.getMinhasAtribuicoesPsico()
           : api.getAtribuicoesPsico()
         : Promise.resolve<ApiAtribuicao[]>([]),
+      isPsico ? api.getOcorrenciasPsico() : Promise.resolve<ApiOcorrenciaEstagiario[]>([]),
     ]);
 
     const falhas: string[] = [];
@@ -744,6 +816,12 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
       falhas.push(`vinculo de pacientes: ${apiVinculos.reason?.message ?? 'falhou'}`);
     }
 
+    if (apiOcorrencias.status === 'fulfilled') {
+      setOcorrenciasPsico(apiOcorrencias.value.map(mapearOcorrencia));
+    } else if (!e403Esperado(apiOcorrencias.reason, user?.perfil, user?.curso, 'psicologia')) {
+      falhas.push(`ocorrências: ${apiOcorrencias.reason?.message ?? 'falhou'}`);
+    }
+
     if (falhas.length > 0) {
       console.warn('[UniCare] Sincronização parcial:', falhas);
     }
@@ -783,6 +861,7 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
       // limpar as fichas limpa os planos junto.
       setFichasOdonto([]);
       setDocumentosOdonto([]);
+      setOcorrenciasPsico([]);
       setAnamnesesPorPaciente({});
       localStorage.removeItem(STORAGE_PREFIX + 'pacientes');
       localStorage.removeItem(STORAGE_PREFIX + 'agendamentos');
@@ -978,7 +1057,7 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
   };
 
   const adicionarEvolucaoPsico = async (
-    e: Omit<EvolucaoPsico, 'id' | 'status' | 'submetidoEm'>
+    e: NovaEvolucaoPsico
   ): Promise<{ success: boolean; message: string; evolucao?: EvolucaoPsico }> => {
     try {
       const created = await api.createProntuarioPsico({
@@ -989,16 +1068,50 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
         supervisor_nome: e.supervisorNome,
         data_sessao: e.dataSessao,
         numero_sessao: e.numeroSessao,
+        tipo_registro: e.tipoRegistro ?? 'SESSAO',
         redacao_texto: e.redacaoTexto,
+        avaliacao_demanda: e.avaliacaoDemanda,
+        objetivos_intervencao: e.objetivosIntervencao,
+        hipotese_diagnostica: e.hipoteseDiagnostica,
+        avaliacao_final: e.avaliacaoFinal,
+        motivos_encerramento: e.motivosEncerramento,
+        informacoes_adicionais: e.informacoesAdicionais,
       });
 
       const salva = mapearEvolucao(created);
       setEvolucoesPsico((prev) => [salva, ...prev]);
 
-      return { success: true, message: 'Síntese submetida com sucesso!', evolucao: salva };
+      return { success: true, message: 'Registro submetido com sucesso!', evolucao: salva };
     } catch (err) {
-      const msg = mensagemDeErro(err, 'Falha ao submeter a síntese no servidor.');
-      console.error('[UniCare] submissão de evolução falhou:', err);
+      const msg = mensagemDeErro(err, 'Falha ao submeter o registro no servidor.');
+      console.error('[UniCare] submissão de prontuário psico falhou:', err);
+      return { success: false, message: msg };
+    }
+  };
+
+  const registrarOcorrenciaPsico = async (dados: {
+    estagiarioMatricula: string;
+    tipo: TipoOcorrenciaPsico;
+    dataOcorrencia: string;
+    descricao: string;
+  }): Promise<{ success: boolean; message: string; ocorrencia?: OcorrenciaEstagiario }> => {
+    try {
+      const criada = await api.createOcorrenciaPsico({
+        estagiario_matricula: dados.estagiarioMatricula,
+        tipo: dados.tipo,
+        data_ocorrencia: dados.dataOcorrencia,
+        descricao: dados.descricao,
+      });
+      const salva = mapearOcorrencia(criada);
+      setOcorrenciasPsico((prev) => [salva, ...prev]);
+      return {
+        success: true,
+        message: `Ocorrência registrada para ${salva.estagiarioNome}.`,
+        ocorrencia: salva,
+      };
+    } catch (err) {
+      const msg = mensagemDeErro(err, 'Falha ao registrar ocorrência do estagiário.');
+      console.error('[UniCare] registro de ocorrência falhou:', err);
       return { success: false, message: msg };
     }
   };
@@ -1315,6 +1428,8 @@ const [anamnesesPorPaciente, setAnamnesesPorPaciente] = useState<Record<number, 
         agendamentos,
         atribuicoes,
         evolucoesPsico,
+        ocorrenciasPsico,
+        registrarOcorrenciaPsico,
         fichasOdonto,
         documentosOdonto,
         carregarDocumentoOdontoPaciente,

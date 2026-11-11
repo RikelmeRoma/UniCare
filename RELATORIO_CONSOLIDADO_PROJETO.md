@@ -227,10 +227,15 @@ erDiagram
         string supervisor_nome "opcional"
         string data_sessao "str, nao DATE"
         string numero_sessao
-        text   redacao_texto "texto unico, sem aspas, RN-002"
+        string tipo_registro "idx, SESSAO | DEMANDA | ENCERRAMENTO"
+        json   conteudo_estruturado "opcional, folhas Demanda/Encerramento"
+        text   redacao_texto "sintese clinica unica, sem aspas, RN-002"
                ^ emendado: eram tres colunas (inicio/meio/fim). A tela obrigava o
                  estagiario a separar por fase; a restricao era de interface, nao de
                  prontuario. Quem redige conhece a ordem e escreve em paragrafos.
+                 Posteriormente emendado com `tipo_registro` e `conteudo_estruturado`
+                 para comportar Avaliação da Demanda e Registro de Encerramento na mesma
+                 linha do tempo cronológica.
         text   parecer_supervisor "do supervisor"
         string status "ENUM 4 estados"
         datetime criado_em
@@ -395,9 +400,13 @@ AGENDAMENTOS (id PK, paciente_id FK->PACIENTES, paciente_nome,
 
 PRONTUARIOS_PSICO (id PK, paciente_id FK->PACIENTES, paciente_nome,
                    estagiario_nome, estagiario_matricula, supervisor_nome,
-                   data_sessao, numero_sessao, redacao_texto,
-                   parecer_supervisor,
+                   data_sessao, numero_sessao, tipo_registro,
+                   conteudo_estruturado, redacao_texto, parecer_supervisor,
                    status, criado_em)
+
+OCORRENCIAS_ESTAGIARIOS (id PK, estagiario_matricula, estagiario_nome, curso,
+                         tipo, data_ocorrencia, descricao, registrado_por_nome,
+                         registrado_por_matricula, criado_em)
 
 FICHAS_ODONTO (id PK, paciente_id FK->PACIENTES, dupla_estagiarios,
                operador_matricula, auxiliar_matricula, dente_regiao,

@@ -2,14 +2,23 @@ import { useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { AppLayout } from '../../../../components/layout/AppLayout';
 import { useAuth } from '../../../auth/context/AuthContext';
-import { useClinic } from '../../../clinic/context/ClinicContext';
+import { useClinic, type EvolucaoPsico } from '../../../clinic/context/ClinicContext';
 import {
   DocumentTextIcon,
   ShieldCheckIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
   ClockIcon,
+  PrinterIcon,
 } from '../../../../components/icons/CorporateIcons';
+import { RelatorioImpressao } from '../../../../shared/impressao/RelatorioImpressao';
+import { ProntuarioPsicoPrint } from '../components/ProntuarioPsicoPrint';
+import {
+  calcularIdade,
+  formatarDataBr,
+  META_TIPO_REGISTRO_PSICO,
+  MOTIVOS_ENCERRAMENTO_PSICO,
+} from '../../constants/psico';
 
 /** Converte `dd/mm/aaaa` para `YYYY-MM-DD` para que a comparação de strings
  *  ordene por dia real. Devolve `null` quando a string não é uma data válida
@@ -21,6 +30,18 @@ function parseDataPt(s?: string | null): string | null {
   if (!m) return null;
   const [, dia, mes, ano] = m;
   return `${ano}-${mes}-${dia}`;
+}
+
+function historicoOrdenado(lista: EvolucaoPsico[]): EvolucaoPsico[] {
+  return [...lista].sort((a, b) => {
+    const da = parseDataPt(a.dataSessao);
+    const db = parseDataPt(b.dataSessao);
+    if (da === null && db === null) return a.id - b.id;
+    if (da === null) return 1;
+    if (db === null) return -1;
+    if (da !== db) return da < db ? -1 : 1;
+    return a.id - b.id;
+  });
 }
 
 export function PsyRecordPage() {
@@ -73,29 +94,23 @@ export function PsyRecordPage() {
   const pacienteSelecionado =
     pacientesPsico.find((p) => p.id === selectedPatientId) || pacientesPsico[0];
 
-  const [activeTab, setActiveTab] = useState<'registro' | 'historico'>('registro');
+  const [activeTab, setActiveTab] = useState<'registro' | 'demanda' | 'encerramento' | 'historico'>('registro');
+  const [showImpressao, setShowImpressao] = useState(false);
 
   // A escrita é exclusiva do estagiário. Para os demais perfis, a tela sempre
   // abre na linha do tempo, mesmo que o estado da aba ainda seja o inicial.
   const abaAtiva = isEstagiario ? activeTab : 'historico';
 
-  // Histórico de sessões do paciente atual. A ordenação é feita a partir de
-  // `dataSessao`, que chega como `dd/mm/aaaa` (texto livre no schema): tentar
-  // ordenar a string não funciona entre meses, então converte para ISO antes
-  // de comparar. Sessões sem data ficam no fim, não viram a mais antiga.
-  const historicoSessoes = evolucoesPsico
-    .filter((e) => e.pacienteId === pacienteSelecionado?.id)
-    .sort((a, b) => {
-      const da = parseDataPt(a.dataSessao);
-      const db = parseDataPt(b.dataSessao);
-      if (da === null && db === null) return 0;
-      if (da === null) return 1;
-      if (db === null) return -1;
-      return da < db ? -1 : da > db ? 1 : 0;
-    });
+  // Histórico de registros do paciente atual (Demanda, Sessões e Encerramento).
+  // A ordenação é feita a partir de `dataSessao`, que chega como `dd/mm/aaaa`:
+  // converte para ISO antes de comparar. Registros sem data ficam no fim.
+  const historicoSessoes = historicoOrdenado(
+    evolucoesPsico.filter((e) => e.pacienteId === pacienteSelecionado?.id)
+  );
 
   // Parâmetros da sessão
-  const proximaSessaoNumero = `Sessão ${(historicoSessoes.length + 1).toString().padStart(2, '0')}`;
+  const totalSessoesClinicas = historicoSessoes.filter((e) => e.tipoRegistro === 'SESSAO').length;
+  const proximaSessaoNumero = `Sessão ${(totalSessoesClinicas + 1).toString().padStart(2, '0')}`;
   const [numeroSessao, setNumeroSessao] = useState(proximaSessaoNumero);
   // `new Date().toISOString()` vira UTC e, em Aracaju (UTC-3), entre 21h e 24h
   // sai como o dia seguinte. O mesmo cuidado que o modal de agendamento e o
@@ -103,69 +118,82 @@ export function PsyRecordPage() {
   const hojeLocal = new Date();
   const mes = String(hojeLocal.getMonth() + 1).padStart(2, '0');
   const dia = String(hojeLocal.getDate()).padStart(2, '0');
-  const [dataSessao, setDataSessao] = useState(
-    `${hojeLocal.getFullYear()}-${mes}-${dia}`
-  );
+  const hojeIsoLocal = `${hojeLocal.getFullYear()}-${mes}-${dia}`;
+  const [dataSessao, setDataSessao] = useState(hojeIsoLocal);
 
   // Parametros da sessao e o texto redigido abaixo.
-  // Nascem VAZIOS de propósito. Antes cada textarea vinha com uma evolução
-  // clínica redigida ("paciente relata manutenção do quadro de sobrecarga…",
-  // "sem indicadores de risco autolesivo") e handleSalvarEnviar gravava
-  // exatamente esse texto: dado clínico falso, escrevido por quem não
-  // acompanhou a sessão, seguindo para a fila de homologação. Quem redige a
-  // síntese é o estagiário, a partir do que aconteceu.
-  // A redacao e uma caixa unica. Antes eram tres (inicio, meio e fim): a tela
-  // exigia que o estagiario separasse por fase, mas o que ele conhece e a ordem
-  // em que as coisas aconteceram, e escreve isso em paragrafos.
-  //
-  // Nasce VAZIO de proposito. Antes o campo vinha com uma evolucao clinica
-  // redigida ('paciente relata manutencao do quadro de sobrecarga.', 'sem
-  // indicadores de risco autolesivo') e handleSalvarEnviar gravava exatamente
-  // esse texto: dado clinico falso, escrito por quem nao acompanhou a sessao,
-  // seguindo para a fila de homologacao. Quem redige a sintese e o estagiario,
-  // a partir do que aconteceu.
+  // Nascem VAZIOS de propósito.
   const [redacao, setRedacao] = useState('');
+
+  // Campos da folha Avaliação da Demanda (UNINASSAU-AJU)
+  const [dataDemanda, setDataDemanda] = useState(hojeIsoLocal);
+  const [avaliacaoDemanda, setAvaliacaoDemanda] = useState('');
+  const [objetivosIntervencao, setObjetivosIntervencao] = useState('');
+  const [hipoteseDiagnostica, setHipoteseDiagnostica] = useState('');
+
+  // Campos da folha Registro de Encerramento (UNINASSAU-AJU)
+  const [dataEncerramento, setDataEncerramento] = useState(hojeIsoLocal);
+  const [avaliacaoFinal, setAvaliacaoFinal] = useState('');
+  const [motivosEncerramento, setMotivosEncerramento] = useState<string[]>([]);
+  const [informacoesAdicionais, setInformacoesAdicionais] = useState('');
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [registroGerado, setRegistroGerado] = useState<number | null>(null);
+  const [ultimoTipoSubmetido, setUltimoTipoSubmetido] = useState<'SESSAO' | 'DEMANDA' | 'ENCERRAMENTO'>('SESSAO');
   const [isSaving, setIsSaving] = useState(false);
   const [erroMsg, setErroMsg] = useState('');
 
-  // Detecção estrita de aspas (RN-002 / CFP nº 06/2019)
+  // Detecção estrita de aspas (RN-002 / CFP nº 06/2019) na aba em preenchimento
   const quoteRegex = /["“”«»]/;
-  const temAspas = quoteRegex.test(redacao);
+  const temAspas =
+    abaAtiva === 'registro'
+      ? quoteRegex.test(redacao)
+      : abaAtiva === 'demanda'
+        ? quoteRegex.test(avaliacaoDemanda) ||
+          quoteRegex.test(objetivosIntervencao) ||
+          quoteRegex.test(hipoteseDiagnostica)
+        : abaAtiva === 'encerramento'
+          ? quoteRegex.test(avaliacaoFinal) || quoteRegex.test(informacoesAdicionais)
+          : false;
 
   // A redacao e obrigatoria. O servidor tambem recusa texto em branco
   // (validar_texto_clinico) - a tela avisa antes para o estagiario nao tomar
   // 422 depois de escrever tudo.
   const faltaSintese = redacao.trim().length === 0;
+  const faltaDemanda =
+    !avaliacaoDemanda.trim() || !objetivosIntervencao.trim() || !hipoteseDiagnostica.trim();
+  const faltaEncerramento = !avaliacaoFinal.trim() || motivosEncerramento.length === 0;
 
   const removerAspasAutomaticamente = () => {
-    setRedacao((prev) => prev.replace(/[“”«»"]/g, ''));
+    const limpar = (v: string) => v.replace(/[“”«»"]/g, '');
+    if (abaAtiva === 'registro') {
+      setRedacao(limpar);
+    } else if (abaAtiva === 'demanda') {
+      setAvaliacaoDemanda(limpar);
+      setObjetivosIntervencao(limpar);
+      setHipoteseDiagnostica(limpar);
+    } else if (abaAtiva === 'encerramento') {
+      setAvaliacaoFinal(limpar);
+      setInformacoesAdicionais(limpar);
+    }
   };
 
-  const handleSalvarEnviar = async () => {
-    if (!isEstagiario || temAspas || faltaSintese || !pacienteSelecionado || isSaving) return;
+  const alternarMotivoEncerramento = (motivo: string) => {
+    setMotivosEncerramento((prev) =>
+      prev.includes(motivo) ? prev.filter((m) => m !== motivo) : [...prev, motivo]
+    );
+  };
+
+  const enviarRegistro = async (
+    payload: Parameters<typeof adicionarEvolucaoPsico>[0],
+    tipo: 'SESSAO' | 'DEMANDA' | 'ENCERRAMENTO',
+    aoConcluir: () => void
+  ) => {
+    if (!isEstagiario || temAspas || !pacienteSelecionado || isSaving) return;
 
     setIsSaving(true);
     setErroMsg('');
-
-    // O retorno { success, message } é justamente o que impede perda de dado:
-    // abrir o modal de sucesso antes da resposta do servidor fazia a clínica
-    // acreditar que a síntese foi gravada quando o servidor pode ter recusado.
-    const resultado = await adicionarEvolucaoPsico({
-      pacienteId: pacienteSelecionado.id,
-      pacienteNome: pacienteSelecionado.nome,
-      estagiarioNome: user?.nome || '',
-      estagiarioMatricula: user?.matricula || '',
-      // Não existe vínculo estagiário↔supervisor no schema. Antes era gravado um
-      // nome literal, que virava dado falso dentro do prontuário.
-      supervisorNome: '',
-      dataSessao: new Date(dataSessao).toLocaleDateString('pt-BR'),
-      numeroSessao: numeroSessao,
-      redacaoTexto: redacao,
-    });
-
+    const resultado = await adicionarEvolucaoPsico(payload);
     setIsSaving(false);
 
     if (!resultado.success || !resultado.evolucao) {
@@ -173,10 +201,83 @@ export function PsyRecordPage() {
       return;
     }
 
-    // Id real devolvido pelo banco — não um "protocolo" montado no cliente com
-    // Date.now(), que não existe em lugar nenhum.
+    aoConcluir();
+    setUltimoTipoSubmetido(tipo);
     setRegistroGerado(resultado.evolucao.id);
     setShowSuccessModal(true);
+  };
+
+  const handleSalvarEnviar = () => {
+    if (faltaSintese || !pacienteSelecionado) return;
+    void enviarRegistro(
+      {
+        pacienteId: pacienteSelecionado.id,
+        pacienteNome: pacienteSelecionado.nome,
+        estagiarioNome: user?.nome || '',
+        estagiarioMatricula: user?.matricula || '',
+        supervisorNome: '',
+        dataSessao: formatarDataBr(dataSessao),
+        numeroSessao,
+        tipoRegistro: 'SESSAO',
+        redacaoTexto: redacao,
+      },
+      'SESSAO',
+      () => {
+        setRedacao('');
+      }
+    );
+  };
+
+  const handleSalvarDemanda = () => {
+    if (faltaDemanda || !pacienteSelecionado) return;
+    void enviarRegistro(
+      {
+        pacienteId: pacienteSelecionado.id,
+        pacienteNome: pacienteSelecionado.nome,
+        estagiarioNome: user?.nome || '',
+        estagiarioMatricula: user?.matricula || '',
+        supervisorNome: '',
+        dataSessao: formatarDataBr(dataDemanda),
+        numeroSessao: 'Avaliação da Demanda',
+        tipoRegistro: 'DEMANDA',
+        redacaoTexto: '',
+        avaliacaoDemanda,
+        objetivosIntervencao,
+        hipoteseDiagnostica,
+      },
+      'DEMANDA',
+      () => {
+        setAvaliacaoDemanda('');
+        setObjetivosIntervencao('');
+        setHipoteseDiagnostica('');
+      }
+    );
+  };
+
+  const handleSalvarEncerramento = () => {
+    if (faltaEncerramento || !pacienteSelecionado) return;
+    void enviarRegistro(
+      {
+        pacienteId: pacienteSelecionado.id,
+        pacienteNome: pacienteSelecionado.nome,
+        estagiarioNome: user?.nome || '',
+        estagiarioMatricula: user?.matricula || '',
+        supervisorNome: '',
+        dataSessao: formatarDataBr(dataEncerramento),
+        numeroSessao: 'Encerramento',
+        tipoRegistro: 'ENCERRAMENTO',
+        redacaoTexto: '',
+        avaliacaoFinal,
+        motivosEncerramento,
+        informacoesAdicionais,
+      },
+      'ENCERRAMENTO',
+      () => {
+        setAvaliacaoFinal('');
+        setMotivosEncerramento([]);
+        setInformacoesAdicionais('');
+      }
+    );
   };
 
   const iniciaisPaciente = (pacienteSelecionado?.nome || 'Paciente')
@@ -257,21 +358,15 @@ export function PsyRecordPage() {
             </div>
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <div className="text-right">
-              {/* "#SPA-2026-0104" era literal no JSX: mesmo número para todo
-                  paciente, sempre. Protocolo que não existe na base é dado
-                  fabricado. Trocado pela contagem real de evoluções. */}
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Evoluções registradas</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Registros na linha do tempo</p>
               <p className="text-xs font-semibold text-slate-800 font-mono">
                 {historicoSessoes.length}
               </p>
             </div>
-            <div className="w-px bg-slate-200"></div>
+            <div className="w-px h-8 bg-slate-200"></div>
             <div className="text-right">
-              {/* "Prof. Dr. Robert Santos" também era literal. Não existe
-                  vínculo estagiário↔supervisor no schema, então o docente
-                  correto aqui é quem está autenticado — e isso vem do token. */}
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                 {isEstagiario ? 'Responsável pelo registro' : 'Consulta de prontuário'}
               </p>
@@ -279,31 +374,82 @@ export function PsyRecordPage() {
                 {user?.nome || '—'}
               </p>
             </div>
+            <button
+              type="button"
+              disabled={!pacienteSelecionado}
+              onClick={() => setShowImpressao(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold shadow-xs transition-colors"
+            >
+              <PrinterIcon className="w-4 h-4" />
+              <span>Exportar PDF</span>
+            </button>
           </div>
         </div>
 
         {/* Menu de Abas Segmentadas */}
-        <div className="bg-white p-1 rounded-2xl border border-slate-200/80 shadow-xs flex">
+        <div className="bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-wrap gap-1">
           {isEstagiario && (
-            <button
-              onClick={() => setActiveTab('registro')}
-              className={`flex-1 py-2.5 px-4 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
-                abaAtiva === 'registro'
-                  ? 'bg-slate-900 text-white shadow-xs'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              <DocumentTextIcon className="w-4 h-4" />
-              <span>Registrar Nova Sessão Clínica</span>
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('registro');
+                  setErroMsg('');
+                }}
+                className={`flex-1 min-w-[190px] py-2.5 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
+                  abaAtiva === 'registro'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+              >
+                <DocumentTextIcon className="w-4 h-4" />
+                <span>Registrar Nova Sessão Clínica</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('demanda');
+                  setErroMsg('');
+                }}
+                className={`flex-1 min-w-[140px] py-2.5 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
+                  abaAtiva === 'demanda'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+              >
+                <DocumentTextIcon className="w-4 h-4" />
+                <span>Demanda</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('encerramento');
+                  setErroMsg('');
+                }}
+                className={`flex-1 min-w-[150px] py-2.5 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
+                  abaAtiva === 'encerramento'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+              >
+                <DocumentTextIcon className="w-4 h-4" />
+                <span>Encerramento</span>
+              </button>
+            </>
           )}
 
           <button
-            onClick={() => setActiveTab('historico')}
-            className={`flex-1 py-2.5 px-4 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
+            type="button"
+            onClick={() => {
+              setActiveTab('historico');
+              setErroMsg('');
+            }}
+            className={`flex-1 min-w-[200px] py-2.5 px-3 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
               abaAtiva === 'historico'
                 ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-slate-500 hover:text-slate-900'
+                : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <ClockIcon className="w-4 h-4" />
@@ -320,7 +466,7 @@ export function PsyRecordPage() {
         </div>
 
         {/* ALERTA NORMATIVO ANTI-ASPAS (RN-002 / CFP nº 06/2019) */}
-        {temAspas && abaAtiva === 'registro' && (
+        {temAspas && abaAtiva !== 'historico' && (
           <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 shadow-xs flex items-start gap-3.5">
             <ExclamationTriangleIcon className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
             <div className="flex-1">
@@ -472,88 +618,456 @@ export function PsyRecordPage() {
               </div>
             )}
           </div>
-        ) : (
-           /* ABA 2: LINHA DO TEMPO CRONOLÓGICA */
-
-          <div className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-6">
-            <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+        ) : abaAtiva === 'demanda' ? (
+          /* ABA 2: FOLHA DE AVALIAÇÃO DA DEMANDA (UNINASSAU-AJU) */
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-8 space-y-6 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
-                  Histórico de Atendimentos do Prontuário
+                  Avaliação da Demanda — Estágio Supervisionado Psicologia
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Ficha inicial do Prontuário Psicológico UNINASSAU-AJU integrada à linha do tempo.
+                </p>
+              </div>
+              <div className="w-full sm:w-48">
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Data do Registro
+                </label>
+                <input
+                  type="date"
+                  value={dataDemanda}
+                  onChange={(e) => setDataDemanda(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold text-slate-800 outline-none focus:border-blue-600 focus:bg-white font-mono"
+                />
+              </div>
+            </div>
+
+            {/* Quadro cadastral padrão UNINASSAU-AJU */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 rounded-xl bg-slate-50/80 border border-slate-200 text-xs">
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Cliente</span>
+                <span className="font-semibold text-slate-800">{pacienteSelecionado?.nome || '—'}</span>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Nascimento / Idade</span>
+                <span className="font-mono text-slate-800">
+                  {formatarDataBr(pacienteSelecionado?.dataNascimento)} · {calcularIdade(pacienteSelecionado?.dataNascimento)}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Estagiário</span>
+                <span className="font-semibold text-slate-800">{user?.nome || '—'}</span>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Responsável / CPF</span>
+                <span className="text-slate-800">
+                  {pacienteSelecionado?.nomeResponsavel || 'Não aplicável'} ·{' '}
+                  <span className="font-mono">{pacienteSelecionado?.cpf || '—'}</span>
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-5">
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Avaliação da Demanda ou Queixa: *
+                </label>
+                <textarea
+                  rows={4}
+                  value={avaliacaoDemanda}
+                  onChange={(e) => setAvaliacaoDemanda(e.target.value)}
+                  placeholder="Descreva a queixa apresentada, contexto clínico e demanda inicial sem utilizar aspas literais..."
+                  className="w-full bg-slate-50/50 border border-slate-200 rounded-xl p-3.5 text-xs text-slate-800 leading-relaxed outline-none focus:bg-white focus:border-blue-600 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Definição dos Objetivos da Intervenção: *
+                </label>
+                <textarea
+                  rows={4}
+                  value={objetivosIntervencao}
+                  onChange={(e) => setObjetivosIntervencao(e.target.value)}
+                  placeholder="Informe os objetivos terapêuticos e plano de intervenção proposto..."
+                  className="w-full bg-slate-50/50 border border-slate-200 rounded-xl p-3.5 text-xs text-slate-800 leading-relaxed outline-none focus:bg-white focus:border-blue-600 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Hipótese Diagnóstica Inicial: *
+                </label>
+                <textarea
+                  rows={3}
+                  value={hipoteseDiagnostica}
+                  onChange={(e) => setHipoteseDiagnostica(e.target.value)}
+                  placeholder="Registre a hipótese diagnóstica inicial e observações clínicas..."
+                  className="w-full bg-slate-50/50 border border-slate-200 rounded-xl p-3.5 text-xs text-slate-800 leading-relaxed outline-none focus:bg-white focus:border-blue-600 transition-all"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setAvaliacaoDemanda('');
+                  setObjetivosIntervencao('');
+                  setHipoteseDiagnostica('');
+                  setErroMsg('');
+                }}
+                className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Limpar Folha de Demanda
+              </button>
+              <button
+                type="button"
+                disabled={temAspas || faltaDemanda || !pacienteSelecionado || isSaving}
+                onClick={handleSalvarDemanda}
+                className={`px-6 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-xs ${
+                  temAspas || faltaDemanda || !pacienteSelecionado || isSaving
+                    ? 'bg-slate-400 cursor-not-allowed opacity-60'
+                    : 'bg-blue-700 hover:bg-blue-800'
+                }`}
+              >
+                {isSaving ? 'Enviando…' : 'Registrar Demanda na Linha do Tempo'}
+              </button>
+            </div>
+
+            {faltaDemanda && (
+              <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-900 text-xs rounded-xl">
+                Preencha os três campos da Avaliação da Demanda antes de enviar para homologação.
+              </div>
+            )}
+
+            {erroMsg && (
+              <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl">
+                Não foi possível submeter a Avaliação da Demanda: {erroMsg}
+              </div>
+            )}
+          </div>
+        ) : abaAtiva === 'encerramento' ? (
+          /* ABA 3: FOLHA DE REGISTRO DE ENCERRAMENTO (UNINASSAU-AJU) */
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-8 space-y-6 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Registro de Encerramento — Estágio Supervisionado Psicologia
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Desfecho clínico do Prontuário Psicológico UNINASSAU-AJU integrado à linha do tempo.
+                </p>
+              </div>
+              <div className="w-full sm:w-48">
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Data do Encerramento
+                </label>
+                <input
+                  type="date"
+                  value={dataEncerramento}
+                  onChange={(e) => setDataEncerramento(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold text-slate-800 outline-none focus:border-blue-600 focus:bg-white font-mono"
+                />
+              </div>
+            </div>
+
+            {/* Quadro cadastral padrão UNINASSAU-AJU */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 rounded-xl bg-slate-50/80 border border-slate-200 text-xs">
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Cliente</span>
+                <span className="font-semibold text-slate-800">{pacienteSelecionado?.nome || '—'}</span>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Nascimento / Idade</span>
+                <span className="font-mono text-slate-800">
+                  {formatarDataBr(pacienteSelecionado?.dataNascimento)} · {calcularIdade(pacienteSelecionado?.dataNascimento)}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Estagiário</span>
+                <span className="font-semibold text-slate-800">{user?.nome || '—'}</span>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Responsável / CPF</span>
+                <span className="text-slate-800">
+                  {pacienteSelecionado?.nomeResponsavel || 'Não aplicável'} ·{' '}
+                  <span className="font-mono">{pacienteSelecionado?.cpf || '—'}</span>
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Avaliação Final do Caso: *
+              </label>
+              <textarea
+                rows={4}
+                value={avaliacaoFinal}
+                onChange={(e) => setAvaliacaoFinal(e.target.value)}
+                placeholder="Descreva a evolução global do processo terapêutico e avaliação final sem citações entre aspas..."
+                className="w-full bg-slate-50/50 border border-slate-200 rounded-xl p-3.5 text-xs text-slate-800 leading-relaxed outline-none focus:bg-white focus:border-blue-600 transition-all"
+              />
+            </div>
+
+            <div className="space-y-2.5">
+              <label className="block text-xs font-bold text-slate-800">
+                Registro de Encerramento *
+              </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                {MOTIVOS_ENCERRAMENTO_PSICO.map((motivo) => {
+                  const selecionado = motivosEncerramento.includes(motivo);
+                  return (
+                    <label
+                      key={motivo}
+                      className={`flex items-center gap-3 p-3 rounded-xl border text-xs cursor-pointer transition-all ${
+                        selecionado
+                          ? 'bg-blue-50/80 border-blue-500 text-blue-950 font-semibold'
+                          : 'bg-slate-50/50 border-slate-200 text-slate-700 hover:border-slate-300'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selecionado}
+                        onChange={() => alternarMotivoEncerramento(motivo)}
+                        className="w-4 h-4 rounded border-slate-300 text-blue-700 focus:ring-blue-600"
+                      />
+                      <span>{motivo}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Informações Adicionais:
+              </label>
+              <textarea
+                rows={3}
+                value={informacoesAdicionais}
+                onChange={(e) => setInformacoesAdicionais(e.target.value)}
+                placeholder="Encaminhamentos, recomendações de continuidade ou observações complementares (opcional)..."
+                className="w-full bg-slate-50/50 border border-slate-200 rounded-xl p-3.5 text-xs text-slate-800 leading-relaxed outline-none focus:bg-white focus:border-blue-600 transition-all"
+              />
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setAvaliacaoFinal('');
+                  setMotivosEncerramento([]);
+                  setInformacoesAdicionais('');
+                  setErroMsg('');
+                }}
+                className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Limpar Folha de Encerramento
+              </button>
+              <button
+                type="button"
+                disabled={temAspas || faltaEncerramento || !pacienteSelecionado || isSaving}
+                onClick={handleSalvarEncerramento}
+                className={`px-6 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-xs ${
+                  temAspas || faltaEncerramento || !pacienteSelecionado || isSaving
+                    ? 'bg-slate-400 cursor-not-allowed opacity-60'
+                    : 'bg-blue-700 hover:bg-blue-800'
+                }`}
+              >
+                {isSaving ? 'Enviando…' : 'Registrar Encerramento na Linha do Tempo'}
+              </button>
+            </div>
+
+            {faltaEncerramento && (
+              <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-900 text-xs rounded-xl">
+                Informe a Avaliação Final do Caso e selecione ao menos uma opção em Registro de Encerramento.
+              </div>
+            )}
+
+            {erroMsg && (
+              <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl">
+                Não foi possível submeter o Registro de Encerramento: {erroMsg}
+              </div>
+            )}
+          </div>
+        ) : (
+           /* ABA 4: LINHA DO TEMPO CRONOLÓGICA UNIFICADA (Demanda + Sessões + Encerramento) */
+
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 pb-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Histórico Unificado do Prontuário
                 </h3>
                 <p className="text-xs text-slate-500">
                   Paciente: <strong className="text-slate-800">{pacienteSelecionado?.nome}</strong> •{' '}
-                  Custódia Legal Ativa
+                  Demanda, Sessões Clínicas e Encerramento em ordem cronológica
                 </p>
               </div>
-              <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-full">
-                {historicoSessoes.length} sessões registradas
-              </span>
+              <div className="flex items-center gap-2.5">
+                <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-full">
+                  {historicoSessoes.length} registro(s)
+                </span>
+                <button
+                  type="button"
+                  disabled={!pacienteSelecionado}
+                  onClick={() => setShowImpressao(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white text-xs font-bold transition-colors"
+                >
+                  <PrinterIcon className="w-3.5 h-3.5" />
+                  <span>Exportar PDF</span>
+                </button>
+              </div>
             </div>
 
             {historicoSessoes.length === 0 ? (
               <div className="py-16 text-center text-slate-400 space-y-2">
                 <DocumentTextIcon className="w-8 h-8 mx-auto text-slate-300" />
-                <p className="text-xs">Nenhum atendimento anterior registrado para este paciente.</p>
+                <p className="text-xs">Nenhum registro clínico anterior para este paciente.</p>
               </div>
             ) : (
               <div className="space-y-4">
-                {historicoSessoes.map((sessao, index) => (
-                  <div
-                    key={sessao.id || index}
-                    className="p-5 rounded-2xl border border-slate-200/80 bg-slate-50/50 space-y-3"
-                  >
-                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 pb-2.5 border-b border-slate-200/60">
-                      <div className="flex items-center gap-2.5">
-                        <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-700 text-white font-mono">
-                          {sessao.numeroSessao}
-                        </span>
-                        <span className="text-xs font-semibold text-slate-900">
-                          Data: {sessao.dataSessao}
-                        </span>
-                        <span className="text-slate-300">•</span>
-                        <span className="text-xs text-slate-600">
-                          Autor: <strong>{sessao.estagiarioNome}</strong> ({sessao.estagiarioMatricula})
-                        </span>
-                      </div>
+                {historicoSessoes.map((sessao, index) => {
+                  const meta = META_TIPO_REGISTRO_PSICO[sessao.tipoRegistro] ?? META_TIPO_REGISTRO_PSICO.SESSAO;
+                  const est = (sessao.conteudoEstruturado ?? {}) as Record<string, unknown>;
 
-                      <div>
-                        {sessao.status === 'VALIDADO' ? (
-                          <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1.5">
-                            <CheckCircleIcon className="w-3.5 h-3.5 text-emerald-600" />
-                            Homologado com Visto Digital
+                  return (
+                    <div
+                      key={sessao.id || index}
+                      className="p-5 rounded-2xl border border-slate-200/80 bg-slate-50/50 space-y-3"
+                    >
+                      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 pb-2.5 border-b border-slate-200/60">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${meta.classeBadge}`}
+                          >
+                            {meta.badge}
                           </span>
-                        ) : (
-                          <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-purple-100 text-purple-800 border border-purple-200 flex items-center gap-1.5">
-                            <ClockIcon className="w-3.5 h-3.5 text-purple-600" />
-                            Aguardando Visto Docente
+                          <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-700 text-white font-mono">
+                            {sessao.numeroSessao}
                           </span>
-                        )}
-                      </div>
-                    </div>
+                          <span className="text-xs font-semibold text-slate-900">
+                            Data: {sessao.dataSessao}
+                          </span>
+                          <span className="text-slate-300">•</span>
+                          <span className="text-xs text-slate-600">
+                            Autor: <strong>{sessao.estagiarioNome}</strong> ({sessao.estagiarioMatricula})
+                          </span>
+                        </div>
 
-                    {/* Sintese registrada, em paragrafos como foi escrita */}
-                    <div className="bg-white p-3 rounded-xl border border-slate-200/70">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                        Sintese da sessao
-                      </p>
-                      <p className="text-slate-700 leading-relaxed whitespace-pre-line">
-                        {sessao.redacaoTexto}
-                      </p>
-                    </div>
-
-                    {/* Parecer do Supervisor se houver */}
-                    {sessao.parecerSupervisor && (
-                      <div className="p-3 bg-purple-50 border border-purple-200/80 rounded-xl text-xs">
-                        <p className="font-bold text-purple-900 mb-0.5 flex items-center gap-1.5">
-                          <ShieldCheckIcon className="w-3.5 h-3.5 text-purple-700" />
-                          <span>Parecer Pedagógico do Supervisor ({sessao.supervisorNome}):</span>
-                        </p>
-                        <p className="text-purple-800 italic">{sessao.parecerSupervisor}</p>
+                        <div>
+                          {sessao.status === 'VALIDADO' ? (
+                            <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1.5">
+                              <CheckCircleIcon className="w-3.5 h-3.5 text-emerald-600" />
+                              Homologado com Visto Digital
+                            </span>
+                          ) : sessao.status === 'DEVOLVIDO_PARA_AJUSTE' ? (
+                            <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-200 flex items-center gap-1.5">
+                              <ExclamationTriangleIcon className="w-3.5 h-3.5 text-amber-700" />
+                              Devolvido para Ajuste
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-purple-100 text-purple-800 border border-purple-200 flex items-center gap-1.5">
+                              <ClockIcon className="w-3.5 h-3.5 text-purple-600" />
+                              Aguardando Visto Docente
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {sessao.tipoRegistro === 'DEMANDA' && sessao.conteudoEstruturado ? (
+                        <div className="space-y-2.5 text-xs">
+                          <div className="bg-white p-3 rounded-xl border border-slate-200/70">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                              Avaliação da Demanda ou Queixa
+                            </p>
+                            <p className="text-slate-700 leading-relaxed whitespace-pre-line">
+                              {String(est.avaliacao_demanda ?? '')}
+                            </p>
+                          </div>
+                          <div className="bg-white p-3 rounded-xl border border-slate-200/70">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                              Definição dos Objetivos da Intervenção
+                            </p>
+                            <p className="text-slate-700 leading-relaxed whitespace-pre-line">
+                              {String(est.objetivos_intervencao ?? '')}
+                            </p>
+                          </div>
+                          <div className="bg-white p-3 rounded-xl border border-slate-200/70">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                              Hipótese Diagnóstica Inicial
+                            </p>
+                            <p className="text-slate-700 leading-relaxed whitespace-pre-line">
+                              {String(est.hipotese_diagnostica ?? '')}
+                            </p>
+                          </div>
+                        </div>
+                      ) : sessao.tipoRegistro === 'ENCERRAMENTO' && sessao.conteudoEstruturado ? (
+                        <div className="space-y-2.5 text-xs">
+                          <div className="bg-white p-3 rounded-xl border border-slate-200/70">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                              Avaliação Final do Caso
+                            </p>
+                            <p className="text-slate-700 leading-relaxed whitespace-pre-line">
+                              {String(est.avaliacao_final ?? '')}
+                            </p>
+                          </div>
+                          <div className="bg-white p-3 rounded-xl border border-slate-200/70">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                              Registro de Encerramento
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {(Array.isArray(est.motivos_encerramento)
+                                ? est.motivos_encerramento.map(String)
+                                : []
+                              ).map((motivo) => (
+                                <span
+                                  key={motivo}
+                                  className="px-2.5 py-1 rounded-lg bg-purple-50 text-purple-900 border border-purple-200 text-[11px] font-semibold"
+                                >
+                                  {motivo}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          {typeof est.informacoes_adicionais === 'string' &&
+                            est.informacoes_adicionais.trim() !== '' && (
+                              <div className="bg-white p-3 rounded-xl border border-slate-200/70">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                                  Informações Adicionais
+                                </p>
+                                <p className="text-slate-700 leading-relaxed whitespace-pre-line">
+                                  {est.informacoes_adicionais}
+                                </p>
+                              </div>
+                            )}
+                        </div>
+                      ) : (
+                        <div className="bg-white p-3 rounded-xl border border-slate-200/70">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                            Síntese da Sessão
+                          </p>
+                          <p className="text-slate-700 leading-relaxed whitespace-pre-line">
+                            {sessao.redacaoTexto}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Parecer do Supervisor se houver */}
+                      {sessao.parecerSupervisor && (
+                        <div className="p-3 bg-purple-50 border border-purple-200/80 rounded-xl text-xs">
+                          <p className="font-bold text-purple-900 mb-0.5 flex items-center gap-1.5">
+                            <ShieldCheckIcon className="w-3.5 h-3.5 text-purple-700" />
+                            <span>Parecer Pedagógico do Supervisor ({sessao.supervisorNome}):</span>
+                          </p>
+                          <p className="text-purple-800 italic">{sessao.parecerSupervisor}</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -568,10 +1082,14 @@ export function PsyRecordPage() {
               </div>
               <div className="text-center space-y-1">
                 <h3 className="text-base font-bold text-slate-900">
-                  Evolução Clínica Submetida com Sucesso
+                  {ultimoTipoSubmetido === 'DEMANDA'
+                    ? 'Avaliação da Demanda Registrada'
+                    : ultimoTipoSubmetido === 'ENCERRAMENTO'
+                      ? 'Registro de Encerramento Submetido'
+                      : 'Evolução Clínica Submetida com Sucesso'}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  O registro foi encaminhado para a fila de homologação e visto digital do orientador docente.
+                  O registro entrou na linha do tempo do paciente e foi encaminhado para homologação docente.
                 </p>
               </div>
 
@@ -593,6 +1111,21 @@ export function PsyRecordPage() {
               </button>
             </div>
           </div>
+        )}
+
+        {showImpressao && pacienteSelecionado && (
+          <RelatorioImpressao
+            titulo={`Prontuário Psicológico · ${pacienteSelecionado.nome}`}
+            nomeArquivo={`prontuario-psicologico-${pacienteSelecionado.nome.toLowerCase().replace(/\s+/g, '-')}`}
+            onClose={() => setShowImpressao(false)}
+          >
+            <ProntuarioPsicoPrint
+              paciente={pacienteSelecionado}
+              registros={historicoSessoes}
+              estagiarioResponsavel={isEstagiario ? user?.nome : undefined}
+              supervisorExibicao={!isEstagiario ? user?.nome : undefined}
+            />
+          </RelatorioImpressao>
         )}
       </div>
     </AppLayout>

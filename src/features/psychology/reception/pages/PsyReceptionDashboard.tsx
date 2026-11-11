@@ -3,6 +3,7 @@ import { AppLayout } from '../../../../components/layout/AppLayout';
 import { PsyReceptionStats } from '../components/PsyReceptionStats';
 import { AppointmentTable } from '../../../reception/components/AppointmentTable';
 import { PatientAssignmentPanel } from '../components/PatientAssignmentPanel';
+import { StudentOccurrencesPanel } from '../components/StudentOccurrencesPanel';
 import { NewPatientModal } from '../../../reception/components/NewPatientModal';
 import { NewAppointmentModal } from '../../../reception/components/NewAppointmentModal';
 import { InfoTooltip } from '../../../../components/ui/InfoTooltip';
@@ -52,6 +53,7 @@ export function PsyReceptionDashboard() {
               exibirTextoSalvaguarda={false}
               permitirMotivoFalta
             />
+            <StudentOccurrencesPanel />
           </div>
 
           <div className="lg:col-span-1 space-y-6">

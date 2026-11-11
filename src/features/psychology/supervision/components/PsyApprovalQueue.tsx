@@ -11,6 +11,7 @@ import {
   ArrowPathIcon,
 } from '../../../../components/icons/CorporateIcons';
 import { InfoTooltip } from '../../../../components/ui/InfoTooltip';
+import { META_TIPO_REGISTRO_PSICO } from '../../constants/psico';
 
 // RN-002 / CFP nº 06/2019: o mesmo teste que a ficha do estagiário usa na
 // digitação. A fila exibia "Conformidade Anti-Aspas CFP" em verde sem rodar
@@ -178,11 +179,19 @@ const decidir = async (decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE') => {
                   }`}
                 >
                   <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
                       <h4 className="font-bold text-slate-900 text-sm">
                         Paciente: {item.pacienteNome}
                       </h4>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          META_TIPO_REGISTRO_PSICO[item.tipoRegistro]?.classeBadge ??
+                          'bg-blue-50 text-blue-700 border-blue-200'
+                        }`}
+                      >
+                        {META_TIPO_REGISTRO_PSICO[item.tipoRegistro]?.badge ?? 'Sessão Clínica'}
+                      </span>
                       <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md font-mono">
                         {item.numeroSessao}
                       </span>
@@ -244,7 +253,7 @@ const decidir = async (decisao: 'VALIDADO' | 'DEVOLVIDO_PARA_AJUSTE') => {
                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1">
                   <p className="font-bold text-slate-900">{selecionado.pacienteNome}</p>
                   <p className="text-slate-500 text-[11px] font-mono">
-                    {selecionado.numeroSessao} • Estagiário: {selecionado.estagiarioNome}
+                    {META_TIPO_REGISTRO_PSICO[selecionado.tipoRegistro]?.titulo ?? 'Sessão Clínica'} · {selecionado.numeroSessao} • Estagiário: {selecionado.estagiarioNome}
                   </p>
                 </div>
 
