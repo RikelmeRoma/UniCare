@@ -185,7 +185,7 @@ function ToothSVG({ fdi, data, activeTool, onCellClick, onSelect, isSelected }: 
       width={cw}
       height={ch}
       fill={cellFill(key)}
-      stroke="#E7ECEB"
+      stroke="#94A3B8"
       strokeWidth="1"
       style={{ cursor: isBlocked ? "default" : "pointer" }}
       onClick={(e) => {
@@ -239,8 +239,8 @@ function ToothSVG({ fdi, data, activeTool, onCellClick, onSelect, isSelected }: 
         </defs>
 
         <g clipPath={`url(#${clipId})`}>
-          {/* Base opaca da coroa: evita que o fundo escuro vaze nos 4 cantos fora da cruz anatomica */}
-          <rect x={0} y={0} width={w} height={h} fill="#FFFFFF" />
+          {/* Base clara nos 4 cantos diferencia as áreas não clicáveis e evita vazamento do fundo escuro */}
+          <rect x={0} y={0} width={w} height={h} fill="#E6ECEB" />
           {cellCommon("V", 14, 0, 16, 16)}
           {cellCommon(leftKey, 0, 16, 14, 22)}
           {cellCommon("O", 14, 16, 16, 22)}
@@ -286,9 +286,18 @@ function ToothSVG({ fdi, data, activeTool, onCellClick, onSelect, isSelected }: 
 
           <rect x={0} y={0} width={w} height={h} fill={`url(#${sheenId})`} pointerEvents="none" />
           <rect x={0} y={0} width={w} height={h} fill={`url(#${depthId})`} pointerEvents="none" />
+          {!isBlocked && (
+            <path
+              d={`M 14 0 V ${h} M 30 0 V ${h} M 0 16 H ${w} M 0 38 H ${w}`}
+              fill="none"
+              stroke="#7C8C9D"
+              strokeWidth="1.2"
+              pointerEvents="none"
+            />
+          )}
         </g>
 
-        <rect x={0.75} y={0.75} width={w - 1.5} height={h - 1.5} rx={r} ry={r} fill="none" stroke="#C7D0CE" strokeWidth="1.2" pointerEvents="none" />
+        <rect x={0.75} y={0.75} width={w - 1.5} height={h - 1.5} rx={r} ry={r} fill="none" stroke="#94A3B8" strokeWidth="1.25" pointerEvents="none" />
 
         {wholeInfo && !isBlocked && (
           <rect x={-2} y={-2} width={w + 4} height={h + 4} fill="none" stroke={wholeInfo.color} strokeWidth="2.5" rx={r + 2}>

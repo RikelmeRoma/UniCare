@@ -105,7 +105,7 @@ export function DenteOdontogramaInfantilSVG({
         width={cw}
         height={ch}
         fill={preenchimento(face)}
-        stroke="#E7ECEB"
+        stroke="#94A3B8"
         strokeWidth="1"
         role={bloqueado ? undefined : 'button'}
         tabIndex={bloqueado ? undefined : 0}
@@ -198,8 +198,8 @@ export function DenteOdontogramaInfantilSVG({
         </defs>
 
         <g clipPath={`url(#${clipId})`}>
-          {/* Base opaca da coroa: evita que o fundo escuro vaze nos 4 cantos fora da cruz anatomica */}
-          <rect x={0} y={0} width={w} height={h} fill="#FFFFFF" />
+          {/* Base clara nos 4 cantos diferencia as áreas não clicáveis e evita vazamento do fundo escuro */}
+          <rect x={0} y={0} width={w} height={h} fill="#E6ECEB" />
           {celula('V', 14, 0, 16, 16)}
           {celula(leftKey, 0, 16, 14, 22)}
           {celula('O', 14, 16, 16, 22)}
@@ -247,6 +247,15 @@ export function DenteOdontogramaInfantilSVG({
             fill={`url(#${depthId})`}
             pointerEvents="none"
           />
+          {!bloqueado && (
+            <path
+              d={`M 14 0 V ${h} M 30 0 V ${h} M 0 16 H ${w} M 0 38 H ${w}`}
+              fill="none"
+              stroke="#7C8C9D"
+              strokeWidth="1.2"
+              pointerEvents="none"
+            />
+          )}
         </g>
 
         <rect
@@ -257,8 +266,8 @@ export function DenteOdontogramaInfantilSVG({
           rx={r}
           ry={r}
           fill="none"
-          stroke="#C7D0CE"
-          strokeWidth="1.2"
+          stroke="#94A3B8"
+          strokeWidth="1.25"
           pointerEvents="none"
         />
       </svg>
