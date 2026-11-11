@@ -135,10 +135,10 @@ export function PatientAssignmentPanel({ cursoFiltro = 'psicologia' }: { cursoFi
   const semDado = sync.estado === 'erro' || sync.estado === 'aguardando-login';
 
   return (
-    <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-5 space-y-3">
+    <div className="bg-white dark:bg-[#0E1729] rounded-2xl shadow-xs border border-slate-200/80 dark:border-slate-800 p-5 space-y-3 transition-colors">
       <div className="flex items-center justify-between gap-2">
-        <h4 className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
-          <UserGroupIcon className="w-4 h-4 text-blue-700" />
+        <h4 className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 text-xs">
+          <UserGroupIcon className="w-4 h-4 text-blue-700 dark:text-blue-400" />
           <span>Estagiário Responsável</span>
           <InfoTooltip
             align="right"
@@ -148,7 +148,7 @@ export function PatientAssignmentPanel({ cursoFiltro = 'psicologia' }: { cursoFi
       </div>
 
       {semDado ? (
-        <p className="text-[11px] text-slate-400 italic border border-dashed border-slate-200 rounded-xl p-3 text-center">
+        <p className="text-[11px] text-slate-400 dark:text-slate-500 italic border border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-3 text-center">
           Sem dado da API.
         </p>
       ) : (
@@ -159,17 +159,17 @@ export function PatientAssignmentPanel({ cursoFiltro = 'psicologia' }: { cursoFi
               return (
                 <div
                   key={p.id}
-                  className="flex items-center justify-between gap-2 p-2 rounded-lg border border-slate-200/70 bg-slate-50/60"
+                  className="flex items-center justify-between gap-2 p-2 rounded-lg border border-slate-200/70 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/70"
                 >
                   <div className="min-w-0">
-                    <p className="text-[11px] font-bold text-slate-900 truncate">{p.nome}</p>
+                    <p className="text-[11px] font-bold text-slate-900 dark:text-slate-100 truncate">{p.nome}</p>
                     {ativa ? (
-                      <p className="text-[10px] text-blue-800 font-mono truncate">
+                      <p className="text-[10px] text-blue-800 dark:text-blue-300 font-mono truncate">
                         {ativa.estagiarioNome}
-                        <span className="text-slate-400"> · {ativa.estagiarioMatricula}</span>
+                        <span className="text-slate-400 dark:text-slate-500"> · {ativa.estagiarioMatricula}</span>
                       </p>
                     ) : (
-                      <p className="text-[10px] text-amber-700 font-semibold">
+                      <p className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold">
                         sem responsável — o estagiário não consegue escrever
                       </p>
                     )}
@@ -179,7 +179,7 @@ export function PatientAssignmentPanel({ cursoFiltro = 'psicologia' }: { cursoFi
                       <button
                         type="button"
                         onClick={() => abrirTroca(ativa)}
-                        className="p-1 text-slate-400 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
+                        className="p-1 text-slate-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/60 rounded-md transition-colors"
                         title="Transferir para outro estagiário"
                       >
                         <ArrowPathIcon className="w-3.5 h-3.5" />
@@ -188,7 +188,7 @@ export function PatientAssignmentPanel({ cursoFiltro = 'psicologia' }: { cursoFi
                       <button
                         type="button"
                         onClick={() => abrirAtribuicao(p.id)}
-                        className="p-1 text-slate-400 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
+                        className="p-1 text-slate-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/60 rounded-md transition-colors"
                         title="Atribuir estagiário responsável"
                       >
                         <PlusIcon className="w-3.5 h-3.5" />
@@ -201,8 +201,8 @@ export function PatientAssignmentPanel({ cursoFiltro = 'psicologia' }: { cursoFi
           </div>
 
           {semVinculo.length > 0 && (
-            <p className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200/70 rounded-lg p-2 flex items-start gap-1.5">
-              <ExclamationTriangleIcon className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-px" />
+            <p className="text-[10px] text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/50 border border-amber-200/70 dark:border-amber-800/60 rounded-lg p-2 flex items-start gap-1.5">
+              <ExclamationTriangleIcon className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 shrink-0 mt-px" />
               <span>
                 {semVinculo.length} paciente(s) sem responsável. Enquanto isso o estagiário
                 recebe 403 ao tentar escrever.
@@ -214,15 +214,15 @@ export function PatientAssignmentPanel({ cursoFiltro = 'psicologia' }: { cursoFi
 
       {/* Formulário de atribuição e de troca */}
       {(atribuindoPara !== null || trocandoId !== null) && (
-        <div className="space-y-2 border-t border-slate-100 pt-3">
-          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+        <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-3">
+          <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
             Estagiário responsável
           </label>
             <select
               value={estagiarioEscolhido}
               onChange={(e) => setEstagiarioEscolhido(e.target.value)}
               disabled={carregandoEstagiarios || Boolean(erroEstagiarios)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-slate-800 focus:border-blue-600 focus:outline-none disabled:opacity-50"
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-[11px] text-slate-800 dark:text-slate-100 focus:border-blue-600 focus:outline-none disabled:opacity-50"
             >
 
             {carregandoEstagiarios ? (
@@ -241,7 +241,7 @@ export function PatientAssignmentPanel({ cursoFiltro = 'psicologia' }: { cursoFi
 
           {trocandoId !== null && (
             <>
-              <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 Motivo da transferência
                 <InfoTooltip
                   align="right"
@@ -253,13 +253,13 @@ export function PatientAssignmentPanel({ cursoFiltro = 'psicologia' }: { cursoFi
                 value={motivo}
                 onChange={(e) => setMotivo(e.target.value)}
                 placeholder="O que motivou a troca. Fica no histórico do vínculo."
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-slate-800 focus:border-blue-600 focus:outline-none resize-none"
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-[11px] text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-blue-600 focus:outline-none resize-none"
               />
             </>
           )}
 
           {erroEstagiarios && (
-            <p className="text-[10px] font-semibold px-2 py-1 rounded-lg text-rose-800 bg-rose-50">
+            <p className="text-[10px] font-semibold px-2 py-1 rounded-lg text-rose-800 dark:text-rose-200 bg-rose-50 dark:bg-rose-950/60">
               {erroEstagiarios}
             </p>
           )}
@@ -267,7 +267,9 @@ export function PatientAssignmentPanel({ cursoFiltro = 'psicologia' }: { cursoFi
           {msg && (
             <p
               className={`text-[10px] font-semibold px-2 py-1 rounded-lg ${
-                msg.ok ? 'text-emerald-800 bg-emerald-50' : 'text-rose-800 bg-rose-50'
+                msg.ok
+                  ? 'text-emerald-800 dark:text-emerald-200 bg-emerald-50 dark:bg-emerald-950/60'
+                  : 'text-rose-800 dark:text-rose-200 bg-rose-50 dark:bg-rose-950/60'
               }`}
             >
               {msg.texto}
@@ -279,14 +281,14 @@ export function PatientAssignmentPanel({ cursoFiltro = 'psicologia' }: { cursoFi
               type="button"
               onClick={confirmar}
               disabled={isSaving || !estagiarioEscolhido || (trocandoId !== null && !motivo.trim())}
-              className="px-2.5 py-1 bg-blue-700 hover:bg-blue-800 text-white text-[10px] font-bold rounded-lg transition-colors disabled:opacity-50"
+              className="px-2.5 py-1 bg-blue-700 hover:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white text-[10px] font-bold rounded-lg transition-colors disabled:opacity-50"
             >
               {isSaving ? 'Salvando...' : trocandoId !== null ? 'Transferir' : 'Atribuir'}
             </button>
             <button
               type="button"
               onClick={setAtribuiroEstado}
-              className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+              className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg"
               title="Fechar"
             >
               <XMarkIcon className="w-4 h-4" />

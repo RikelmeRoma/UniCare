@@ -42,7 +42,7 @@ export function IndicesGengivaisCard({
 
   if (!pacienteId) {
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs font-semibold text-amber-900">
+      <div className="rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 p-4 text-xs font-semibold text-amber-900 dark:text-amber-300">
         Selecione um paciente para registrar o ISG e o índice de placa.
       </div>
     );
@@ -100,19 +100,19 @@ export function IndicesGengivaisCard({
 
   return (
     <div className="space-y-5">
-      <header className="mb-4 pb-3 border-b border-slate-200">
+      <header className="mb-4 pb-3 border-b border-slate-200 dark:border-slate-800">
         <div className="flex flex-wrap items-center gap-2 mb-1">
-          <span className="px-2.5 py-0.5 rounded-md bg-slate-900 text-white text-[10px] font-bold uppercase tracking-wider shadow-2xs">
+          <span className="px-2.5 py-0.5 rounded-md bg-slate-900 dark:bg-blue-600 text-white text-[10px] font-bold uppercase tracking-wider shadow-2xs">
             Índices Gengivais
           </span>
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">
+          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest font-mono">
             ISG & Placa
           </span>
         </div>
-        <h2 className="text-base font-bold text-slate-900 tracking-tight">
+        <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
           Índice de Sangramento Gengival e Índice de Placa
         </h2>
-        <p className="text-xs text-slate-500 mt-0.5">
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
           Clique nas faces para marcar sangramento (ISG) ou placa. Clique no número do dente para
           marcá-lo como ausente; o denominador usa as faces presentes. Os dentes ausentes são
           compartilhados pelos dois índices.
@@ -129,7 +129,7 @@ export function IndicesGengivaisCard({
         onLimpar={() => limparIndice('sangramento')}
       />
 
-      <div className="border-t border-dashed border-slate-200 pt-4">
+      <div className="border-t border-dashed border-slate-200 dark:border-slate-800 pt-4">
         <IndiceGengival
           titulo="Índice de Placa"
           rotuloNumerador="Faces Coradas"
@@ -141,7 +141,7 @@ export function IndicesGengivaisCard({
         />
       </div>
 
-      <p className="text-[10px] leading-relaxed text-slate-400">
+      <p className="text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">
         As marcações fazem parte da ficha clínica enviada à supervisão.
       </p>
     </div>

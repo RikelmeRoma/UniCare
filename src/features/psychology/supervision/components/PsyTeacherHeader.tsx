@@ -21,12 +21,12 @@ export function PsyTeacherHeader() {
   const isCoordenacao = user.perfil === 'coordenacao';
 
   return (
-    <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+    <div className="bg-white dark:bg-[#0E1729] p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 transition-colors">
       <div>
         <div className="flex items-center gap-3 mb-2">
-          <h2 className="text-xl font-bold text-slate-900">{user.nome}</h2>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white">{user.nome}</h2>
           {user.registro_profissional && (
-            <span className="bg-blue-700 text-white text-xs px-2.5 py-0.5 rounded-md font-bold font-mono">
+            <span className="bg-blue-700 dark:bg-blue-600 text-white text-xs px-2.5 py-0.5 rounded-md font-bold font-mono">
               {user.registro_profissional}
             </span>
           )}
@@ -38,28 +38,28 @@ export function PsyTeacherHeader() {
             }
           />
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
           {/* A turma não aparece: não existe vínculo estagiário↔turma↔supervisor
               no schema, e um rótulo fixo aqui seria afirmação sem lastro. */}
           <span>Estágio Supervisionado Específico I e II</span>
-          <span className="text-slate-300">•</span>
+          <span className="text-slate-300 dark:text-slate-600">•</span>
           <span>Serviço de Psicologia Aplicada (SPA)</span>
         </div>
       </div>
       
-      <div className="flex gap-3">
-        <div className="flex items-center gap-2.5 bg-blue-50 border border-blue-200/80 p-3 rounded-xl">
-          <ShieldCheckIcon className="w-5 h-5 text-blue-700 shrink-0" />
+      <div className="flex flex-wrap gap-3">
+        <div className="flex items-center gap-2.5 bg-blue-50 dark:bg-blue-950/50 border border-blue-200/80 dark:border-blue-800/70 p-3 rounded-xl">
+          <ShieldCheckIcon className="w-5 h-5 text-blue-700 dark:text-blue-400 shrink-0" />
           <div>
-            <p className="text-[10px] font-bold text-blue-900 uppercase leading-tight">Conformidade Técnica</p>
-            <p className="text-[10px] text-blue-700 font-semibold">Resolução CFP nº 06/2019</p>
+            <p className="text-[10px] font-bold text-blue-900 dark:text-blue-200 uppercase leading-tight">Conformidade Técnica</p>
+            <p className="text-[10px] text-blue-700 dark:text-blue-300 font-semibold">Resolução CFP nº 06/2019</p>
           </div>
         </div>
-        <div className="flex items-center gap-2.5 bg-emerald-50 border border-emerald-200/80 p-3 rounded-xl">
-          <LockClosedIcon className="w-5 h-5 text-emerald-700 shrink-0" />
+        <div className="flex items-center gap-2.5 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200/80 dark:border-emerald-800/70 p-3 rounded-xl">
+          <LockClosedIcon className="w-5 h-5 text-emerald-700 dark:text-emerald-400 shrink-0" />
           <div>
-            <p className="text-[10px] font-bold text-emerald-900 uppercase leading-tight">Custódia Sigilosa</p>
-            <p className="text-[10px] text-emerald-700 font-semibold">LGPD Artigo 11</p>
+            <p className="text-[10px] font-bold text-emerald-900 dark:text-emerald-200 uppercase leading-tight">Custódia Sigilosa</p>
+            <p className="text-[10px] text-emerald-700 dark:text-emerald-300 font-semibold">LGPD Artigo 11</p>
           </div>
         </div>
       </div>

@@ -56,28 +56,28 @@ export function RegistrarFaltaModal({
 
   return (
     <div
-      className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 font-sans"
+      className="fixed inset-0 bg-slate-900/40 dark:bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 font-sans"
       role="dialog"
       aria-modal="true"
       aria-labelledby="titulo-registrar-falta"
     >
-      <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
-        <div className="flex justify-between items-start gap-4 mb-4 pb-3 border-b border-slate-100">
+      <div className="bg-white dark:bg-[#0E1729] rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
+        <div className="flex justify-between items-start gap-4 mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-red-50 text-red-700 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-400 flex items-center justify-center shrink-0">
               <ExclamationTriangleIcon className="w-5 h-5" />
             </div>
             <div>
               <h2
                 id="titulo-registrar-falta"
-                className="text-lg font-bold text-slate-900"
+                className="text-lg font-bold text-slate-900 dark:text-white"
               >
                 Registrar falta
               </h2>
-              <p className="text-xs font-semibold text-slate-700 mt-0.5">
+              <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 mt-0.5">
                 {agendamento.pacienteNome}
               </p>
-              <p className="text-[11px] text-slate-400 font-mono mt-1">
+              <p className="text-[11px] text-slate-400 dark:text-slate-400 font-mono mt-1">
                 {rotuloData(agendamento.dataSessao)} · {agendamento.horario} ·{' '}
                 {agendamento.salaOuCadeira}
               </p>
@@ -86,7 +86,7 @@ export function RegistrarFaltaModal({
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg"
+            className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1.5 rounded-lg"
             aria-label="Fechar"
           >
             <XMarkIcon className="w-5 h-5" />
@@ -96,10 +96,10 @@ export function RegistrarFaltaModal({
         <form onSubmit={confirmar}>
           <label
             htmlFor="motivo-falta"
-            className="block text-xs font-semibold text-slate-700 mb-1"
+            className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1"
           >
             Motivo da falta{' '}
-            <span className="font-normal text-slate-400">(opcional)</span>
+            <span className="font-normal text-slate-400 dark:text-slate-500">(opcional)</span>
           </label>
           <textarea
             id="motivo-falta"
@@ -108,36 +108,36 @@ export function RegistrarFaltaModal({
             maxLength={500}
             rows={4}
             placeholder="Ex.: paciente avisou que não poderia comparecer por motivo de trabalho."
-            className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-slate-900 resize-none"
+            className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-slate-900 dark:focus:border-blue-500 resize-none"
           />
           <div className="flex items-start justify-between gap-3 mt-1.5">
-            <p className="text-[10px] text-slate-400 leading-relaxed">
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-relaxed">
               O motivo aparece para o estagiário responsável em “Meus
               Agendamentos”.
             </p>
-            <span className="text-[10px] text-slate-400 font-mono shrink-0">
+            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono shrink-0">
               {motivo.length}/500
             </span>
           </div>
 
           {erro && (
-            <p className="mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            <p className="mt-3 text-xs text-red-700 dark:text-red-200 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800/70 rounded-lg px-3 py-2">
               {erro}
             </p>
           )}
 
-          <div className="pt-4 mt-4 border-t border-slate-100 flex justify-end gap-2.5">
+          <div className="pt-4 mt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50"
+              className="px-4 py-2 text-xs font-semibold border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={salvando}
-              className="px-5 py-2 text-xs font-bold bg-red-700 hover:bg-red-800 text-white rounded-xl shadow-xs disabled:opacity-50"
+              className="px-5 py-2 text-xs font-bold bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-500 text-white rounded-xl shadow-xs disabled:opacity-50"
             >
               {salvando ? 'Registrando...' : 'Registrar falta'}
             </button>

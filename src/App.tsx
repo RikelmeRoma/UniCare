@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './features/auth/context/AuthContext';
 import { ClinicProvider } from './features/clinic/context/ClinicContext';
 import { ProtectedRoute } from './features/auth/components/ProtectedRoute';
@@ -26,9 +27,10 @@ import { CoordinationManagementPage } from './features/coordination/pages/Coordi
 
 export default function App() {
   return (
-    <AuthProvider>
-      <ClinicProvider>
-        <BrowserRouter>
+    <ThemeProvider>
+      <AuthProvider>
+        <ClinicProvider>
+          <BrowserRouter>
           <Routes>
             {/* Redirecionamento inicial para o Login */}
             <Route path="/" element={<Navigate to="/login" replace />} />
@@ -165,5 +167,6 @@ export default function App() {
         </BrowserRouter>
       </ClinicProvider>
     </AuthProvider>
+    </ThemeProvider>
   );
 }

@@ -119,210 +119,6 @@ function calcNic(site: SiteData): number | null {
  * ESTILOS INLINE
  * ========================================================= */
 
-const styles: Record<string, React.CSSProperties> = {
-  container: {
-    fontFamily: "Segoe UI, Arial, sans-serif",
-    fontSize: 12,
-    color: "#1f2937",
-    padding: 16,
-    background: "#f9fafb",
-    boxSizing: "border-box",
-    overflowX: "auto",
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 700,
-    margin: "0 0 12px",
-    color: "#0f172a",
-  },
-  patientCard: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 12,
-    background: "#ffffff",
-    border: "1px solid #e5e7eb",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-  },
-  field: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 4,
-    minWidth: 160,
-  },
-  label: {
-    fontSize: 11,
-    fontWeight: 600,
-    color: "#6b7280",
-  },
-  textInput: {
-    padding: "6px 8px",
-    border: "1px solid #d1d5db",
-    borderRadius: 6,
-    fontSize: 12,
-    outline: "none",
-  },
-  arcadaTitle: {
-    fontSize: 14,
-    fontWeight: 700,
-    margin: "16px 0 6px",
-    color: "#0f172a",
-  },
-  table: {
-    borderCollapse: "collapse",
-    background: "#ffffff",
-    tableLayout: "fixed",
-  },
-  rowLabelCell: {
-    border: "1px solid #e5e7eb",
-    background: "#f3f4f6",
-    fontWeight: 700,
-    fontSize: 10,
-    textAlign: "center",
-    padding: "2px 4px",
-    width: 46,
-    whiteSpace: "nowrap",
-  },
-  toothCell: {
-    border: "1px solid #e5e7eb",
-    padding: 0,
-    textAlign: "center",
-    verticalAlign: "middle",
-  },
-  siteWrap: {
-    display: "flex",
-    justifyContent: "center",
-    gap: 1,
-  },
-  numInput: {
-    width: 20,
-    height: 20,
-    border: "1px solid #d1d5db",
-    borderRadius: 2,
-    textAlign: "center",
-    fontSize: 10,
-    padding: 0,
-    MozAppearance: "textfield",
-  },
-  nicCell: {
-    width: 20,
-    height: 20,
-    lineHeight: "20px",
-    fontSize: 10,
-    display: "inline-block",
-    textAlign: "center",
-    color: "#374151",
-  },
-  ssCell: {
-    width: 20,
-    height: 20,
-    border: "1px solid #d1d5db",
-    borderRadius: 2,
-    cursor: "pointer",
-    display: "inline-block",
-    boxSizing: "border-box",
-  },
-  toothNumber: {
-    fontWeight: 700,
-    fontSize: 12,
-    padding: "2px 0",
-  },
-  smallSelect: {
-    fontSize: 10,
-    padding: 0,
-    width: 40,
-    border: "1px solid #d1d5db",
-    borderRadius: 3,
-  },
-  toothSvgWrap: {
-    padding: "2px 0",
-  },
-  toggleBtn: {
-    fontSize: 9,
-    padding: "1px 3px",
-    margin: 1,
-    border: "1px solid #d1d5db",
-    borderRadius: 3,
-    cursor: "pointer",
-    background: "#ffffff",
-    lineHeight: 1.2,
-  },
-  toggleBtnActive: {
-    background: "#334155",
-    color: "#ffffff",
-    borderColor: "#334155",
-  },
-  summaryGrid: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 12,
-    marginTop: 20,
-  },
-  summaryCard: {
-    background: "#ffffff",
-    border: "1px solid #e5e7eb",
-    borderRadius: 8,
-    padding: "12px 16px",
-    minWidth: 150,
-  },
-  summaryValue: {
-    fontSize: 22,
-    fontWeight: 700,
-    color: "#0f172a",
-  },
-  summaryLabel: {
-    fontSize: 11,
-    color: "#6b7280",
-    marginTop: 2,
-  },
-  legend: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 12,
-    alignItems: "center",
-    marginTop: 12,
-    fontSize: 11,
-  },
-  legendChip: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 4,
-  },
-  legendSwatch: {
-    width: 14,
-    height: 14,
-    borderRadius: 3,
-    border: "1px solid #d1d5db",
-    display: "inline-block",
-  },
-  expandBtn: {
-    marginTop: 16,
-    padding: "6px 12px",
-    border: "1px solid #d1d5db",
-    borderRadius: 6,
-    background: "#ffffff",
-    cursor: "pointer",
-    fontSize: 12,
-  },
-  summaryTable: {
-    borderCollapse: "collapse",
-    marginTop: 12,
-    background: "#ffffff",
-    fontSize: 11,
-  },
-  summaryTh: {
-    border: "1px solid #e5e7eb",
-    background: "#f3f4f6",
-    padding: "4px 8px",
-    fontWeight: 700,
-  },
-  summaryTd: {
-    border: "1px solid #e5e7eb",
-    padding: "4px 8px",
-    textAlign: "center",
-  },
-};
 
 /* =========================================================
  * SUBCOMPONENTES
@@ -337,12 +133,12 @@ const ToothGlyph: React.FC<{
   // Dente ausente: um "X".
   if (missing) {
     return (
-      <div style={styles.toothSvgWrap}>
+      <div className="flex flex-col items-center py-0.5">
         <svg width={26} height={30} viewBox="0 0 26 30" aria-label="ausente">
           <line x1={5} y1={5} x2={21} y2={25} stroke="#9ca3af" strokeWidth={2} />
           <line x1={21} y1={5} x2={5} y2={25} stroke="#9ca3af" strokeWidth={2} />
         </svg>
-        <div style={{ fontSize: 10, color: "#9ca3af" }}>{fdi}</div>
+        <div className="text-[10px] text-slate-400 dark:text-slate-500">{fdi}</div>
       </div>
     );
   }
@@ -350,7 +146,7 @@ const ToothGlyph: React.FC<{
   // Implante: parafuso estilizado.
   if (implant) {
     return (
-      <div style={styles.toothSvgWrap}>
+      <div className="flex flex-col items-center py-0.5">
         <svg width={26} height={30} viewBox="0 0 26 30" aria-label="implante">
           <rect x={9} y={4} width={8} height={22} rx={2} fill="#94a3b8" />
           {[8, 12, 16, 20].map((y) => (
@@ -365,14 +161,14 @@ const ToothGlyph: React.FC<{
             />
           ))}
         </svg>
-        <div style={{ fontSize: 10, color: "#475569" }}>{fdi}</div>
+        <div className="text-[10px] text-slate-600 dark:text-slate-400">{fdi}</div>
       </div>
     );
   }
 
   // Dente normal: coroa arredondada.
   return (
-    <div style={styles.toothSvgWrap}>
+    <div className="flex flex-col items-center py-0.5">
       <svg width={26} height={30} viewBox="0 0 26 30" aria-label={`dente ${fdi}`}>
         <path
           d="M6 10 C6 3, 20 3, 20 10 C20 16, 22 26, 17 27 C14 27.5, 13 22, 13 22
@@ -382,7 +178,7 @@ const ToothGlyph: React.FC<{
           strokeWidth={1.2}
         />
       </svg>
-      <div style={styles.toothNumber}>{fdi}</div>
+      <div className="font-bold text-xs py-0.5 text-slate-800 dark:text-slate-200">{fdi}</div>
     </div>
   );
 };
@@ -562,6 +358,12 @@ const Periograma: React.FC<PeriogramaProps> = ({
   /* ----------------------- Renderização de linhas ----------------------- */
 
   /** Célula de sítios numéricos (PS ou REC) para uma face. */
+  const tdCellClass =
+    "border border-slate-200 dark:border-slate-700 p-0 text-center align-middle";
+  const siteWrapClass = "flex justify-center gap-px";
+  const smallSelectClass =
+    "text-[10px] p-0 w-10 border border-slate-300 dark:border-slate-600 rounded-xs bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 disabled:opacity-50";
+
   const renderNumberCells = (
     fdi: number,
     face: FaceKey,
@@ -569,11 +371,11 @@ const Periograma: React.FC<PeriogramaProps> = ({
   ) => {
     const tooth = teeth[fdi];
     if (tooth.missing) {
-      return <td key={`${fdi}-${face}-${field}`} style={styles.toothCell} />;
+      return <td key={`${fdi}-${face}-${field}`} className={tdCellClass} />;
     }
     return (
-      <td key={`${fdi}-${face}-${field}`} style={styles.toothCell}>
-        <div style={styles.siteWrap}>
+      <td key={`${fdi}-${face}-${field}`} className={tdCellClass}>
+        <div className={siteWrapClass}>
           {SITES.map((s) => {
             const site = tooth[face][s];
             const value = site[field];
@@ -582,7 +384,11 @@ const Periograma: React.FC<PeriogramaProps> = ({
               <input
                 key={s}
                 type="number"
-                className="hide-arrows" // <--- ADICIONE ESTA LINHA AQUI
+                className={`hide-arrows w-5 h-5 border border-slate-300 dark:border-slate-600 rounded-xs text-center text-[10px] p-0 [appearance:textfield] ${
+                  bg === "transparent"
+                    ? "bg-transparent text-slate-900 dark:text-slate-100"
+                    : "text-slate-900 font-semibold"
+                }`}
                 min={0}
                 max={20}
                 step={0.5}
@@ -590,7 +396,7 @@ const Periograma: React.FC<PeriogramaProps> = ({
                 onChange={(e) =>
                   updateSiteNumber(fdi, face, s, field, e.target.value)
                 }
-                style={{ ...styles.numInput, background: bg }}
+                style={bg !== "transparent" ? { background: bg } : undefined}
                 title={`${field.toUpperCase()} ${face} ${s}`}
               />
             );
@@ -604,15 +410,18 @@ const Periograma: React.FC<PeriogramaProps> = ({
   const renderNicCells = (fdi: number, face: FaceKey) => {
     const tooth = teeth[fdi];
     if (tooth.missing) {
-      return <td key={`${fdi}-${face}-nic`} style={styles.toothCell} />;
+      return <td key={`${fdi}-${face}-nic`} className={tdCellClass} />;
     }
     return (
-      <td key={`${fdi}-${face}-nic`} style={styles.toothCell}>
-        <div style={styles.siteWrap}>
+      <td key={`${fdi}-${face}-nic`} className={tdCellClass}>
+        <div className={siteWrapClass}>
           {SITES.map((s) => {
             const nic = calcNic(tooth[face][s]);
             return (
-              <span key={s} style={styles.nicCell}>
+              <span
+                key={s}
+                className="w-5 h-5 leading-5 text-[10px] inline-block text-center text-slate-700 dark:text-slate-300"
+              >
                 {nic === null ? "" : nic}
               </span>
             );
@@ -626,21 +435,22 @@ const Periograma: React.FC<PeriogramaProps> = ({
   const renderSSCells = (fdi: number, face: FaceKey) => {
     const tooth = teeth[fdi];
     if (tooth.missing) {
-      return <td key={`${fdi}-${face}-ss`} style={styles.toothCell} />;
+      return <td key={`${fdi}-${face}-ss`} className={tdCellClass} />;
     }
     return (
-      <td key={`${fdi}-${face}-ss`} style={styles.toothCell}>
-        <div style={styles.siteWrap}>
+      <td key={`${fdi}-${face}-ss`} className={tdCellClass}>
+        <div className={siteWrapClass}>
           {SITES.map((s) => {
             const on = tooth[face][s].ss;
             return (
               <span
                 key={s}
                 onClick={() => toggleSS(fdi, face, s)}
-                style={{
-                  ...styles.ssCell,
-                  background: on ? "#ef4444" : "#ffffff",
-                }}
+                className={`w-5 h-5 border rounded-xs cursor-pointer inline-block box-border transition-colors ${
+                  on
+                    ? "bg-red-500 border-red-600"
+                    : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600"
+                }`}
                 title={`Sangramento ${face} ${s}`}
               />
             );
@@ -654,17 +464,17 @@ const Periograma: React.FC<PeriogramaProps> = ({
   const renderToothHeaderCell = (fdi: number) => {
     const tooth = teeth[fdi];
     return (
-      <td key={`${fdi}-hdr`} style={styles.toothCell}>
-        <div style={styles.toothNumber}>{fdi}</div>
+      <td key={`${fdi}-hdr`} className={tdCellClass}>
+        <div className="font-bold text-xs py-0.5 text-slate-800 dark:text-slate-200">{fdi}</div>
         <div>
           <button
             type="button"
             onClick={() => toggleFlag(fdi, "missing")}
-            className="documento-dado"
-            style={{
-              ...styles.toggleBtn,
-              ...(tooth.missing ? styles.toggleBtnActive : {}),
-            }}
+            className={`documento-dado text-[9px] px-1 py-px m-px border rounded-xs cursor-pointer leading-tight transition-colors ${
+              tooth.missing
+                ? "bg-slate-700 dark:bg-blue-600 text-white border-slate-700 dark:border-blue-500"
+                : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700"
+            }`}
             title="Marcar dente ausente"
           >
             Aus
@@ -672,11 +482,11 @@ const Periograma: React.FC<PeriogramaProps> = ({
           <button
             type="button"
             onClick={() => toggleFlag(fdi, "implant")}
-            className="documento-dado"
-            style={{
-              ...styles.toggleBtn,
-              ...(tooth.implant ? styles.toggleBtnActive : {}),
-            }}
+            className={`documento-dado text-[9px] px-1 py-px m-px border rounded-xs cursor-pointer leading-tight transition-colors ${
+              tooth.implant
+                ? "bg-slate-700 dark:bg-blue-600 text-white border-slate-700 dark:border-blue-500"
+                : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700"
+            }`}
             title="Marcar implante"
           >
             Imp
@@ -690,12 +500,12 @@ const Periograma: React.FC<PeriogramaProps> = ({
   const renderMobilityCell = (fdi: number) => {
     const tooth = teeth[fdi];
     return (
-      <td key={`${fdi}-mob`} style={styles.toothCell}>
+      <td key={`${fdi}-mob`} className={tdCellClass}>
         <select
           value={tooth.mobility}
           disabled={tooth.missing}
           onChange={(e) => updateGrade(fdi, "mobility", e.target.value as Grade)}
-          style={styles.smallSelect}
+          className={smallSelectClass}
           title="Mobilidade"
         >
           {GRADES.map((g) => (
@@ -712,14 +522,14 @@ const Periograma: React.FC<PeriogramaProps> = ({
   const renderFurcationCell = (fdi: number) => {
     const tooth = teeth[fdi];
     return (
-      <td key={`${fdi}-fur`} style={styles.toothCell}>
+      <td key={`${fdi}-fur`} className={tdCellClass}>
         <select
           value={tooth.furcation}
           disabled={tooth.missing}
           onChange={(e) =>
             updateGrade(fdi, "furcation", e.target.value as Grade)
           }
-          style={styles.smallSelect}
+          className={smallSelectClass}
           title="Furca"
         >
           {GRADES.map((g) => (
@@ -734,7 +544,7 @@ const Periograma: React.FC<PeriogramaProps> = ({
 
   /** Célula com o diagrama do dente. */
   const renderGlyphCell = (fdi: number) => (
-    <td key={`${fdi}-glyph`} style={styles.toothCell}>
+    <td key={`${fdi}-glyph`} className={tdCellClass}>
       <ToothGlyph tooth={teeth[fdi]} />
     </td>
   );
@@ -748,7 +558,9 @@ const Periograma: React.FC<PeriogramaProps> = ({
     arcada: "superior" | "inferior"
   ) => {
     const rowLabel = (text: string) => (
-      <td style={styles.rowLabelCell}>{text}</td>
+      <td className="border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 font-bold text-[10px] text-center px-1 py-0.5 w-[46px] whitespace-nowrap">
+        {text}
+      </td>
     );
 
     // Linhas para uma face, na ordem fornecida (de cima p/ baixo).
@@ -828,7 +640,7 @@ const Periograma: React.FC<PeriogramaProps> = ({
     }
 
     return (
-      <table style={styles.table}>
+      <table className="border-collapse bg-white dark:bg-slate-900/70 table-fixed">
         <colgroup>
           <col style={{ width: 46 }} />
           {order.map((fdi) => (
@@ -842,8 +654,25 @@ const Periograma: React.FC<PeriogramaProps> = ({
 
   /* ----------------------- JSX principal ----------------------- */
 
+  const fieldClass = "flex flex-col gap-1 min-w-[160px] flex-1";
+  const labelClass = "text-[11px] font-semibold text-slate-500 dark:text-slate-400";
+  const textInputClass =
+    "px-2 py-1.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-md text-xs outline-none transition-colors focus:border-slate-800 dark:focus:border-blue-400";
+  const summaryCardClass =
+    "bg-white dark:bg-[#0E1729] border border-slate-200 dark:border-slate-800 rounded-lg px-4 py-3 min-w-[150px] flex-1 shadow-2xs";
+  const summaryValueClass =
+    "text-[22px] font-bold text-slate-900 dark:text-white tabular-nums";
+  const summaryLabelClass = "text-[11px] text-slate-500 dark:text-slate-400 mt-0.5";
+  const legendChipClass = "inline-flex items-center gap-1";
+  const legendSwatchClass =
+    "w-3.5 h-3.5 rounded-xs border border-slate-300 dark:border-slate-600 inline-block";
+  const summaryThClass =
+    "border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 px-2 py-1 font-bold";
+  const summaryTdClass =
+    "border border-slate-200 dark:border-slate-800 px-2 py-1 text-center text-slate-700 dark:text-slate-300 tabular-nums";
+
   return (
-    <div style={styles.container}>
+    <div className="text-xs text-slate-800 dark:text-slate-200 p-4 rounded-xl bg-slate-50/70 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 overflow-x-auto box-border">
         <style>{`
         .hide-arrows::-webkit-inner-spin-button,
         .hide-arrows::-webkit-outer-spin-button {
@@ -855,56 +684,56 @@ const Periograma: React.FC<PeriogramaProps> = ({
         }
       `}</style>
 
-      <div className="mb-4 pb-3 border-b border-slate-200">
+      <div className="mb-4 pb-3 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-2 mb-1">
-          <span className="px-2.5 py-0.5 rounded-md bg-slate-900 text-white text-[10px] font-bold uppercase tracking-wider shadow-2xs">
+          <span className="px-2.5 py-0.5 rounded-md bg-slate-900 dark:bg-blue-600 text-white text-[10px] font-bold uppercase tracking-wider shadow-2xs">
             Periograma
           </span>
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">
+          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest font-mono">
             Exame Periodontal Clínico
           </span>
         </div>
-        <h2 className="text-base font-bold text-slate-900 tracking-tight">
+        <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
           Periograma Clínico Digital
         </h2>
-        <p className="text-xs text-slate-500 mt-0.5">
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
           Mapeamento periodontal: profundidade de sondagem (PS), nível de inserção (NIC), recessão (REC) e sangramento (SS).
         </p>
       </div>
 
       {/* Informações do paciente */}
-      <div style={styles.patientCard}>
-        <div style={styles.field}>
-          <label style={styles.label}>Nome do paciente</label>
+      <div className="flex flex-wrap gap-3 bg-white dark:bg-[#0E1729] border border-slate-200 dark:border-slate-800 rounded-lg p-3 mb-4">
+        <div className={fieldClass}>
+          <label className={labelClass}>Nome do paciente</label>
           <input
-            style={styles.textInput}
+            className={textInputClass}
             value={patient.nome}
             onChange={(e) => updatePatient("nome", e.target.value)}
             placeholder="Nome completo"
           />
         </div>
-        <div style={styles.field}>
-          <label style={styles.label}>Data de nascimento</label>
+        <div className={fieldClass}>
+          <label className={labelClass}>Data de nascimento</label>
           <input
             type="date"
-            style={styles.textInput}
+            className={textInputClass}
             value={patient.nascimento}
             onChange={(e) => updatePatient("nascimento", e.target.value)}
           />
         </div>
-        <div style={styles.field}>
-          <label style={styles.label}>Data do exame</label>
+        <div className={fieldClass}>
+          <label className={labelClass}>Data do exame</label>
           <input
             type="date"
-            style={styles.textInput}
+            className={textInputClass}
             value={patient.exame}
             onChange={(e) => updatePatient("exame", e.target.value)}
           />
         </div>
-        <div style={styles.field}>
-          <label style={styles.label}>Examinador</label>
+        <div className={fieldClass}>
+          <label className={labelClass}>Examinador</label>
           <input
-            style={styles.textInput}
+            className={textInputClass}
             value={patient.examinador}
             onChange={(e) => updatePatient("examinador", e.target.value)}
             placeholder="Nome do examinador"
@@ -913,98 +742,98 @@ const Periograma: React.FC<PeriogramaProps> = ({
       </div>
 
       {/* Arcada Superior */}
-      <div style={styles.arcadaTitle}>
+      <div className="text-sm font-bold mt-4 mb-1.5 text-slate-900 dark:text-white">
         Arcada Superior&nbsp;(18–11 | 21–28)
       </div>
       {renderArcada(UPPER_TEETH, "superior")}
 
       {/* Arcada Inferior */}
-      <div style={styles.arcadaTitle}>
+      <div className="text-sm font-bold mt-4 mb-1.5 text-slate-900 dark:text-white">
         Arcada Inferior&nbsp;(48–41 | 31–38)
       </div>
       {renderArcada(LOWER_TEETH, "inferior")}
 
       {/* Legenda de cores */}
-      <div style={styles.legend}>
+      <div className="flex flex-wrap gap-3 items-center mt-3 text-[11px] text-slate-700 dark:text-slate-300">
         <strong>PS (mm):</strong>
-        <span style={styles.legendChip}>
-          <span style={{ ...styles.legendSwatch, background: "#bbf7d0" }} />
+        <span className={legendChipClass}>
+          <span className={legendSwatchClass} style={{ background: "#bbf7d0" }} />
           1–3
         </span>
-        <span style={styles.legendChip}>
-          <span style={{ ...styles.legendSwatch, background: "#fef08a" }} />
+        <span className={legendChipClass}>
+          <span className={legendSwatchClass} style={{ background: "#fef08a" }} />
           4–5
         </span>
-        <span style={styles.legendChip}>
-          <span style={{ ...styles.legendSwatch, background: "#fed7aa" }} />
+        <span className={legendChipClass}>
+          <span className={legendSwatchClass} style={{ background: "#fed7aa" }} />
           6–7
         </span>
-        <span style={styles.legendChip}>
-          <span style={{ ...styles.legendSwatch, background: "#fca5a5" }} />
+        <span className={legendChipClass}>
+          <span className={legendSwatchClass} style={{ background: "#fca5a5" }} />
           ≥8
         </span>
-        <span style={styles.legendChip}>
-          <span style={{ ...styles.legendSwatch, background: "#ef4444" }} />
+        <span className={legendChipClass}>
+          <span className={legendSwatchClass} style={{ background: "#ef4444" }} />
           Sangramento (SS)
         </span>
       </div>
 
       {/* Painel de resumo */}
-      <div style={styles.summaryGrid}>
-        <div style={styles.summaryCard}>
-          <div style={styles.summaryValue}>{stats.bleedingPct}%</div>
-          <div style={styles.summaryLabel}>Sítios com sangramento</div>
+      <div className="flex flex-wrap gap-3 mt-5">
+        <div className={summaryCardClass}>
+          <div className={summaryValueClass}>{stats.bleedingPct}%</div>
+          <div className={summaryLabelClass}>Sítios com sangramento</div>
         </div>
-        <div style={styles.summaryCard}>
-          <div style={styles.summaryValue}>{stats.ps4Pct}%</div>
-          <div style={styles.summaryLabel}>Sítios com PS ≥ 4 mm</div>
+        <div className={summaryCardClass}>
+          <div className={summaryValueClass}>{stats.ps4Pct}%</div>
+          <div className={summaryLabelClass}>Sítios com PS ≥ 4 mm</div>
         </div>
-        <div style={styles.summaryCard}>
-          <div style={styles.summaryValue}>{stats.ps6Pct}%</div>
-          <div style={styles.summaryLabel}>Sítios com PS ≥ 6 mm</div>
+        <div className={summaryCardClass}>
+          <div className={summaryValueClass}>{stats.ps6Pct}%</div>
+          <div className={summaryLabelClass}>Sítios com PS ≥ 6 mm</div>
         </div>
-        <div style={styles.summaryCard}>
-          <div style={styles.summaryValue}>{stats.nicMean}</div>
-          <div style={styles.summaryLabel}>NIC médio (mm)</div>
+        <div className={summaryCardClass}>
+          <div className={summaryValueClass}>{stats.nicMean}</div>
+          <div className={summaryLabelClass}>NIC médio (mm)</div>
         </div>
-        <div style={styles.summaryCard}>
-          <div style={styles.summaryValue}>{stats.missing}</div>
-          <div style={styles.summaryLabel}>Dentes ausentes</div>
+        <div className={summaryCardClass}>
+          <div className={summaryValueClass}>{stats.missing}</div>
+          <div className={summaryLabelClass}>Dentes ausentes</div>
         </div>
-        <div style={styles.summaryCard}>
-          <div style={styles.summaryValue}>{stats.present}</div>
-          <div style={styles.summaryLabel}>Dentes presentes</div>
+        <div className={summaryCardClass}>
+          <div className={summaryValueClass}>{stats.present}</div>
+          <div className={summaryLabelClass}>Dentes presentes</div>
         </div>
-        <div style={styles.summaryCard}>
-          <div style={styles.summaryValue}>{stats.implants}</div>
-          <div style={styles.summaryLabel}>Implantes</div>
+        <div className={summaryCardClass}>
+          <div className={summaryValueClass}>{stats.implants}</div>
+          <div className={summaryLabelClass}>Implantes</div>
         </div>
-        <div style={styles.summaryCard}>
-          <div style={styles.summaryValue}>{stats.totalSites}</div>
-          <div style={styles.summaryLabel}>Sítios medidos</div>
+        <div className={summaryCardClass}>
+          <div className={summaryValueClass}>{stats.totalSites}</div>
+          <div className={summaryLabelClass}>Sítios medidos</div>
         </div>
       </div>
 
       {/* Tabela resumo por dente (expansível) */}
       <button
         type="button"
-        style={styles.expandBtn}
+        className="mt-4 px-3 py-1.5 border border-slate-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold cursor-pointer text-xs transition-colors"
         onClick={() => setShowDetail((v) => !v)}
       >
         {showDetail ? "Ocultar" : "Mostrar"} resumo por dente
       </button>
 
       {showDetail && (
-        <table style={styles.summaryTable}>
+        <table className="border-collapse mt-3 bg-white dark:bg-[#0E1729] text-[11px] border border-slate-200 dark:border-slate-800">
           <thead>
             <tr>
-              <th style={styles.summaryTh}>Dente</th>
-              <th style={styles.summaryTh}>Estado</th>
-              <th style={styles.summaryTh}>Mob.</th>
-              <th style={styles.summaryTh}>Furca</th>
-              <th style={styles.summaryTh}>PS máx.</th>
-              <th style={styles.summaryTh}>NIC máx.</th>
-              <th style={styles.summaryTh}>Sítios c/ SS</th>
+              <th className={summaryThClass}>Dente</th>
+              <th className={summaryThClass}>Estado</th>
+              <th className={summaryThClass}>Mob.</th>
+              <th className={summaryThClass}>Furca</th>
+              <th className={summaryThClass}>PS máx.</th>
+              <th className={summaryThClass}>NIC máx.</th>
+              <th className={summaryThClass}>Sítios c/ SS</th>
             </tr>
           </thead>
           <tbody>
@@ -1029,17 +858,17 @@ const Periograma: React.FC<PeriogramaProps> = ({
                 : "Presente";
               return (
                 <tr key={fdi}>
-                  <td style={styles.summaryTd}>{fdi}</td>
-                  <td style={styles.summaryTd}>{estado}</td>
-                  <td style={styles.summaryTd}>{t.mobility}</td>
-                  <td style={styles.summaryTd}>{t.furcation}</td>
-                  <td style={styles.summaryTd}>
+                  <td className={summaryTdClass}>{fdi}</td>
+                  <td className={summaryTdClass}>{estado}</td>
+                  <td className={summaryTdClass}>{t.mobility}</td>
+                  <td className={summaryTdClass}>{t.furcation}</td>
+                  <td className={summaryTdClass}>
                     {t.missing ? "—" : maxPs || "—"}
                   </td>
-                  <td style={styles.summaryTd}>
+                  <td className={summaryTdClass}>
                     {t.missing ? "—" : maxNic || "—"}
                   </td>
-                  <td style={styles.summaryTd}>
+                  <td className={summaryTdClass}>
                     {t.missing ? "—" : ssCount}
                   </td>
                 </tr>

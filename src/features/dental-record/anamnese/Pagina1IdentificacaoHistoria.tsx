@@ -369,7 +369,7 @@ export const Pagina1IdentificacaoHistoria = memo(function Pagina1IdentificacaoHi
         numero={5}
         titulo="Declaração e Assinatura"
       >
-        <p className="text-xs leading-loose text-slate-700">
+        <p className="text-xs leading-loose text-slate-700 dark:text-slate-300">
           Eu,{' '}
           <InlineTextInput
             ariaLabel="Nome na declaração"
@@ -395,7 +395,7 @@ export const Pagina1IdentificacaoHistoria = memo(function Pagina1IdentificacaoHi
           omitindo nenhuma informação.
         </p>
 
-        <div className="flex flex-wrap items-end gap-2 text-xs leading-loose text-slate-700">
+        <div className="flex flex-wrap items-end gap-2 text-xs leading-loose text-slate-700 dark:text-slate-300">
           <span>Data:</span>
           <InlineTextInput
             ariaLabel="Local/Cidade"

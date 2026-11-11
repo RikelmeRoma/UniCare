@@ -55,23 +55,23 @@ export function AnamneseModal({ pacienteId, anamnese, onClose }: AnamneseModalPr
   };
 
   const campo =
-    'w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-slate-800 text-xs font-mono';
-  const rotulo = 'block text-[11px] font-bold text-slate-700 mb-1';
+    'w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-slate-800 dark:focus:border-blue-500 text-xs font-mono';
+  const rotulo = 'block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1';
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50">
       <form
         onSubmit={handleSalvar}
-        className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4"
+        className="bg-white dark:bg-[#0E1729] rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4"
       >
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-slate-900 dark:bg-slate-700 text-white flex items-center justify-center">
               <ShieldCheckIcon className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900">Atualizar anamnese</h3>
-              <p className="text-[11px] text-slate-500">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Atualizar anamnese</h3>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 Alergias, condições crônicas e medicações no prontuário
               </p>
             </div>
@@ -80,7 +80,7 @@ export function AnamneseModal({ pacienteId, anamnese, onClose }: AnamneseModalPr
             type="button"
             onClick={onClose}
             aria-label="Fechar"
-            className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100"
+            className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             <XMarkIcon className="w-4 h-4" />
           </button>
@@ -127,28 +127,28 @@ export function AnamneseModal({ pacienteId, anamnese, onClose }: AnamneseModalPr
         </div>
 
         {erro && (
-          <p className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-[11px] font-semibold">
+          <p className="p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-xl text-rose-800 dark:text-rose-300 text-[11px] font-semibold">
             {erro}
           </p>
         )}
         {ok && (
-          <p className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-[11px] font-semibold">
+          <p className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 rounded-xl text-emerald-800 dark:text-emerald-300 text-[11px] font-semibold">
             {ok}
           </p>
         )}
 
-        <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-100">
+        <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs hover:bg-slate-50"
+            className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-xs hover:bg-slate-50 dark:hover:bg-slate-800"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={isSaving}
-            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs disabled:opacity-60"
+            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white font-bold text-xs disabled:opacity-60"
           >
             {isSaving ? 'Salvando…' : 'Salvar no prontuário'}
           </button>

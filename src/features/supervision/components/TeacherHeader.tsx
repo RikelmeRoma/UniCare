@@ -18,20 +18,20 @@ export function TeacherHeader() {
     .toUpperCase();
 
   return (
-    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="bg-white dark:bg-[#0E1729] p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-colors">
       <div className="flex items-center gap-4">
-        <div className="w-12 h-12 bg-[#0a1526] text-white rounded-xl flex items-center justify-center text-xl font-bold">
+        <div className="w-12 h-12 bg-[#0a1526] dark:bg-blue-700 text-white rounded-xl flex items-center justify-center text-xl font-bold shadow-xs">
           {iniciais}
         </div>
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-bold text-gray-900">{user?.nome || 'Docente Supervisor(a)'}</h2>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{user?.nome || 'Docente Supervisor(a)'}</h2>
           </div>
-          <div className="text-sm text-gray-500 mt-1 flex flex-col md:flex-row md:items-center gap-2">
-            <span className="text-green-600 flex items-center gap-1 font-medium">
-              <span className="w-2 h-2 rounded-full bg-green-500"></span> Docente Supervisor(a) de Odontologia Clínica
+          <div className="text-sm text-slate-500 dark:text-slate-400 mt-1 flex flex-col md:flex-row md:items-center gap-2">
+            <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 font-medium">
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Docente Supervisor(a) de Odontologia Clínica
             </span>
-            <span className="hidden md:inline">•</span>
+            <span className="hidden md:inline text-slate-300 dark:text-slate-600">•</span>
             <span>Clínica Odontológica Integrada / Estágio Supervisionado</span>
           </div>
         </div>

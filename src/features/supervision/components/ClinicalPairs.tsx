@@ -376,17 +376,17 @@ export function ClinicalPairs() {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-6">
+    <div className="bg-white dark:bg-[#0E1729] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-6 space-y-6 transition-colors">
       {feedbackSuccess && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between gap-3 text-xs text-emerald-800 shadow-xs animate-fadeIn">
+        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 rounded-xl flex items-center justify-between gap-3 text-xs text-emerald-800 dark:text-emerald-200 shadow-xs animate-fadeIn">
           <div className="flex items-center gap-2">
-            <CheckCircleIcon className="w-5 h-5 text-emerald-600 shrink-0" />
+            <CheckCircleIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <span className="font-semibold">{feedbackSuccess}</span>
           </div>
           <button
             type="button"
             onClick={() => setFeedbackSuccess('')}
-            className="text-emerald-700 hover:text-emerald-900"
+            className="text-emerald-700 dark:text-emerald-300 hover:text-emerald-900 dark:hover:text-emerald-100"
           >
             <XMarkIcon className="w-4 h-4" />
           </button>
@@ -394,7 +394,7 @@ export function ClinicalPairs() {
       )}
 
       {erroCarga && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center justify-between gap-3 text-xs text-red-700">
+        <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl flex items-center justify-between gap-3 text-xs text-red-700 dark:text-red-300">
           <span>Não foi possível carregar tudo: {erroCarga}</span>
           <button
             type="button"
@@ -409,12 +409,12 @@ export function ClinicalPairs() {
       {/* Falha de escrita fora dos modais (ex.: reativar pelo cartão) não pode
           sumir: dentro dos modais o aviso aparece na própria caixa. */}
       {validationError && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center justify-between gap-3 text-xs text-red-700">
+        <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl flex items-center justify-between gap-3 text-xs text-red-700 dark:text-red-300">
           <span>{validationError}</span>
           <button
             type="button"
             onClick={() => setValidationError('')}
-            className="shrink-0 text-red-700 hover:text-red-900"
+            className="shrink-0 text-red-700 dark:text-red-300 hover:text-red-900 dark:hover:text-red-100"
             title="Fechar aviso"
           >
             <XMarkIcon className="w-4 h-4" />
@@ -424,24 +424,24 @@ export function ClinicalPairs() {
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <UserGroupIcon className="w-5 h-5 text-emerald-800" />
+          <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <UserGroupIcon className="w-5 h-5 text-emerald-800 dark:text-emerald-400" />
             <span>Duplas Clínicas sob Orientação Docente ({duplas.length} ativas)</span>
           </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             O supervisor vincula alunos já cadastrados e monta a dupla que atende em cadeira.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
           <div className="relative flex-1 min-w-[180px] md:w-64">
-            <MagnifyingGlassIcon className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <MagnifyingGlassIcon className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar aluno ou dupla..."
-              className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs w-full focus:outline-none focus:bg-white focus:border-emerald-600 transition-colors"
+              className="pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 w-full focus:outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-emerald-600 dark:focus:border-emerald-500 transition-colors"
             />
           </div>
 
@@ -450,7 +450,7 @@ export function ClinicalPairs() {
               <button
                 type="button"
                 onClick={abrirModalVinculo}
-                className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-xs transition-colors flex items-center gap-1.5 border border-emerald-900 shrink-0"
+                className="bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-xs transition-colors flex items-center gap-1.5 border border-emerald-900 dark:border-emerald-500 shrink-0"
               >
                 <UserPlusIcon className="w-4 h-4" />
                 <span>Vincular Aluno</span>
@@ -458,7 +458,7 @@ export function ClinicalPairs() {
               <button
                 type="button"
                 onClick={abrirModalDupla}
-                className="bg-[#881337] hover:bg-[#6e0f2c] text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-xs transition-colors flex items-center gap-1.5 border border-[#4c0519] shrink-0"
+                className="bg-[#881337] hover:bg-[#6e0f2c] dark:bg-rose-800 dark:hover:bg-rose-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-xs transition-colors flex items-center gap-1.5 border border-[#4c0519] dark:border-rose-700 shrink-0"
               >
                 <PlusIcon className="w-4 h-4" />
                 <span>Montar Dupla</span>
@@ -469,24 +469,24 @@ export function ClinicalPairs() {
       </div>
 
       {carregando ? (
-        <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 border border-dashed border-slate-200 rounded-xl">
+        <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/60 border border-dashed border-slate-200 dark:border-slate-700 rounded-xl">
           Carregando duplas e alunos...
         </div>
       ) : (
         <>
-          <div className="p-4 bg-rose-50/40 border border-rose-200/80 rounded-xl space-y-3">
+          <div className="p-4 bg-rose-50/40 dark:bg-rose-950/20 border border-rose-200/80 dark:border-rose-900/50 rounded-xl space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-[#881337] uppercase tracking-wider flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#881337]" />
+              <span className="text-[11px] font-bold text-[#881337] dark:text-rose-300 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#881337] dark:bg-rose-400" />
                 <span>Acadêmicos Estagiários Vinculados à Clínica de Odontologia</span>
               </span>
-              <span className="text-[10px] bg-rose-100 text-[#881337] font-bold px-2 py-0.5 rounded">
+              <span className="text-[10px] bg-rose-100 dark:bg-rose-950/70 text-[#881337] dark:text-rose-200 border border-transparent dark:border-rose-800/60 font-bold px-2 py-0.5 rounded">
                 {odontoInterns.length} acadêmico(s)
               </span>
             </div>
 
             {internosFiltrados.length === 0 ? (
-              <p className="text-xs text-slate-500 italic bg-white border border-dashed border-rose-200 rounded-xl p-4 text-center">
+              <p className="text-xs text-slate-500 dark:text-slate-400 italic bg-white dark:bg-[#0E1729] border border-dashed border-rose-200 dark:border-rose-900/60 rounded-xl p-4 text-center">
                 {odontoInterns.length === 0
                   ? 'Nenhum estagiário vinculado a você. Use "Vincular Aluno" para assumir um cadastro existente.'
                   : 'Nenhum estagiário corresponde à busca.'}
@@ -498,25 +498,25 @@ export function ClinicalPairs() {
                   return (
                     <div
                       key={key}
-                      className="bg-white p-3.5 rounded-xl border border-rose-200/90 shadow-2xs flex flex-col justify-between"
+                      className="bg-white dark:bg-[#0E1729] p-3.5 rounded-xl border border-rose-200/90 dark:border-rose-900/50 shadow-2xs flex flex-col justify-between transition-colors"
                     >
                       <div>
                         <div className="flex justify-between items-start gap-2">
-                          <p className="font-bold text-slate-900 truncate">{intern.nome}</p>
+                          <p className="font-bold text-slate-900 dark:text-white truncate">{intern.nome}</p>
                           <span
                             className={`text-[8px] font-bold px-1.5 py-0.5 rounded font-mono shrink-0 ${
                               intern.ativo
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : 'bg-slate-100 text-slate-500'
+                                ? 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
                             }`}
                           >
                             {intern.ativo ? 'Ativo' : 'Desativado'}
                           </span>
                         </div>
-                        <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">
                           Matrícula: {intern.matricula}
                         </p>
-                        <p className="text-[10px] text-[#881337] font-semibold mt-1 truncate">
+                        <p className="text-[10px] text-[#881337] dark:text-rose-300 font-semibold mt-1 truncate">
                           {dupla
                             ? `Dupla com ${
                                 dupla.operador_matricula === intern.matricula
@@ -526,12 +526,12 @@ export function ClinicalPairs() {
                             : 'Sem dupla ativa'}
                         </p>
                       </div>
-                      <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
+                      <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                         <span
                           className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${
                             intern.ativo
-                              ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                              : 'text-slate-500 bg-slate-100 border-slate-300'
+                              ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800/70'
+                              : 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700'
                           }`}
                         >
                           {intern.ativo ? 'Habilitado' : 'Desativado'}
@@ -540,7 +540,7 @@ export function ClinicalPairs() {
                           <button
                             type="button"
                             onClick={() => handleOpenEdit(key, intern)}
-                            className="p-1 text-slate-400 hover:text-[#881337] hover:bg-rose-50 rounded-md transition-colors"
+                            className="p-1 text-slate-400 dark:text-slate-500 hover:text-[#881337] dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-md transition-colors"
                             title="Editar estagiário"
                           >
                             <PencilSquareIcon className="w-3.5 h-3.5" />
@@ -552,7 +552,7 @@ export function ClinicalPairs() {
                                 setValidationError('');
                                 setInternToDelete({ key, nome: intern.nome });
                               }}
-                              className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                              className="p-1 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-md transition-colors"
                               title="Desativar acesso do estagiário"
                             >
                               <TrashIcon className="w-3.5 h-3.5" />
@@ -561,7 +561,7 @@ export function ClinicalPairs() {
                             <button
                               type="button"
                               onClick={() => void handleAtivarEstagiario(key)}
-                              className="p-1 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-md transition-colors"
+                              className="p-1 text-slate-400 dark:text-slate-500 hover:text-emerald-700 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 rounded-md transition-colors"
                               title="Reativar acesso do estagiário"
                             >
                               <ArrowPathIcon className="w-3.5 h-3.5" />
@@ -577,7 +577,7 @@ export function ClinicalPairs() {
           </div>
 
           {duplasFiltradas.length === 0 ? (
-            <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 border border-dashed border-slate-200 rounded-xl">
+            <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/60 border border-dashed border-slate-200 dark:border-slate-700 rounded-xl">
               {duplas.length === 0
                 ? 'Nenhuma dupla montada ainda. Use "Montar Dupla" para unir dois alunos vinculados.'
                 : 'Nenhuma dupla corresponde à busca.'}
@@ -597,28 +597,28 @@ export function ClinicalPairs() {
                 return (
                   <div
                     key={dupla.id}
-                    className="border border-slate-200/80 rounded-xl p-4 bg-slate-50/50 flex flex-col justify-between hover:bg-slate-50 transition-colors"
+                    className="border border-slate-200/80 dark:border-slate-800 rounded-xl p-4 bg-slate-50/50 dark:bg-slate-900/70 flex flex-col justify-between hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
                   >
                     <div className="flex gap-3 items-start mb-4">
                       <div
                         className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shadow-2xs shrink-0 ${
                           contadores.pendentes > 0
-                            ? 'bg-slate-900 text-white'
-                            : 'bg-emerald-700 text-white'
+                            ? 'bg-slate-900 dark:bg-slate-700 text-white'
+                            : 'bg-emerald-700 dark:bg-emerald-600 text-white'
                         }`}
                       >
                         D{dupla.id}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold text-slate-900">Dupla {dupla.id}</p>
-                        <p className="text-[10px] text-slate-500 mt-0.5 truncate">
+                        <p className="text-xs font-bold text-slate-900 dark:text-white">Dupla {dupla.id}</p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
                           {dupla.operador_nome} + {dupla.auxiliar_nome}
                         </p>
-                        <p className="text-[9px] text-slate-400 font-mono mt-0.5 truncate">
+                        <p className="text-[9px] text-slate-400 dark:text-slate-500 font-mono mt-0.5 truncate">
                           {dupla.operador_matricula} · {dupla.auxiliar_matricula}
                         </p>
                         {isRT && dupla.supervisor_nome && (
-                          <p className="text-[9px] text-slate-400 mt-0.5 truncate">
+                          <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">
                             Supervisor: {dupla.supervisor_nome}
                           </p>
                         )}
@@ -629,31 +629,31 @@ export function ClinicalPairs() {
                           setValidationError('');
                           setDuplaToDelete(dupla);
                         }}
-                        className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors shrink-0"
+                        className="p-1 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-md transition-colors shrink-0"
                         title="Desfazer dupla"
                       >
                         <TrashIcon className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                    <div className="text-[10px] border-t border-slate-200/60 pt-3 flex justify-between items-center">
+                    <div className="text-[10px] border-t border-slate-200/60 dark:border-slate-800 pt-3 flex justify-between items-center">
                       <div>
-                        <p className="text-slate-400 uppercase font-semibold">Procedimentos</p>
-                        <p className="font-bold text-slate-900 font-mono">
+                        <p className="text-slate-400 dark:text-slate-500 uppercase font-semibold">Procedimentos</p>
+                        <p className="font-bold text-slate-900 dark:text-slate-100 font-mono">
                           Homologados:{' '}
-                          <span className="text-emerald-700">
+                          <span className="text-emerald-700 dark:text-emerald-400">
                             {contadores.homologadas} / {contadores.total}
                           </span>
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-slate-500">{contadores.total} ficha(s)</p>
+                        <p className="text-slate-500 dark:text-slate-400">{contadores.total} ficha(s)</p>
                         <p
                           className={`font-bold ${
                             status === 'Em Dia'
-                              ? 'text-emerald-700'
+                              ? 'text-emerald-700 dark:text-emerald-400'
                               : status === 'Pendente'
-                                ? 'text-amber-700'
-                                : 'text-slate-500'
+                                ? 'text-amber-700 dark:text-amber-400'
+                                : 'text-slate-500 dark:text-slate-400'
                           }`}
                         >
                           {status}
@@ -666,14 +666,14 @@ export function ClinicalPairs() {
             </div>
           )}
 
-          <div className="flex justify-between items-center pt-4 border-t border-slate-100">
-            <p className="text-xs text-slate-500">
+          <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Exibindo {duplasFiltradas.length} dupla(s) ativa(s)
             </p>
             <button
               type="button"
               onClick={() => void carregarDados()}
-              className="text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3.5 py-1.5 rounded-xl transition-colors flex items-center gap-1.5 border border-emerald-200/70"
+              className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 px-3.5 py-1.5 rounded-xl transition-colors flex items-center gap-1.5 border border-emerald-200/70 dark:border-emerald-800/70"
             >
               <ArrowPathIcon className="w-3.5 h-3.5" />
               <span>Atualizar</span>
@@ -683,16 +683,16 @@ export function ClinicalPairs() {
       )}
 
       {showLinkModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white dark:bg-[#0E1729] rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-emerald-700 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                <div className="w-8 h-8 rounded-lg bg-emerald-700 dark:bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
                   <UserPlusIcon className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Vincular Aluno</h3>
-                  <p className="text-[10px] text-slate-500">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Vincular Aluno</h3>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
                     O cadastro é da RT; aqui você assume um aluno já existente.
                   </p>
                 </div>
@@ -700,7 +700,7 @@ export function ClinicalPairs() {
               <button
                 type="button"
                 onClick={() => setShowLinkModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg"
+                className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 p-1.5 rounded-lg"
               >
                 <XMarkIcon className="w-5 h-5" />
               </button>
@@ -708,19 +708,19 @@ export function ClinicalPairs() {
 
             <form onSubmit={handleVincular} className="space-y-3.5 text-xs">
               {disponiveisParaVincular.length === 0 ? (
-                <p className="text-[11px] text-slate-500 italic bg-slate-50 border border-dashed border-slate-200 rounded-xl px-3 py-3">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 italic bg-slate-50 dark:bg-slate-900/60 border border-dashed border-slate-200 dark:border-slate-700 rounded-xl px-3 py-3">
                   Nenhum estagiário ativo de odontologia sem supervisor. A RT precisa
                   cadastrar o aluno antes.
                 </p>
               ) : (
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Estagiário disponível *
                   </label>
                   <select
                     value={disponivelEscolhido}
                     onChange={(e) => setDisponivelEscolhido(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-emerald-600 text-xs"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-emerald-600 dark:focus:border-emerald-500 text-xs"
                   >
                     <option value="">Selecione o estagiário</option>
                     {disponiveisParaVincular.map((estagiario) => (
@@ -733,34 +733,34 @@ export function ClinicalPairs() {
               )}
 
               {validationError && (
-                <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs">
+                <div className="p-2.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl text-red-700 dark:text-red-300 text-xs">
                   {validationError}
                 </div>
               )}
 
-              <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-[11px] text-emerald-900 space-y-1">
+              <div className="p-3 bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/60 rounded-xl text-[11px] text-emerald-900 dark:text-emerald-200 space-y-1">
                 <div className="flex items-center gap-1.5 font-bold">
-                  <ShieldCheckIcon className="w-4 h-4 text-emerald-700" />
+                  <ShieldCheckIcon className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
                   <span>Vínculo sob sua responsabilidade</span>
                 </div>
-                <p className="text-[10px] text-slate-600">
+                <p className="text-[10px] text-slate-600 dark:text-slate-400">
                   O aluno passa a aparecer na sua supervisão. A criação de conta e a troca
                   de responsável continuam sendo atos da Referência Técnica.
                 </p>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setShowLinkModal(false)}
-                  className="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 font-bold transition-colors"
+                  className="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={salvando || disponiveisParaVincular.length === 0}
-                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold transition-all shadow-xs border border-emerald-900 flex items-center gap-1.5 disabled:opacity-50"
+                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-xl font-bold transition-all shadow-xs border border-emerald-900 dark:border-emerald-500 flex items-center gap-1.5 disabled:opacity-50"
                 >
                   <UserPlusIcon className="w-4 h-4" />
                   <span>{salvando ? 'Vinculando...' : 'Vincular Aluno'}</span>
@@ -772,16 +772,16 @@ export function ClinicalPairs() {
       )}
 
       {showPairModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white dark:bg-[#0E1729] rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#881337] text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                <div className="w-8 h-8 rounded-lg bg-[#881337] dark:bg-rose-800 text-white flex items-center justify-center font-bold text-xs shadow-xs">
                   <UserGroupIcon className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Montar Dupla</h3>
-                  <p className="text-[10px] text-slate-500">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Montar Dupla</h3>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
                     Cada aluno só pode estar em uma dupla ativa.
                   </p>
                 </div>
@@ -789,7 +789,7 @@ export function ClinicalPairs() {
               <button
                 type="button"
                 onClick={() => setShowPairModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg"
+                className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 p-1.5 rounded-lg"
               >
                 <XMarkIcon className="w-5 h-5" />
               </button>
@@ -797,20 +797,20 @@ export function ClinicalPairs() {
 
             <form onSubmit={handleCriarDupla} className="space-y-3.5 text-xs">
               {alunosSemDupla.length < 2 ? (
-                <p className="text-[11px] text-slate-500 italic bg-slate-50 border border-dashed border-slate-200 rounded-xl px-3 py-3">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 italic bg-slate-50 dark:bg-slate-900/60 border border-dashed border-slate-200 dark:border-slate-700 rounded-xl px-3 py-3">
                   São necessários dois alunos vinculados e sem dupla ativa. Vincule mais
                   alguém ou desfaça uma dupla existente.
                 </p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
                       Operador *
                     </label>
                     <select
                       value={operador}
                       onChange={(e) => setOperador(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-[#881337] text-xs"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-[#881337] dark:focus:border-rose-500 text-xs"
                     >
                       <option value="">Selecione</option>
                       {alunosSemDupla.map(([, aluno]) => (
@@ -821,13 +821,13 @@ export function ClinicalPairs() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
                       Auxiliar *
                     </label>
                     <select
                       value={auxiliar}
                       onChange={(e) => setAuxiliar(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-[#881337] text-xs"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-[#881337] dark:focus:border-rose-500 text-xs"
                     >
                       <option value="">Selecione</option>
                       {alunosSemDupla.map(([, aluno]) => (
@@ -841,34 +841,34 @@ export function ClinicalPairs() {
               )}
 
               {validationError && (
-                <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs">
+                <div className="p-2.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl text-red-700 dark:text-red-300 text-xs">
                   {validationError}
                 </div>
               )}
 
-              <div className="p-3 bg-rose-50/70 border border-rose-200 rounded-xl text-[11px] text-[#881337] space-y-1">
+              <div className="p-3 bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 rounded-xl text-[11px] text-[#881337] dark:text-rose-200 space-y-1">
                 <div className="flex items-center gap-1.5 font-bold">
-                  <ShieldCheckIcon className="w-4 h-4 text-[#881337]" />
+                  <ShieldCheckIcon className="w-4 h-4 text-[#881337] dark:text-rose-400" />
                   <span>Dupla vinculada ao seu cadastro</span>
                 </div>
-                <p className="text-[10px] text-slate-600">
+                <p className="text-[10px] text-slate-600 dark:text-slate-400">
                   A dupla fica persistida e é a mesma referência usada pela ficha clínica
                   odontológica. Desfazer não apaga o histórico.
                 </p>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setShowPairModal(false)}
-                  className="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 font-bold transition-colors"
+                  className="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={salvando || alunosSemDupla.length < 2}
-                  className="px-4 py-2 bg-[#881337] hover:bg-[#6e0f2c] text-white rounded-xl font-bold transition-all shadow-xs border border-[#4c0519] flex items-center gap-1.5 disabled:opacity-50"
+                  className="px-4 py-2 bg-[#881337] hover:bg-[#6e0f2c] dark:bg-rose-800 dark:hover:bg-rose-700 text-white rounded-xl font-bold transition-all shadow-xs border border-[#4c0519] dark:border-rose-700 flex items-center gap-1.5 disabled:opacity-50"
                 >
                   <PlusIcon className="w-4 h-4" />
                   <span>{salvando ? 'Montando...' : 'Montar Dupla'}</span>
@@ -880,16 +880,16 @@ export function ClinicalPairs() {
       )}
 
       {showEditModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white dark:bg-[#0E1729] rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-rose-100 text-[#881337] flex items-center justify-center font-bold text-xs shadow-xs">
-                  <PencilSquareIcon className="w-4 h-4 text-[#881337]" />
+                <div className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-950/70 text-[#881337] dark:text-rose-300 flex items-center justify-center font-bold text-xs shadow-xs">
+                  <PencilSquareIcon className="w-4 h-4 text-[#881337] dark:text-rose-300" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Editar Estagiário</h3>
-                  <p className="text-[10px] text-slate-500">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Editar Estagiário</h3>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
                     Atualize os dados acadêmicos do aluno vinculado.
                   </p>
                 </div>
@@ -897,7 +897,7 @@ export function ClinicalPairs() {
               <button
                 type="button"
                 onClick={() => setShowEditModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg"
+                className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 p-1.5 rounded-lg"
               >
                 <XMarkIcon className="w-5 h-5" />
               </button>
@@ -905,7 +905,7 @@ export function ClinicalPairs() {
 
             <form onSubmit={handleSaveEdit} className="space-y-3.5 text-xs">
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Nome Completo *
                 </label>
                 <input
@@ -913,14 +913,14 @@ export function ClinicalPairs() {
                   value={editNome}
                   onChange={(e) => setEditNome(e.target.value)}
                   placeholder="Nome do estagiário"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-[#881337] focus:ring-1 focus:ring-[#881337]/20"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-[#881337] dark:focus:border-rose-500 focus:ring-1 focus:ring-[#881337]/20 dark:focus:ring-rose-500/30"
                   required
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Matrícula Acadêmica *
                   </label>
                   <input
@@ -928,12 +928,12 @@ export function ClinicalPairs() {
                     value={editMatricula}
                     onChange={(e) => setEditMatricula(e.target.value)}
                     placeholder="Matrícula"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-[#881337] focus:ring-1 focus:ring-[#881337]/20 font-mono"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-[#881337] dark:focus:border-rose-500 focus:ring-1 focus:ring-[#881337]/20 dark:focus:ring-rose-500/30 font-mono"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
                     E-mail Institucional
                   </label>
                   <input
@@ -941,28 +941,28 @@ export function ClinicalPairs() {
                     value={editEmail}
                     onChange={(e) => setEditEmail(e.target.value)}
                     placeholder="E-mail"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-[#881337] font-mono text-[11px]"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-[#881337] dark:focus:border-rose-500 font-mono text-[11px]"
                   />
                 </div>
               </div>
 
               {validationError && (
-                <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs">
+                <div className="p-2.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl text-red-700 dark:text-red-300 text-xs">
                   {validationError}
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setShowEditModal(false)}
-                  className="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 font-bold transition-colors"
+                  className="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#881337] hover:bg-[#6e0f2c] text-white rounded-xl font-bold transition-all shadow-xs border border-[#4c0519] flex items-center gap-1.5"
+                  className="px-4 py-2 bg-[#881337] hover:bg-[#6e0f2c] dark:bg-rose-800 dark:hover:bg-rose-700 text-white rounded-xl font-bold transition-all shadow-xs border border-[#4c0519] dark:border-rose-700 flex items-center gap-1.5"
                 >
                   <CheckCircleIcon className="w-4 h-4 text-emerald-300" />
                   <span>Salvar Alterações</span>
@@ -974,33 +974,33 @@ export function ClinicalPairs() {
       )}
 
       {internToDelete && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white dark:bg-[#0E1729] rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
-                <TrashIcon className="w-5 h-5 text-red-600" />
+              <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-950/60 flex items-center justify-center shrink-0">
+                <TrashIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Desativar Acesso</h3>
-                <p className="text-[11px] text-slate-500">Revogação de acesso de estagiário</p>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Desativar Acesso</h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Revogação de acesso de estagiário</p>
               </div>
             </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Desativar o acesso de <strong className="text-slate-900">{internToDelete.nome}</strong>?
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              Desativar o acesso de <strong className="text-slate-900 dark:text-white">{internToDelete.nome}</strong>?
               A dupla ativa dele será encerrada e ele não entrará mais no módulo de
               Odontologia. O cadastro e o histórico de auditoria são preservados, e
               a conta pode ser reativada depois pelo botão de reativar.
             </p>
             {validationError && (
-              <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs">
+              <div className="p-2.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl text-red-700 dark:text-red-300 text-xs">
                 {validationError}
               </div>
             )}
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
                 onClick={() => setInternToDelete(null)}
-                className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+                className="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
               >
                 Cancelar
               </button>
@@ -1018,31 +1018,31 @@ export function ClinicalPairs() {
       )}
 
       {duplaToDelete && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white dark:bg-[#0E1729] rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
-                <UserGroupIcon className="w-5 h-5 text-amber-700" />
+              <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 flex items-center justify-center shrink-0">
+                <UserGroupIcon className="w-5 h-5 text-amber-700 dark:text-amber-400" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Desfazer Dupla</h3>
-                <p className="text-[11px] text-slate-500">A dupla será encerrada, não apagada</p>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Desfazer Dupla</h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">A dupla será encerrada, não apagada</p>
               </div>
             </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
               Desfazer a dupla de{' '}
-              <strong className="text-slate-900">
+              <strong className="text-slate-900 dark:text-white">
                 {duplaToDelete.operador_nome} e {duplaToDelete.auxiliar_nome}
               </strong>
               ? Os dois ficam livres para montar outra dupla. O histórico de fichas é
               preservado.
             </p>
             {validationError && (
-              <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs">
+              <div className="p-2.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl text-red-700 dark:text-red-300 text-xs">
                 {validationError}
               </div>
             )}
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
                 disabled={salvando}
@@ -1050,7 +1050,7 @@ export function ClinicalPairs() {
                   setDuplaToDelete(null);
                   setValidationError('');
                 }}
-                className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                className="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
               >
                 Cancelar
               </button>
@@ -1058,7 +1058,7 @@ export function ClinicalPairs() {
                 type="button"
                 disabled={salvando}
                 onClick={() => void handleDesativarDupla()}
-                className="px-4 py-2 bg-amber-700 hover:bg-amber-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 disabled:opacity-60"
+                className="px-4 py-2 bg-amber-700 hover:bg-amber-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 disabled:opacity-60"
               >
                 <TrashIcon className="w-4 h-4" />
                 <span>{salvando ? 'Desfazendo...' : 'Desfazer Dupla'}</span>

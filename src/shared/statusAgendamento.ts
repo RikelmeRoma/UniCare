@@ -11,27 +11,27 @@ const BASE =
 const ROTULOS: Record<StatusAgendamento, RotuloStatus> = {
   AGENDADO: {
     rotulo: 'Agendado',
-    classes: `${BASE} bg-slate-100 text-slate-700 border-slate-200`,
+    classes: `${BASE} bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700`,
   },
   PRESENTE: {
     rotulo: 'Na Recepção',
-    classes: `${BASE} bg-amber-50 text-amber-800 border-amber-200`,
+    classes: `${BASE} bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-800/70`,
   },
   EM_ATENDIMENTO: {
     rotulo: 'Em Atendimento',
-    classes: `${BASE} bg-blue-50 text-blue-700 border-blue-200`,
+    classes: `${BASE} bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-200 border-blue-200 dark:border-blue-800/70`,
   },
   CONCLUIDO: {
     rotulo: 'Atendido',
-    classes: `${BASE} bg-emerald-50 text-emerald-800 border-emerald-200`,
+    classes: `${BASE} bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-800/70`,
   },
   FALTOU: {
     rotulo: 'Faltou',
-    classes: `${BASE} bg-red-50 text-red-700 border-red-200`,
+    classes: `${BASE} bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-200 border-red-200 dark:border-red-800/70`,
   },
   CANCELADO: {
     rotulo: 'Cancelado',
-    classes: `${BASE} bg-slate-100 text-slate-600 border-slate-200`,
+    classes: `${BASE} bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700`,
   },
 };
 

@@ -100,51 +100,51 @@ export function NewPatientModal({ onClose, defaultCurso = 'odontologia' }: NewPa
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 font-sans">
-      <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
+    <div className="fixed inset-0 bg-slate-900/40 dark:bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 font-sans">
+      <div className="bg-white dark:bg-[#0E1729] rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 mt-1">Novo Cadastro de Paciente</h2>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white mt-1">Novo Cadastro de Paciente</h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg"
+            className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1.5 rounded-lg"
           >
             <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
 
         {errorMsg && (
-          <div className="p-3 mb-4 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 font-semibold flex items-center gap-2">
-            <ExclamationTriangleIcon className="w-4 h-4 text-red-600 shrink-0" />
+          <div className="p-3 mb-4 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800/70 text-xs text-red-700 dark:text-red-200 font-semibold flex items-center gap-2">
+            <ExclamationTriangleIcon className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />
             <span>{errorMsg}</span>
           </div>
         )}
 
         {successMsg && (
-          <div className="p-3 mb-4 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-semibold flex items-center gap-2">
-            <CheckCircleIcon className="w-4 h-4 text-emerald-600 shrink-0" />
+          <div className="p-3 mb-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/70 text-xs text-emerald-800 dark:text-emerald-200 font-semibold flex items-center gap-2">
+            <CheckCircleIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <span>{successMsg}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Nome Completo *</label>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Nome Completo *</label>
             <input
               type="text"
               required
               value={nome}
               onChange={(e) => setNome(e.target.value)}
               placeholder="Ex: Maria das Graças Oliveira"
-              className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none"
+              className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:bg-white dark:focus:bg-slate-900 focus:border-blue-600 outline-none"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">CPF (Anti-Duplicidade) *</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">CPF (Anti-Duplicidade) *</label>
               <input
                 type="text"
                 required
@@ -153,34 +153,34 @@ export function NewPatientModal({ onClose, defaultCurso = 'odontologia' }: NewPa
                 inputMode={isPsicologia ? 'numeric' : undefined}
                 autoComplete="off"
                 placeholder="000.000.000-00"
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none font-mono"
+                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:bg-white dark:focus:bg-slate-900 focus:border-blue-600 outline-none font-mono"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Data de Nascimento *</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Data de Nascimento *</label>
               <input
                 type="date"
                 required
                 value={dataNascimento}
                 onChange={(e) => setDataNascimento(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none font-mono"
+                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none font-mono"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Telefone / WhatsApp *</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Telefone / WhatsApp *</label>
               <input
                 type="text"
                 required
                 value={telefone}
                 onChange={(e) => setTelefone(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none font-mono"
+                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none font-mono"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Serviço de Destino *</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Serviço de Destino *</label>
               {/* A recepção odontológica cadastra exclusivamente na própria
                   clínica; "Ambos" continua disponível na recepção de
                   psicologia. A outra clínica nunca aparece — o servidor
@@ -188,7 +188,7 @@ export function NewPatientModal({ onClose, defaultCurso = 'odontologia' }: NewPa
               <select
                 value={curso}
                 onChange={(e) => setCurso(e.target.value as 'psicologia' | 'odontologia' | 'ambos')}
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none"
+                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none"
               >
                 {defaultCurso === 'odontologia' && <option value="odontologia">Odontologia</option>}
                 {defaultCurso === 'psicologia' && <option value="psicologia">Psicologia (SPA)</option>}
@@ -202,7 +202,7 @@ export function NewPatientModal({ onClose, defaultCurso = 'odontologia' }: NewPa
           {isPsicologia && (
             <>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Endereço *</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Endereço *</label>
                 <input
                   type="text"
                   required
@@ -210,13 +210,13 @@ export function NewPatientModal({ onClose, defaultCurso = 'odontologia' }: NewPa
                   value={endereco}
                   onChange={(e) => setEndereco(e.target.value)}
                   placeholder="Rua, avenida, travessa..."
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none"
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:bg-white dark:focus:bg-slate-900 focus:border-blue-600 outline-none"
                 />
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Número *</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Número *</label>
                   <input
                     type="text"
                     required
@@ -224,33 +224,33 @@ export function NewPatientModal({ onClose, defaultCurso = 'odontologia' }: NewPa
                     value={numero}
                     onChange={(e) => setNumero(e.target.value)}
                     placeholder="Ex: 123"
-                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none"
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:bg-white dark:focus:bg-slate-900 focus:border-blue-600 outline-none"
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Complemento</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Complemento</label>
                   <input
                     type="text"
                     maxLength={100}
                     value={complemento}
                     onChange={(e) => setComplemento(e.target.value)}
                     placeholder="Apto, bloco (opcional)"
-                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none"
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:bg-white dark:focus:bg-slate-900 focus:border-blue-600 outline-none"
                   />
                 </div>
               </div>
             </>
           )}
 
-          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+          <div className="p-3 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={ehMenor}
                 onChange={(e) => setEhMenor(e.target.checked)}
-                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                className="rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500"
               />
-              <span className="text-xs font-semibold text-slate-800">
+              <span className="text-xs font-semibold text-slate-800 dark:text-slate-100">
                 Paciente Menor de Idade (requer dados do Responsável Legal)
               </span>
             </label>
@@ -258,42 +258,42 @@ export function NewPatientModal({ onClose, defaultCurso = 'odontologia' }: NewPa
             {ehMenor && (
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Nome do Responsável *</label>
+                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Nome do Responsável *</label>
                   <input
                     type="text"
                     required
                     value={nomeResponsavel}
                     onChange={(e) => setNomeResponsavel(e.target.value)}
                     placeholder="Nome completo do pai, mãe ou tutor"
-                    className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white outline-none"
+                    className="w-full text-xs p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Contato do Responsável</label>
+                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Contato do Responsável</label>
                   <input
                     type="text"
                     value={contatoResponsavel}
                     onChange={(e) => setContatoResponsavel(e.target.value)}
                     placeholder="(79) 99999-9999"
-                    className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white outline-none font-mono"
+                    className="w-full text-xs p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none font-mono"
                   />
                 </div>
               </div>
             )}
           </div>
 
-          <div className="pt-3 border-t border-slate-100 flex justify-end gap-2.5">
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50"
+              className="px-4 py-2 text-xs font-semibold border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
             >
               Cancelar
             </button>
             <button
 type="submit"
                   disabled={isSaving}
-                  className="px-5 py-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-xs disabled:opacity-50"
+                  className="px-5 py-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white rounded-xl shadow-xs disabled:opacity-50"
                 >
                   {isSaving ? 'Salvando...' : 'Cadastrar Paciente'}
                 </button>

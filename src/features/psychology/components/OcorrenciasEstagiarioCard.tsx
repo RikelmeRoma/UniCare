@@ -35,17 +35,17 @@ export function OcorrenciasEstagiarioCard({
   });
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+    <div className="bg-white dark:bg-[#0E1729] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-6 space-y-4 transition-colors">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
         <div>
-          <h4 className="font-bold text-slate-900 text-xs flex items-center gap-2 uppercase tracking-wider">
-            <ExclamationTriangleIcon className="w-4 h-4 text-amber-600" />
+          <h4 className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-2 uppercase tracking-wider">
+            <ExclamationTriangleIcon className="w-4 h-4 text-amber-600 dark:text-amber-400" />
             <span>{titulo}</span>
-            <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+            <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800/70 tabular-nums">
               {visiveis.length}
             </span>
           </h4>
-          <p className="text-[11px] text-slate-500 mt-0.5">{subtitulo}</p>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{subtitulo}</p>
         </div>
 
         {!filtrarPorMatricula && ocorrenciasPsico.length > 0 && (
@@ -54,13 +54,13 @@ export function OcorrenciasEstagiarioCard({
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             placeholder="Filtrar aluno ou descrição..."
-            className="text-xs px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-500 outline-none w-full sm:w-56"
+            className="text-xs px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/90 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:bg-white dark:focus:bg-slate-900 focus:border-blue-500 outline-none w-full sm:w-56 transition-colors"
           />
         )}
       </div>
 
       {visiveis.length === 0 ? (
-        <p className="text-xs text-slate-400 text-center py-6">
+        <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-6">
           Nenhuma ocorrência registrada até o momento.
         </p>
       ) : (
@@ -68,26 +68,26 @@ export function OcorrenciasEstagiarioCard({
           {visiveis.map((oc) => (
             <li
               key={oc.id}
-              className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3.5 text-xs space-y-1.5"
+              className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/70 p-3.5 text-xs space-y-1.5 transition-colors"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-bold text-slate-900">{oc.estagiarioNome}</span>
-                  <span className="text-[10px] font-mono text-slate-500 bg-white border border-slate-200 px-1.5 py-0.5 rounded-md">
+                  <span className="font-bold text-slate-900 dark:text-white">{oc.estagiarioNome}</span>
+                  <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded-md">
                     {oc.estagiarioMatricula}
                   </span>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800/70">
                     {LABEL_TIPO_OCORRENCIA_PSICO[oc.tipo] ?? oc.tipo}
                   </span>
                 </div>
-                <span className="text-[11px] font-mono text-slate-500">
+                <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 tabular-nums">
                   {formatarDataBr(oc.dataOcorrencia)}
                 </span>
               </div>
-              <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
+              <p className="text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
                 {oc.descricao}
               </p>
-              <p className="text-[10px] text-slate-400">
+              <p className="text-[10px] text-slate-400 dark:text-slate-500">
                 Registrado por {oc.registradoPorNome} ({oc.registradoPorMatricula})
               </p>
             </li>

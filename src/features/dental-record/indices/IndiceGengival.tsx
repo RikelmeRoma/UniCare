@@ -97,10 +97,10 @@ function NumeroDente({ dente, ausente, onAlternarDente }: NumeroDenteProps) {
       onClick={() => onAlternarDente(dente)}
       aria-pressed={ausente}
       title={ausente ? 'Marcar dente como presente' : 'Marcar dente como ausente'}
-      className={`documento-dado w-full border-r border-b border-black py-0.5 text-center font-mono text-[10px] font-bold transition-colors ${
+      className={`documento-dado w-full border-r border-b border-black dark:border-slate-600 py-0.5 text-center font-mono text-[10px] font-bold transition-colors ${
         ausente
-          ? 'bg-slate-100 text-slate-400 line-through'
-          : 'bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+          ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 line-through'
+          : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
       }`}
     >
       {dente}
@@ -138,19 +138,19 @@ export const IndiceGengival = memo(function IndiceGengival({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-900">
+        <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-900 dark:text-white">
           {titulo}
         </h4>
         <button
           type="button"
           onClick={onLimpar}
-          className="rounded-lg border border-slate-200 px-2.5 py-1 text-[10px] font-bold text-slate-600 transition-colors hover:border-rose-300 hover:text-rose-900"
+          className="rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 transition-colors hover:border-rose-300 dark:hover:border-rose-700 hover:text-rose-900 dark:hover:text-rose-300"
         >
           Limpar marcações
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-600">
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/70 px-3 py-2 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
         <span>
           ({rotuloNumerador} / Faces presentes x 100)
         </span>
@@ -159,7 +159,7 @@ export const IndiceGengival = memo(function IndiceGengival({
           readOnly
           value={conta}
           aria-label={`Conta do ${titulo}`}
-          className="w-40 rounded-lg border border-slate-200 bg-white px-2 py-1 text-center font-mono text-[11px] text-slate-800"
+          className="w-40 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-1 text-center font-mono text-[11px] text-slate-800 dark:text-slate-200"
         />
         <span>=</span>
         <input
@@ -167,13 +167,13 @@ export const IndiceGengival = memo(function IndiceGengival({
           readOnly
           value={resultado}
           aria-label={`Resultado do ${titulo}`}
-          className="w-20 rounded-lg border border-slate-200 bg-white px-2 py-1 text-center font-mono text-[11px] font-bold text-slate-900"
+          className="w-20 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-1 text-center font-mono text-[11px] font-bold text-slate-900 dark:text-white"
         />
         <span>%</span>
       </div>
 
       <div className="overflow-x-auto pb-1">
-        <div className="min-w-[720px] border-l border-t border-black bg-white">
+        <div className="min-w-[720px] border-l border-t border-black dark:border-slate-600 bg-white dark:bg-slate-900">
           <div className="grid grid-cols-16">
             {DENTES_SUPERIORES.map((dente) => (
               <CaixaDente
@@ -222,18 +222,18 @@ export const IndiceGengival = memo(function IndiceGengival({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500">
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500 dark:text-slate-400">
         <span>
-          <strong className="font-mono text-slate-900">V</strong> topo
+          <strong className="font-mono text-slate-900 dark:text-slate-100">V</strong> topo
         </span>
         <span>
-          <strong className="font-mono text-slate-900">D</strong> direita
+          <strong className="font-mono text-slate-900 dark:text-slate-100">D</strong> direita
         </span>
         <span>
-          <strong className="font-mono text-slate-900">L</strong> base
+          <strong className="font-mono text-slate-900 dark:text-slate-100">L</strong> base
         </span>
         <span>
-          <strong className="font-mono text-slate-900">M</strong> esquerda
+          <strong className="font-mono text-slate-900 dark:text-slate-100">M</strong> esquerda
         </span>
         <span>Clique no número para marcar o dente como ausente.</span>
       </div>

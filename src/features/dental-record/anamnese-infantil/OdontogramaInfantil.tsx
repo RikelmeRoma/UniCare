@@ -136,17 +136,17 @@ function LinhaArcada({
   return (
     <div>
       <div className="mb-1 flex flex-wrap items-center justify-between gap-1">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">
           {titulo}
         </p>
-        <p className="font-mono text-[10px] text-slate-400">
+        <p className="font-mono text-[10px] text-slate-400 dark:text-slate-500">
           {dentes.length} dentes
         </p>
       </div>
 
       <div className="overflow-x-auto pb-1">
         <div className="mx-auto pb-2" style={{ minWidth: larguraMinima }}>
-          <div className="mb-1 flex justify-between px-1 text-[10px] font-medium text-slate-400">
+          <div className="mb-1 flex justify-between px-1 text-[10px] font-medium text-slate-400 dark:text-slate-500">
             <span>Direita</span>
             <span>Esquerda</span>
           </div>
@@ -165,7 +165,7 @@ function LinhaArcada({
                 <Fragment key={numero}>
                   {indice === separador && (
                     <div
-                      className="mx-1 w-px self-stretch bg-slate-200"
+                      className="mx-1 w-px self-stretch bg-slate-200 dark:bg-slate-700"
                       aria-hidden="true"
                     />
                   )}
@@ -205,17 +205,17 @@ interface ResumoItemProps {
 
 function ResumoItem({ rotulo, valor, cor }: ResumoItemProps) {
   return (
-    <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5">
-      <span className="flex items-center gap-1.5 text-[10px] font-medium text-slate-600">
+    <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0E1729] px-2.5 py-1.5">
+      <span className="flex items-center gap-1.5 text-[10px] font-medium text-slate-600 dark:text-slate-300">
         {cor && (
           <span
-            className="h-2.5 w-2.5 rounded-sm border border-slate-300"
+            className="h-2.5 w-2.5 rounded-sm border border-slate-300 dark:border-slate-600"
             style={{ backgroundColor: cor }}
           />
         )}
         {rotulo}
       </span>
-      <span className="font-mono text-[11px] font-bold text-slate-900">
+      <span className="font-mono text-[11px] font-bold text-slate-900 dark:text-white tabular-nums">
         {valor}
       </span>
     </div>
@@ -340,18 +340,18 @@ export function OdontogramaInfantil({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="mb-1 flex flex-wrap items-center gap-2">
-            <span className="rounded-md bg-slate-900 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+            <span className="rounded-md bg-slate-900 dark:bg-blue-600 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
               Odontograma
             </span>
-            <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-slate-400">
+            <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-400">
               Exame Anatômico FDI
             </span>
           </div>
-          <h3 className="text-sm font-bold tracking-tight text-slate-900">
+          <h3 className="text-sm font-bold tracking-tight text-slate-900 dark:text-white">
             Odontograma Infantil
           </h3>
-          <p className="mt-0.5 text-xs text-slate-500">
-            Dentição: <strong>{rotuloDenticao(denticao)}</strong> ·{' '}
+          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+            Dentição: <strong className="text-slate-700 dark:text-slate-200">{rotuloDenticao(denticao)}</strong> ·{' '}
             {dentesVisiveis.length} dentes exibidos ({resumoDenticao})
           </p>
         </div>
@@ -367,12 +367,12 @@ export function OdontogramaInfantil({
               aria-pressed={ferramenta === condicao.valor}
               className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[10px] font-bold transition-colors ${
                 ferramenta === condicao.valor
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                  ? 'border-slate-900 bg-slate-900 text-white dark:border-blue-500 dark:bg-blue-600'
+                  : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:text-white'
               }`}
             >
               <span
-                className="h-3 w-3 rounded-sm border border-slate-400"
+                className="h-3 w-3 rounded-sm border border-slate-400 dark:border-slate-500"
                 style={{ backgroundColor: condicao.cor }}
               />
               {condicao.rotulo}
@@ -384,8 +384,8 @@ export function OdontogramaInfantil({
             aria-pressed={ferramenta === 'borracha'}
             className={`rounded-lg border px-2.5 py-1 text-[10px] font-bold transition-colors ${
               ferramenta === 'borracha'
-                ? 'border-slate-900 bg-slate-900 text-white'
-                : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                ? 'border-slate-900 bg-slate-900 text-white dark:border-blue-500 dark:bg-blue-600'
+                : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:text-white'
             }`}
           >
             Borracha
@@ -394,7 +394,7 @@ export function OdontogramaInfantil({
         <button
           type="button"
           onClick={limparMarcacoes}
-          className="rounded-lg border border-slate-200 px-2.5 py-1 text-[10px] font-bold text-slate-600 transition-colors hover:border-rose-300 hover:text-rose-900"
+          className="rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800/60 px-2.5 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 transition-colors hover:border-rose-300 dark:hover:border-rose-500/60 hover:text-rose-900 dark:hover:text-rose-300"
         >
           Limpar tudo
         </button>
@@ -433,29 +433,29 @@ export function OdontogramaInfantil({
         <ResumoItem rotulo="Ausentes" valor={resumo.ausentes} />
       </div>
 
-      <div className="space-y-1 rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-[10px] leading-relaxed text-slate-600">
+      <div className="space-y-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/60 p-3 text-[10px] leading-relaxed text-slate-600 dark:text-slate-300">
         <p>
           <span
-            className="mr-1 inline-block h-3 w-3 rounded-sm border border-slate-400 align-middle"
+            className="mr-1 inline-block h-3 w-3 rounded-sm border border-slate-400 dark:border-slate-500 align-middle"
             style={{ backgroundColor: CORES_CONDICAO_INFANTIL.azul }}
           />
           <strong>AZUL:</strong> restaurações em bom estado
         </p>
         <p>
           <span
-            className="mr-1 inline-block h-3 w-3 rounded-sm border border-slate-400 align-middle"
+            className="mr-1 inline-block h-3 w-3 rounded-sm border border-slate-400 dark:border-slate-500 align-middle"
             style={{ backgroundColor: CORES_CONDICAO_INFANTIL.preto }}
           />
           <strong>PRETO:</strong> restaurações insatisfatórias
         </p>
         <p>
           <span
-            className="mr-1 inline-block h-3 w-3 rounded-sm border border-slate-400 align-middle"
+            className="mr-1 inline-block h-3 w-3 rounded-sm border border-slate-400 dark:border-slate-500 align-middle"
             style={{ backgroundColor: CORES_CONDICAO_INFANTIL.vermelho }}
           />
           <strong>VERMELHO:</strong> faces cariadas ou com curativo
         </p>
-        <p className="font-semibold text-slate-700">
+        <p className="font-semibold text-slate-700 dark:text-slate-200">
           Circule os números dos dentes presentes. Clique nas faces para
           marcar a condição selecionada e clique novamente na mesma face para
           remover.

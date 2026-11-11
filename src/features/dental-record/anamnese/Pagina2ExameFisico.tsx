@@ -31,10 +31,10 @@ interface Pagina2Props {
 }
 
 const CABECALHO_CELULA =
-  'border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500';
-const CELULA = 'border border-slate-200 px-1.5 py-1';
+  'border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400';
+const CELULA = 'border border-slate-200 dark:border-slate-700 px-1.5 py-1';
 const CAMPO_CELULA =
-  'w-full rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-center text-xs font-medium text-slate-800 outline-none transition-colors focus:border-slate-800 focus:ring-2 focus:ring-slate-800/15';
+  'w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-1.5 py-1 text-center text-xs font-medium text-slate-800 dark:text-slate-100 outline-none transition-colors focus:border-slate-800 dark:focus:border-blue-400 focus:ring-2 focus:ring-slate-800/15 dark:focus:ring-blue-400/20';
 
 function ReferenciaEstomatograma() {
   const [indisponivel, setIndisponivel] = useState(false);
@@ -42,13 +42,13 @@ function ReferenciaEstomatograma() {
   return (
     <figure className="flex h-full flex-col gap-2">
       {indisponivel ? (
-        <div className="flex min-h-44 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-center">
-          <p className="text-[11px] font-bold text-slate-600">
+        <div className="flex min-h-44 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60 p-4 text-center">
+          <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
             Imagem de referência indisponível
           </p>
-          <p className="text-[10px] leading-relaxed text-slate-400">
+          <p className="text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">
             Salve o arquivo em{' '}
-            <code className="font-mono text-slate-500">public/estomatograma.png</code>{' '}
+            <code className="font-mono text-slate-500 dark:text-slate-300">public/estomatograma.png</code>{' '}
             para exibi-la.
           </p>
         </div>
@@ -58,7 +58,7 @@ function ReferenciaEstomatograma() {
           target="_blank"
           rel="noreferrer"
           title="Abrir imagem em tamanho real"
-          className="block rounded-xl border border-slate-200 bg-white p-1 transition-colors hover:border-slate-300"
+          className="block rounded-xl border border-slate-200 dark:border-slate-700 bg-white p-1 transition-colors hover:border-slate-300 dark:hover:border-slate-500"
         >
           <img
             src="/estomatograma.png"
@@ -69,7 +69,7 @@ function ReferenciaEstomatograma() {
           />
         </a>
       )}
-      <figcaption className="text-[10px] leading-relaxed text-slate-500">
+      <figcaption className="text-[10px] leading-relaxed text-slate-500 dark:text-slate-400">
         Referência anatômica ilustrativa. Use a numeração dos campos ao lado para registrar as
         regiões examinadas.
       </figcaption>
@@ -172,7 +172,7 @@ export const Pagina2ExameFisico = memo(function Pagina2ExameFisico({
                 <tr>
                   <td
                     colSpan={6}
-                    className="border border-slate-200 px-2 py-3 text-center text-[11px] text-slate-400"
+                    className="border border-slate-200 dark:border-slate-700 px-2 py-3 text-center text-[11px] text-slate-400 dark:text-slate-500"
                   >
                     Nenhuma aferição registrada.
                   </td>
@@ -192,7 +192,7 @@ export const Pagina2ExameFisico = memo(function Pagina2ExameFisico({
                         placeholder="120"
                         className={CAMPO_CELULA}
                       />
-                      <span className="text-[11px] font-bold text-slate-400">x</span>
+                      <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500">x</span>
                       <input
                         type="text"
                         value={afericao.diastolica}
@@ -251,7 +251,7 @@ export const Pagina2ExameFisico = memo(function Pagina2ExameFisico({
                       type="button"
                       onClick={() => removerAfericao(indice)}
                       aria-label={`Remover ${indice + 1}ª linha do exame físico`}
-                      className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-900"
+                      className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-rose-50 dark:hover:bg-rose-950/50 hover:text-rose-900 dark:hover:text-rose-300"
                     >
                       <TrashIcon className="h-3.5 w-3.5" />
                     </button>
@@ -265,7 +265,7 @@ export const Pagina2ExameFisico = memo(function Pagina2ExameFisico({
         <button
           type="button"
           onClick={adicionarAfericao}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1 text-[10px] font-bold text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800/60 px-2.5 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 transition-colors hover:border-slate-300 dark:hover:border-slate-600 hover:text-slate-900 dark:hover:text-white"
         >
           <PlusIcon className="h-3.5 w-3.5" />
           Adicionar linha
@@ -290,7 +290,7 @@ export const Pagina2ExameFisico = memo(function Pagina2ExameFisico({
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(260px,340px)]">
           <div className="space-y-4">
             <div>
-              <span className="mb-1 block text-[11px] font-bold text-slate-600">
+              <span className="mb-1 block text-[11px] font-bold text-slate-600 dark:text-slate-300">
                 Regiões da cavidade bucal
               </span>
               <div className="flex flex-wrap gap-1.5">
@@ -301,8 +301,8 @@ export const Pagina2ExameFisico = memo(function Pagina2ExameFisico({
                       key={regiao.numero}
                       className={`relative cursor-pointer rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
                         ativo
-                          ? 'border-slate-900 bg-slate-100 text-slate-900'
-                          : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                          ? 'border-slate-900 bg-slate-100 text-slate-900 dark:border-blue-500 dark:bg-blue-950/60 dark:text-blue-200'
+                          : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:text-white'
                       }`}
                     >
                       <input

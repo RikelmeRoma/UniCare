@@ -32,8 +32,8 @@ interface OdontogramaProps {
 interface Pagina4Props extends MapaProps, DiarioProps, OdontogramaProps {}
 
 const CABECALHO_CELULA =
-  'border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500';
-const CELULA = 'border border-slate-200 px-2 py-1';
+  'border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400';
+const CELULA = 'border border-slate-200 dark:border-slate-700 px-2 py-1';
 
 type LinhaDiario = 'refeicoes' | 'lanches';
 
@@ -46,7 +46,7 @@ interface TabelaDiarioProps {
 function TabelaDiario({ titulo, dados, onChange }: TabelaDiarioProps) {
   return (
     <div className="space-y-1">
-      <p className="text-[11px] font-bold text-slate-600">{titulo}</p>
+      <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{titulo}</p>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[420px] border-collapse">
           <thead>
@@ -65,7 +65,7 @@ function TabelaDiario({ titulo, dados, onChange }: TabelaDiarioProps) {
               ] as const
             ).map((linha) => (
               <tr key={linha.chave}>
-                <td className={`${CELULA} text-[11px] font-bold text-slate-600`}>
+                <td className={`${CELULA} text-[11px] font-bold text-slate-600 dark:text-slate-300`}>
                   {linha.rotulo}
                 </td>
                 {[0, 1, 2].map((dia) => (

@@ -1,5 +1,45 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *):not(:where(.relatorio-doc, .relatorio-doc *, #rt-print, #rt-print *)));
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+@layer base {
+  html,
+  body {
+    font-family: var(--font-sans);
+    background-color: #f1f5f9;
+    color: #0f172a;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html.dark,
+  html.dark body {
+    background-color: #070d19;
+    color: #f1f5f9;
+  }
+
+  /* Mantém documentos imprimíveis e prévias PDF sempre com esquema claro de papel */
+  .relatorio-doc,
+  #rt-print {
+    color-scheme: light;
+  }
+
+  /* Scrollbars refinadas para tema claro e escuro */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+  }
+
+  html.dark * {
+    scrollbar-color: rgba(71, 85, 105, 0.7) transparent;
+  }
+}
+
 @keyframes floatOrb {
   0%, 100% {
     transform: translateY(0px) scale(1);

@@ -418,7 +418,7 @@ export default function OdontogramApp({ valor, onChange, somenteLeitura = false 
   const sel = selectedTooth ? teeth[selectedTooth] : null;
 
   return (
-    <div className="bg-white rounded-2xl text-slate-800 font-sans min-h-full">
+    <div className="bg-white dark:bg-[#0E1729] rounded-2xl text-slate-800 dark:text-slate-200 font-sans min-h-full transition-colors">
       <style>{`
         @media print {
           .no-print { display: none !important; }
@@ -428,69 +428,70 @@ export default function OdontogramApp({ valor, onChange, somenteLeitura = false 
       `}</style>
 
       <div className="max-w-5xl mx-auto p-2">
-        <div className="mb-4 pb-3 border-b border-slate-100 flex justify-between items-center">
+        <div className="mb-4 pb-3 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="px-2.5 py-0.5 rounded-md bg-slate-900 text-white text-[10px] font-bold uppercase tracking-wider shadow-2xs">
+              <span className="px-2.5 py-0.5 rounded-md bg-slate-900 dark:bg-blue-600 text-white text-[10px] font-bold uppercase tracking-wider shadow-2xs">
                 Odontograma
               </span>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">
+              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest font-mono">
                 Exame Anatômico FDI
               </span>
             </div>
-            <h2 className="text-base font-bold text-slate-900 tracking-tight">
+            <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
               Odontograma • Mapeamento Anatômico 2D (Numeração FDI)
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Selecione a ferramenta clínica e clique na face ou dente para registrar a condição patológica ou restauradora.
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5 no-print">
-          <label className="flex flex-col text-xs" style={{ color: "#5C6B6D" }}>
+          <label className="flex flex-col text-xs text-slate-600 dark:text-slate-300 font-medium">
             Paciente
             <input
               value={patient.nome}
               onChange={(e) => setPatient((p) => ({ ...p, nome: e.target.value }))}
               placeholder="Nome completo"
-              className="mt-1 px-2 py-1.5 rounded text-sm"
-              style={{ border: "1px solid #D7DEDD", background: "#FFFFFF", color: "#14262A" }}
+              className="mt-1 px-2.5 py-1.5 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 border border-[#D7DEDD] dark:border-slate-700 focus:outline-none focus:border-slate-600 dark:focus:border-blue-500"
             />
           </label>
-          <label className="flex flex-col text-xs" style={{ color: "#5C6B6D" }}>
+          <label className="flex flex-col text-xs text-slate-600 dark:text-slate-300 font-medium">
             Data
             <input
               type="date"
               value={patient.data}
               onChange={(e) => setPatient((p) => ({ ...p, data: e.target.value }))}
-              className="mt-1 px-2 py-1.5 rounded text-sm"
-              style={{ border: "1px solid #D7DEDD", background: "#FFFFFF", color: "#14262A" }}
+              className="mt-1 px-2.5 py-1.5 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-[#D7DEDD] dark:border-slate-700 focus:outline-none focus:border-slate-600 dark:focus:border-blue-500"
             />
           </label>
-          <label className="flex flex-col text-xs" style={{ color: "#5C6B6D" }}>
+          <label className="flex flex-col text-xs text-slate-600 dark:text-slate-300 font-medium">
             Profissional
             <input
               value={patient.profissional}
               onChange={(e) => setPatient((p) => ({ ...p, profissional: e.target.value }))}
               placeholder="Dentista responsável"
-              className="mt-1 px-2 py-1.5 rounded text-sm"
-              style={{ border: "1px solid #D7DEDD", background: "#FFFFFF", color: "#14262A" }}
+              className="mt-1 px-2.5 py-1.5 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 border border-[#D7DEDD] dark:border-slate-700 focus:outline-none focus:border-slate-600 dark:focus:border-blue-500"
             />
           </label>
         </div>
 
         <div className="mb-5 no-print">
           <div className="mb-2">
-            <span className="text-xs font-medium" style={{ color: "#5C6B6D" }}>Condições por face</span>
+            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Condições por face</span>
             <div className="flex flex-wrap gap-1.5 mt-1.5">
               {FACE_CONDITIONS.map((c) => (
                 <button
                   key={c.key}
                   onClick={() => setActiveTool(c.key)}
-                  className="tool-btn flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium"
+                  className={`tool-btn flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    activeTool === c.key
+                      ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-2'
+                      : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-[#D7DEDD] dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}
                   aria-pressed={activeTool === c.key}
-                  style={{ border: activeTool === c.key ? `2px solid ${c.color}` : "1px solid #D7DEDD", background: "#FFFFFF" }}
+                  style={activeTool === c.key ? { borderColor: c.color } : undefined}
                 >
                   <span style={{ width: 10, height: 10, borderRadius: 2, background: c.color, display: "inline-block" }} />
                   {c.label}
@@ -498,9 +499,12 @@ export default function OdontogramApp({ valor, onChange, somenteLeitura = false 
               ))}
               <button
                 onClick={() => setActiveTool("eraser")}
-                className="tool-btn flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium"
+                className={`tool-btn flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  activeTool === "eraser"
+                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-2 border-[#14262A] dark:border-blue-400'
+                    : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-[#D7DEDD] dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+                }`}
                 aria-pressed={activeTool === "eraser"}
-                style={{ border: activeTool === "eraser" ? "2px solid #14262A" : "1px solid #D7DEDD", background: "#FFFFFF" }}
               >
                 <span style={{ width: 10, height: 10, borderRadius: 2, background: "#eee", border: "1px solid #999", display: "inline-block" }} />
                 Borracha
@@ -509,15 +513,19 @@ export default function OdontogramApp({ valor, onChange, somenteLeitura = false 
           </div>
 
           <div>
-            <span className="text-xs font-medium" style={{ color: "#5C6B6D" }}>Condições do dente inteiro</span>
+            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Condições do dente inteiro</span>
             <div className="flex flex-wrap gap-1.5 mt-1.5">
               {WHOLE_CONDITIONS.map((c) => (
                 <button
                   key={c.key}
                   onClick={() => setActiveTool(c.key)}
-                  className="tool-btn flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium"
+                  className={`tool-btn flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    activeTool === c.key
+                      ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-2'
+                      : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-[#D7DEDD] dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}
                   aria-pressed={activeTool === c.key}
-                  style={{ border: activeTool === c.key ? `2px solid ${c.color}` : "1px solid #D7DEDD", background: "#FFFFFF" }}
+                  style={activeTool === c.key ? { borderColor: c.color } : undefined}
                 >
                   <span style={{ width: 10, height: 10, borderRadius: "50%", background: c.color, display: "inline-block" }} />
                   {c.label}
@@ -527,17 +535,17 @@ export default function OdontogramApp({ valor, onChange, somenteLeitura = false 
           </div>
         </div>
 
-        <div className="rounded-lg p-4 mb-5" style={{ background: "#FFFFFF", border: "1px solid #D7DEDD" }}>
+        <div className="rounded-xl p-4 mb-5 bg-white dark:bg-slate-900/75 border border-[#D7DEDD] dark:border-slate-800">
           <div className="overflow-x-auto">
             <div className="pb-4" style={{ minWidth: 780 }}>
-              <div className="flex justify-between text-xs font-medium mb-2 px-1" style={{ color: "#5C6B6D" }}>
+              <div className="flex justify-between text-xs font-medium mb-2 px-1 text-slate-600 dark:text-slate-400">
                 <span>Superior direita</span>
                 <span>Superior esquerda</span>
               </div>
-              <div className="flex justify-center items-end gap-1.5 pb-4" style={{ borderBottom: "1px dashed #D7DEDD" }}>
+              <div className="flex justify-center items-end gap-1.5 pb-4 border-b border-dashed border-[#D7DEDD] dark:border-slate-700">
                 {UPPER_ROW.map((fdi, i) => (
                   <React.Fragment key={fdi}>
-                    {i === 8 && <div style={{ width: 1, alignSelf: "stretch", background: "#D7DEDD", margin: "0 4px" }} />}
+                    {i === 8 && <div className="w-px self-stretch bg-[#D7DEDD] dark:bg-slate-700 mx-1" />}
                     <div style={archTransform(i, UPPER_ROW.length, "upper")}>
                       <ToothSVG fdi={fdi} data={teeth[fdi]} activeTool={activeTool} onCellClick={handleCellClick} onSelect={setSelectedTooth} isSelected={selectedTooth === fdi} />
                     </div>
@@ -548,7 +556,7 @@ export default function OdontogramApp({ valor, onChange, somenteLeitura = false 
               <div className="flex justify-center items-start gap-1.5 pt-4">
                 {LOWER_ROW.map((fdi, i) => (
                   <React.Fragment key={fdi}>
-                    {i === 8 && <div style={{ width: 1, alignSelf: "stretch", background: "#D7DEDD", margin: "0 4px" }} />}
+                    {i === 8 && <div className="w-px self-stretch bg-[#D7DEDD] dark:bg-slate-700 mx-1" />}
                     <div style={archTransform(i, LOWER_ROW.length, "lower")}>
                       <ToothSVG fdi={fdi} data={teeth[fdi]} activeTool={activeTool} onCellClick={handleCellClick} onSelect={setSelectedTooth} isSelected={selectedTooth === fdi} />
                     </div>
@@ -560,28 +568,27 @@ export default function OdontogramApp({ valor, onChange, somenteLeitura = false 
         </div>
 
         {sel && selectedTooth !== null && (
-          <div className="rounded-lg p-4 mb-5 no-print" style={{ background: "#FFFFFF", border: "1px solid #D7DEDD" }}>
+          <div className="rounded-xl p-4 mb-5 no-print bg-white dark:bg-slate-900/90 border border-[#D7DEDD] dark:border-slate-700">
             <div className="flex items-start justify-between mb-3">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Dente {selectedTooth}</h2>
-                <p className="text-xs" style={{ color: "#5C6B6D" }}>{toothTypeName(selectedTooth)} · {quadrantName(selectedTooth)}</p>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Dente {selectedTooth}</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{toothTypeName(selectedTooth)} · {quadrantName(selectedTooth)}</p>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => resetTooth(selectedTooth)} className="text-xs px-2.5 py-1.5 rounded" style={{ border: "1px solid #D7DEDD" }}>Limpar dente</button>
-                <button onClick={() => setSelectedTooth(null)} className="text-xs px-2.5 py-1.5 rounded" style={{ border: "1px solid #D7DEDD" }}>Fechar</button>
+                <button onClick={() => resetTooth(selectedTooth)} className="text-xs px-2.5 py-1.5 rounded-lg border border-[#D7DEDD] dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">Limpar dente</button>
+                <button onClick={() => setSelectedTooth(null)} className="text-xs px-2.5 py-1.5 rounded-lg border border-[#D7DEDD] dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">Fechar</button>
               </div>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-3">
               {(["V", "M", "O", "D", "L"] as FaceKey[]).map((key) => (
-                <label key={key} className="flex flex-col text-xs" style={{ color: "#5C6B6D" }}>
+                <label key={key} className="flex flex-col text-xs text-slate-600 dark:text-slate-300">
                   {faceLabel(selectedTooth, key)}
                   <select
                     value={sel.faces[key] || ""}
                     onChange={(e) => updateToothFace(selectedTooth, key, e.target.value)}
                     disabled={sel.whole === "ausente" || sel.whole === "implante"}
-                    className="mt-1 px-1.5 py-1 rounded text-xs"
-                    style={{ border: "1px solid #D7DEDD" }}
+                    className="mt-1 px-1.5 py-1 rounded-lg text-xs bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 border border-[#D7DEDD] dark:border-slate-700"
                   >
                     <option value="">Hígido</option>
                     {FACE_CONDITIONS.map((c) => (
@@ -592,13 +599,12 @@ export default function OdontogramApp({ valor, onChange, somenteLeitura = false 
               ))}
             </div>
 
-            <label className="flex flex-col text-xs mb-3" style={{ color: "#5C6B6D" }}>
+            <label className="flex flex-col text-xs mb-3 text-slate-600 dark:text-slate-300">
               Condição geral do dente
               <select
                 value={sel.whole || ""}
                 onChange={(e) => updateToothWhole(selectedTooth, e.target.value)}
-                className="mt-1 px-1.5 py-1.5 rounded text-xs sm:w-64"
-                style={{ border: "1px solid #D7DEDD" }}
+                className="mt-1 px-1.5 py-1.5 rounded-lg text-xs sm:w-64 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 border border-[#D7DEDD] dark:border-slate-700"
               >
                 <option value="">Nenhuma</option>
                 {WHOLE_CONDITIONS.map((c) => (
@@ -607,46 +613,45 @@ export default function OdontogramApp({ valor, onChange, somenteLeitura = false 
               </select>
             </label>
 
-            <label className="flex flex-col text-xs" style={{ color: "#5C6B6D" }}>
+            <label className="flex flex-col text-xs text-slate-600 dark:text-slate-300">
               Observações
               <textarea
                 value={sel.note}
                 onChange={(e) => updateNote(selectedTooth, e.target.value)}
                 rows={2}
                 placeholder="Anotações clínicas sobre este dente..."
-                className="mt-1 px-2 py-1.5 rounded text-sm"
-                style={{ border: "1px solid #D7DEDD", resize: "vertical" }}
+                className="mt-1 px-2.5 py-1.5 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 border border-[#D7DEDD] dark:border-slate-700 resize-y"
               />
             </label>
           </div>
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
-          <div className="rounded-lg p-4" style={{ background: "#FFFFFF", border: "1px solid #D7DEDD" }}>
-            <h3 className="text-sm font-semibold mb-2">Legenda</h3>
+          <div className="rounded-xl p-4 bg-white dark:bg-slate-900/70 border border-[#D7DEDD] dark:border-slate-800">
+            <h3 className="text-sm font-semibold mb-2 text-slate-900 dark:text-white">Legenda</h3>
             <div className="grid grid-cols-1 gap-1.5">
               {FACE_CONDITIONS.map((c) => (
-                <div key={c.key} className="flex items-center gap-2 text-xs">
+                <div key={c.key} className="flex items-center gap-2 text-xs text-slate-800 dark:text-slate-200">
                   <span style={{ width: 12, height: 12, borderRadius: 2, background: c.color, display: "inline-block" }} />
-                  {c.label} <span style={{ color: "#8A9394" }}>— marcado na face</span>
+                  {c.label} <span className="text-slate-400 dark:text-slate-500">— marcado na face</span>
                 </div>
               ))}
               {WHOLE_CONDITIONS.map((c) => (
-                <div key={c.key} className="flex items-center gap-2 text-xs">
+                <div key={c.key} className="flex items-center gap-2 text-xs text-slate-800 dark:text-slate-200">
                   <span style={{ width: 12, height: 12, borderRadius: "50%", border: `2.5px solid ${c.color}`, display: "inline-block" }} />
-                  {c.label} <span style={{ color: "#8A9394" }}>— anel ao redor do dente</span>
+                  {c.label} <span className="text-slate-400 dark:text-slate-500">— anel ao redor do dente</span>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="rounded-lg p-4" style={{ background: "#FFFFFF", border: "1px solid #D7DEDD" }}>
-            <h3 className="text-sm font-semibold mb-2">Resumo</h3>
+          <div className="rounded-xl p-4 bg-white dark:bg-slate-900/70 border border-[#D7DEDD] dark:border-slate-800">
+            <h3 className="text-sm font-semibold mb-2 text-slate-900 dark:text-white">Resumo</h3>
             <div className="grid grid-cols-2 gap-y-1 text-xs">
               {ALL_CONDITIONS.map((c) => (
                 <div key={c.key} className="flex justify-between pr-3">
-                  <span style={{ color: "#5C6B6D" }}>{c.label}</span>
-                  <span className="font-semibold" style={{ fontFamily: "ui-monospace, monospace" }}>{summary.counts[c.key]}</span>
+                  <span className="text-slate-600 dark:text-slate-400">{c.label}</span>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100 font-mono tabular-nums">{summary.counts[c.key]}</span>
                 </div>
               ))}
             </div>
@@ -654,7 +659,12 @@ export default function OdontogramApp({ valor, onChange, somenteLeitura = false 
         </div>
 
         <div className="flex flex-wrap gap-2 no-print">
-          <button onClick={clearAll} className="text-sm px-3 py-2 rounded font-medium" style={{ border: "1px solid #D08A2C", color: "#B5651D", background: "#FFFFFF" }}>Limpar tudo</button>
+          <button
+            onClick={clearAll}
+            className="text-sm px-3 py-2 rounded-lg font-medium border border-[#D08A2C] dark:border-amber-600/70 text-[#B5651D] dark:text-amber-300 bg-white dark:bg-amber-950/30 hover:bg-amber-50 dark:hover:bg-amber-950/50 transition-colors"
+          >
+            Limpar tudo
+          </button>
         </div>
       </div>
     </div>

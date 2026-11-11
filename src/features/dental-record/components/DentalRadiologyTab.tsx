@@ -236,26 +236,26 @@ export function DentalRadiologyTab({
   return (
     <div className="space-y-6 font-sans">
       {sucessoMsg && (
-        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold shadow-2xs flex items-center gap-2">
-          <CheckCircleIcon className="w-4 h-4 text-emerald-600" />
+        <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 text-emerald-800 dark:text-emerald-200 text-xs font-bold shadow-2xs flex items-center gap-2">
+          <CheckCircleIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           <span>{sucessoMsg}</span>
         </div>
       )}
 
       {erro && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold shadow-2xs flex items-center gap-2">
-          <XMarkIcon className="w-4 h-4 text-rose-600" />
+        <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-800 dark:text-rose-200 text-xs font-bold shadow-2xs flex items-center gap-2">
+          <XMarkIcon className="w-4 h-4 text-rose-600 dark:text-rose-400" />
           <span>{erro}</span>
         </div>
       )}
 
-      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="bg-white dark:bg-[#0E1729] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-colors">
         <div>
-          <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-            <PhotoIcon className="w-4 h-4 text-slate-900" />
+          <h3 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+            <PhotoIcon className="w-4 h-4 text-slate-900 dark:text-blue-400" />
             <span>Exames de Imagem & Radiografias</span>
           </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             {pacienteNome
               ? `Anexos e laudos de ${pacienteNome}.`
               : 'Digitalização, upload fotográfico e emissão de laudo de radiografias periapicais, panorâmicas e fotografias clínicas'}
@@ -265,7 +265,7 @@ export function DentalRadiologyTab({
           <button
             onClick={() => setShowNovo(!showNovo)}
             disabled={!pacienteId}
-            className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className="bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {showNovo ? <XMarkIcon className="w-3.5 h-3.5" /> : <PlusIcon className="w-3.5 h-3.5" />}
             <span>{showNovo ? 'Fechar Formulário' : 'Anexar Radiografia'}</span>
@@ -276,20 +276,20 @@ export function DentalRadiologyTab({
       {showNovo && !somenteLeitura && (
         <form
           onSubmit={handleSalvar}
-          className="bg-white p-6 rounded-2xl border border-slate-500/50 shadow-sm space-y-4 text-xs ring-1 ring-slate-500/20"
+          className="bg-white dark:bg-[#0E1729] p-6 rounded-2xl border border-slate-500/50 dark:border-slate-700 shadow-sm space-y-4 text-xs ring-1 ring-slate-500/20 dark:ring-blue-500/20"
         >
-          <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-            <span className="font-bold text-slate-900 text-sm">
+          <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-slate-800">
+            <span className="font-bold text-slate-900 dark:text-white text-sm">
               Novo Anexo de Imagem Radiográfica / Fotografia Clínica
             </span>
-            <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-md border border-emerald-200">
+            <span className="text-[10px] bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/70">
               Conformidade CFO
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Modalidade do Exame *
               </label>
               <input
@@ -298,12 +298,12 @@ export function DentalRadiologyTab({
                 value={tipo}
                 onChange={(e) => setTipo(e.target.value)}
                 placeholder="Ex.: Radiografia Periapical, Tomografia, Fotografia Clínica"
-                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-slate-800 font-medium"
+                className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-slate-800 dark:focus:border-blue-500 font-medium"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Dupla Responsável *
               </label>
               <select
@@ -311,7 +311,7 @@ export function DentalRadiologyTab({
                 value={duplaId}
                 onChange={(e) => setDuplaId(e.target.value)}
                 disabled={carregandoDuplas || duplas.length === 0}
-                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-slate-800 font-medium disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-slate-800 dark:focus:border-blue-500 font-medium disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <option value="">
                   {carregandoDuplas
@@ -327,12 +327,12 @@ export function DentalRadiologyTab({
                 ))}
               </select>
               {erroDuplas && (
-                <p className="mt-1 text-[10px] font-semibold text-rose-700">
+                <p className="mt-1 text-[10px] font-semibold text-rose-700 dark:text-rose-400">
                   {erroDuplas}
                 </p>
               )}
               {!carregandoDuplas && !erroDuplas && duplas.length === 0 && (
-                <p className="mt-1 text-[10px] font-semibold text-amber-700">
+                <p className="mt-1 text-[10px] font-semibold text-amber-700 dark:text-amber-400">
                   Nenhuma dupla ativa. Procure a supervisão antes de anexar o exame.
                 </p>
               )}
@@ -340,12 +340,12 @@ export function DentalRadiologyTab({
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+            <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
               Arquivo da Radiografia / Foto (JPG, PNG ou PDF)
             </label>
             <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 cursor-pointer text-slate-700 font-medium transition-colors">
-                <ArrowUpTrayIcon className="w-4 h-4 text-slate-600" />
+              <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer text-slate-700 dark:text-slate-200 font-medium transition-colors">
+                <ArrowUpTrayIcon className="w-4 h-4 text-slate-600 dark:text-slate-400" />
                 <span>Carregar Arquivo / Capturar pela Câmera</span>
                 <input
                   type="file"
@@ -355,16 +355,16 @@ export function DentalRadiologyTab({
                 />
               </label>
               {imagemPreview && (
-                <span className="text-[11px] text-emerald-700 font-bold flex items-center gap-1">
-                  <CheckCircleIcon className="w-4 h-4 text-emerald-600" />
+                <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1">
+                  <CheckCircleIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   <span>{imagemNome || 'Arquivo anexado'}</span>
                 </span>
               )}
             </div>
             {imagemPreview && (
-              <div className="mt-3 w-40 rounded-xl overflow-hidden border border-slate-200 shadow-2xs">
+              <div className="mt-3 w-40 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-2xs">
                 {ehPdf(imagemMime) ? (
-                  <div className="flex h-28 flex-col items-center justify-center gap-1 bg-slate-50 text-slate-600">
+                  <div className="flex h-28 flex-col items-center justify-center gap-1 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300">
                     <DocumentTextIcon className="w-7 h-7" />
                     <span className="text-[10px] font-bold">PDF anexado</span>
                   </div>
@@ -380,7 +380,7 @@ export function DentalRadiologyTab({
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+            <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
               Laudo Radiográfico / Interpretação Clínica *
             </label>
             <textarea
@@ -389,25 +389,25 @@ export function DentalRadiologyTab({
               value={laudo}
               onChange={(e) => setLaudo(e.target.value)}
               placeholder="Descreva as estruturas anatômicas observadas, limites radiolúcidos/radiopacos, espessura do ligamento e diagnósticos presuntivos..."
-              className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-slate-800 font-medium"
+              className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-slate-800 dark:focus:border-blue-500 font-medium"
             />
           </div>
 
-          <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
+          <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
               onClick={() => {
                 setShowNovo(false);
                 limparFormulario();
               }}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition-colors"
+              className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={!podeGravar}
-              className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+              className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white font-bold shadow-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             >
               {salvando ? 'Gravando...' : 'Gravar Exame no Prontuário'}
             </button>
@@ -417,17 +417,17 @@ export function DentalRadiologyTab({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {carregando && (
-          <p className="col-span-full text-xs text-slate-500 bg-white p-5 rounded-xl border border-slate-200/80">
+          <p className="col-span-full text-xs text-slate-500 dark:text-slate-400 bg-white dark:bg-[#0E1729] p-5 rounded-xl border border-slate-200/80 dark:border-slate-800">
             Carregando exames do paciente...
           </p>
         )}
         {!carregando && !pacienteId && (
-          <p className="col-span-full text-xs text-slate-500 bg-white p-5 rounded-xl border border-slate-200/80">
+          <p className="col-span-full text-xs text-slate-500 dark:text-slate-400 bg-white dark:bg-[#0E1729] p-5 rounded-xl border border-slate-200/80 dark:border-slate-800">
             Selecione um paciente para consultar os exames de imagem.
           </p>
         )}
         {!carregando && pacienteId && radiografias.length === 0 && (
-          <p className="col-span-full text-xs text-slate-500 bg-white p-5 rounded-xl border border-slate-200/80">
+          <p className="col-span-full text-xs text-slate-500 dark:text-slate-400 bg-white dark:bg-[#0E1729] p-5 rounded-xl border border-slate-200/80 dark:border-slate-800">
             Nenhum exame de imagem registrado para este paciente.
           </p>
         )}
@@ -435,21 +435,21 @@ export function DentalRadiologyTab({
           radiografias.map((item) => (
             <div
               key={item.id}
-              className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col justify-between hover:border-slate-300 transition-colors"
+              className="bg-white dark:bg-[#0E1729] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden flex flex-col justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
             >
               <div>
-                <div className="p-4 border-b border-slate-100 flex justify-between items-start gap-2">
+                <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start gap-2">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-900">{item.tipo}</span>
+                      <span className="text-xs font-bold text-slate-900 dark:text-white">{item.tipo}</span>
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-1 font-mono">
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 font-mono">
                       Data: {formatarData(item.criado_em)} • Responsável: {item.dupla_estagiarios}
                     </p>
                   </div>
 
-                  <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">
-                    <ShieldCheckIcon className="w-3 h-3 text-emerald-600" />
+                  <span className="bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/70 text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">
+                    <ShieldCheckIcon className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                     <span>Registrado</span>
                   </span>
                 </div>
@@ -489,20 +489,20 @@ export function DentalRadiologyTab({
                 </div>
 
                 <div className="p-4 space-y-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                     Laudo Radiográfico / Parecer Clínico:
                   </span>
-                  <p className="text-xs text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-200/60">
+                  <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-900/70 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800">
                     {item.laudo}
                   </p>
                 </div>
               </div>
 
-              <div className="px-4 py-2.5 bg-slate-50/60 border-t border-slate-100 flex justify-between items-center text-xs">
+              <div className="px-4 py-2.5 bg-slate-50/60 dark:bg-slate-900/60 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-xs">
                 <button
                   type="button"
                   onClick={() => setSelectedImage(item)}
-                  className="text-slate-600 hover:text-slate-900 font-semibold flex items-center gap-1"
+                  className="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-semibold flex items-center gap-1"
                 >
                   <EyeIcon className="w-3.5 h-3.5" />
                   <span>Visualizar</span>
@@ -512,7 +512,7 @@ export function DentalRadiologyTab({
                     type="button"
                     onClick={() => void handleRemover(item.id)}
                     disabled={excluindoId === item.id}
-                    className="text-slate-400 hover:text-red-600 transition-colors p-1 disabled:opacity-50"
+                    className="text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 transition-colors p-1 disabled:opacity-50"
                     title="Remover anexo"
                   >
                     <TrashIcon className="w-3.5 h-3.5" />
@@ -525,20 +525,20 @@ export function DentalRadiologyTab({
 
       {selectedImage && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-3xl w-full overflow-hidden shadow-2xl space-y-4 p-6">
-            <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+          <div className="bg-white dark:bg-[#0E1729] rounded-2xl max-w-3xl w-full overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 p-6">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-200 dark:border-slate-800">
               <div>
-                <h4 className="font-bold text-slate-900 text-base">
+                <h4 className="font-bold text-slate-900 dark:text-white text-base">
                   {selectedImage.tipo}
                 </h4>
-                <p className="text-xs text-slate-500 font-mono">
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
                   Data: {formatarData(selectedImage.criado_em)} • Responsável:{' '}
                   {selectedImage.dupla_estagiarios}
                 </p>
               </div>
               <button
                 onClick={() => setSelectedImage(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 <XMarkIcon className="w-5 h-5" />
               </button>
@@ -566,8 +566,8 @@ export function DentalRadiologyTab({
               )}
             </div>
 
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs text-slate-800 space-y-1">
-              <span className="font-bold text-slate-900">Laudo Radiográfico Oficial:</span>
+            <div className="bg-slate-50 dark:bg-slate-900/70 p-4 rounded-xl border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200 space-y-1">
+              <span className="font-bold text-slate-900 dark:text-white">Laudo Radiográfico Oficial:</span>
               <p className="leading-relaxed">{selectedImage.laudo}</p>
             </div>
           </div>

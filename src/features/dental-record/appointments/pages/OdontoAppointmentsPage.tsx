@@ -153,7 +153,7 @@ export function OdontoAppointmentsPage() {
         <button
           type="button"
           onClick={() => void sincronizar()}
-          className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 font-bold px-3.5 py-2 rounded-xl text-xs transition-colors hover:bg-slate-50"
+          className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold px-3.5 py-2 rounded-xl text-xs transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
         >
           <ArrowPathIcon className="w-3.5 h-3.5" />
           Recarregar
@@ -165,23 +165,23 @@ export function OdontoAppointmentsPage() {
             institucional é pior do que campo vazio. */}
         {mostrarLista && total > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            <div className="bg-white dark:bg-[#0E1729] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs hover:shadow-sm transition-all">
+              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                 {ehEstagiario ? 'Sessões na sua agenda' : 'Sessões na clínica'}
               </p>
-              <p className="text-2xl font-bold text-slate-900 mt-1">{total}</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1 font-mono tabular-nums">{total}</p>
             </div>
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            <div className="bg-white dark:bg-[#0E1729] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs hover:shadow-sm transition-all">
+              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                 Ainda aguardando atendimento
               </p>
-              <p className="text-2xl font-bold text-slate-900 mt-1">{pendentes}</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1 font-mono tabular-nums">{pendentes}</p>
             </div>
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            <div className="bg-white dark:bg-[#0E1729] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs hover:shadow-sm transition-all">
+              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                 Pacientes na agenda
               </p>
-              <p className="text-2xl font-bold text-slate-900 mt-1">
+              <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1 font-mono tabular-nums">
                 {grupos.length}
               </p>
             </div>
@@ -189,7 +189,7 @@ export function OdontoAppointmentsPage() {
         )}
 
         {carregando && (
-          <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs text-sm text-slate-500">
+          <div className="bg-white dark:bg-[#0E1729] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs text-sm text-slate-500 dark:text-slate-400">
             Carregando a agenda odontológica…
           </div>
         )}
@@ -197,11 +197,11 @@ export function OdontoAppointmentsPage() {
         {/* Falha de leitura não é "sem agendamento". Mostra o erro em vez da
             lista — nem vazia, nem os dados de mentira do estado inicial. */}
         {!carregando && agendamentosFalharam && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
-            <h2 className="text-sm font-bold text-red-900">
+          <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-2xl p-5">
+            <h2 className="text-sm font-bold text-red-900 dark:text-red-200">
               Não foi possível carregar a agenda
             </h2>
-            <p className="text-xs text-red-800 mt-1.5 leading-relaxed">
+            <p className="text-xs text-red-800 dark:text-red-300 mt-1.5 leading-relaxed">
               A lista de agendamentos não chegou do servidor. Nada foi
               descartado — use “Recarregar” para tentar de novo.
             </p>
@@ -209,14 +209,14 @@ export function OdontoAppointmentsPage() {
         )}
 
         {mostrarLista && total === 0 && (
-          <div className="bg-white p-10 rounded-2xl border border-slate-200/80 shadow-xs text-center">
-            <CalendarIcon className="w-10 h-10 mx-auto text-slate-300" />
-            <h2 className="text-sm font-bold text-slate-800 mt-3">
+          <div className="bg-white dark:bg-[#0E1729] p-10 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs text-center">
+            <CalendarIcon className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600" />
+            <h2 className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-3">
               {ehEstagiario
                 ? 'Nenhuma sessão atribuída a você no momento'
                 : 'Nenhuma sessão na agenda odontológica no momento'}
             </h2>
-            <p className="text-xs text-slate-500 mt-1.5 leading-relaxed max-w-md mx-auto">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed max-w-md mx-auto">
               A recepção da clínica é quem monta a agenda. Assim que uma sessão
               for atribuída à dupla, ela aparece nesta tela.
             </p>
@@ -227,18 +227,18 @@ export function OdontoAppointmentsPage() {
           grupos.map((grupo) => (
             <div
               key={grupo.pacienteId}
-              className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden"
+              className="bg-white dark:bg-[#0E1729] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden transition-colors"
             >
-              <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100">
+              <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 bg-[#881337] text-white rounded-xl flex items-center justify-center text-sm font-bold shadow-xs shrink-0">
+                  <div className="w-12 h-12 bg-[#881337] dark:bg-rose-800 text-white rounded-xl flex items-center justify-center text-sm font-bold shadow-xs shrink-0">
                     {iniciais(grupo.pacienteNome)}
                   </div>
                   <div>
-                    <h2 className="text-base font-bold text-slate-900 tracking-tight">
+                    <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
                       {grupo.pacienteNome}
                     </h2>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                       {grupo.sessoes.length}{' '}
                       {grupo.sessoes.length === 1
                         ? 'sessão agendada'
@@ -254,7 +254,7 @@ export function OdontoAppointmentsPage() {
                       state: { pacienteId: grupo.pacienteId },
                     })
                   }
-                  className="flex items-center gap-1.5 self-start sm:self-auto text-xs font-bold text-[#881337] hover:text-[#5c0d25] px-3 py-2 rounded-xl hover:bg-rose-50 transition-colors"
+                  className="flex items-center gap-1.5 self-start sm:self-auto text-xs font-bold text-[#881337] dark:text-rose-300 hover:text-[#5c0d25] dark:hover:text-rose-200 px-3 py-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
                 >
                   <DocumentTextIcon className="w-4 h-4" />
                   Abrir ficha clínica
@@ -262,28 +262,28 @@ export function OdontoAppointmentsPage() {
                 </button>
               </div>
 
-              <ul className="divide-y divide-slate-100">
+              <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                 {grupo.sessoes.map((s) => (
                   <li
                     key={s.id}
                     className="px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                   >
                     <div>
-                      <p className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <p className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         <span className="font-mono">{rotuloData(s.dataSessao)}</span>
-                        <span className="text-slate-300">·</span>
-                        <ClockIcon className="w-4 h-4 text-slate-400" />
+                        <span className="text-slate-300 dark:text-slate-600">·</span>
+                        <ClockIcon className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                         {s.horario || '—'}
-                        <span className="text-xs font-semibold text-slate-500">
+                        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                           {ROTULO_TURNO[s.turno] ?? s.turno}
                         </span>
                       </p>
-                      <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1.5">
-                        <MapPinIcon className="w-3.5 h-3.5 text-slate-400" />
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1.5">
+                        <MapPinIcon className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                         {s.salaOuCadeira}
                         {s.tipoConsulta ? ` · ${s.tipoConsulta}` : ''}
                       </p>
-                      <p className="text-[11px] text-slate-500 mt-1">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                         Dupla: {s.estagiarioNome}
                         {s.auxiliarMatricula
                           ? ` · Op. ${s.estagiarioMatricula} · Aux. ${s.auxiliarMatricula}`
@@ -298,7 +298,7 @@ export function OdontoAppointmentsPage() {
           ))}
 
         {mostrarLista && total > 0 && (
-          <p className="text-[11px] text-slate-400 leading-relaxed">
+          <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed">
             Datas que dizem “data não registrada” são sessões criadas antes de o
             sistema passar a exigir o dia da sessão.
           </p>

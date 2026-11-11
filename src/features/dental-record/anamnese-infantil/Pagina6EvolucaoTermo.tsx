@@ -25,10 +25,10 @@ interface TermoProps {
 interface Pagina6Props extends EvolucaoProps, TermoProps {}
 
 const CABECALHO_CELULA =
-  'border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500';
-const CELULA = 'border border-slate-200 px-1.5 py-1';
+  'border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400';
+const CELULA = 'border border-slate-200 dark:border-slate-700 px-1.5 py-1';
 const CAMPO_CELULA =
-  'w-full rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-xs font-medium text-slate-800 outline-none transition-colors focus:border-slate-800 focus:ring-2 focus:ring-slate-800/15';
+  'w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-1.5 py-1 text-xs font-medium text-slate-800 dark:text-slate-100 outline-none transition-colors focus:border-slate-800 dark:focus:border-blue-400 focus:ring-2 focus:ring-slate-800/15 dark:focus:ring-blue-400/20';
 
 export function EvolucaoInfantilSection({
   evolucao,
@@ -84,7 +84,7 @@ export function EvolucaoInfantilSection({
               <tr>
                 <td
                   colSpan={4}
-                  className="border border-slate-200 px-2 py-3 text-center text-[11px] text-slate-400"
+                  className="border border-slate-200 dark:border-slate-700 px-2 py-3 text-center text-[11px] text-slate-400 dark:text-slate-500"
                 >
                   Nenhuma sessão registrada.
                 </td>
@@ -134,7 +134,7 @@ export function EvolucaoInfantilSection({
                     type="button"
                     onClick={() => removerEvolucao(indice)}
                     aria-label={`Remover ${indice + 1}ª sessão`}
-                    className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-900"
+                    className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-rose-50 dark:hover:bg-rose-950/50 hover:text-rose-900 dark:hover:text-rose-300"
                   >
                     <TrashIcon className="h-3.5 w-3.5" />
                   </button>
@@ -148,7 +148,7 @@ export function EvolucaoInfantilSection({
       <button
         type="button"
         onClick={adicionarEvolucao}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1 text-[10px] font-bold text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800/60 px-2.5 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 transition-colors hover:border-slate-300 dark:hover:border-slate-600 hover:text-slate-900 dark:hover:text-white"
       >
         <PlusIcon className="h-3.5 w-3.5" />
         Adicionar sessão
@@ -170,7 +170,7 @@ export function TermoInfantilSection({ termo, setDados }: TermoProps) {
       numero={9}
       titulo="Termo de Veracidade e Assinaturas"
     >
-      <p className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-xs leading-relaxed text-slate-600">
+      <p className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/60 p-3 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
         {TERMO_INFANTIL}
       </p>
 

@@ -118,19 +118,19 @@ export function SolicitacoesCadastro() {
   };
 
   return (
-    <div className="border border-slate-200 rounded-xl bg-slate-50/60 p-4 space-y-3">
+    <div className="border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/60 dark:bg-slate-900/60 p-4 space-y-3 transition-colors">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-            <ClipboardDocumentCheckIcon className="w-4 h-4 text-amber-600" />
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <ClipboardDocumentCheckIcon className="w-4 h-4 text-amber-600 dark:text-amber-400" />
             <span>Solicitações de credencial</span>
             {solicitacoes.length > 0 && (
-              <span className="text-[10px] font-mono font-bold bg-amber-100 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded">
+              <span className="text-[10px] font-mono font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800/70 px-1.5 py-0.5 rounded tabular-nums">
                 {solicitacoes.length}
               </span>
             )}
           </h3>
-          <p className="text-[11px] text-slate-500 mt-0.5">
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
             Pedidos feitos pela tela pública. Ao aprovar, a conta nasce e a
             senha inicial é gerada pelo sistema e enviada por e-mail.
           </p>
@@ -138,7 +138,7 @@ export function SolicitacoesCadastro() {
         <button
           type="button"
           onClick={() => void carregarSolicitacoes('PENDENTE')}
-          className="text-[11px] font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1"
+          className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center gap-1"
         >
           <CheckIcon className="w-3.5 h-3.5" />
           Atualizar
@@ -146,13 +146,13 @@ export function SolicitacoesCadastro() {
       </div>
 
       {aviso && (
-        <p className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-semibold rounded-lg">
+        <p className="p-2.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/70 text-emerald-800 dark:text-emerald-200 text-[11px] font-semibold rounded-lg">
           {aviso}
         </p>
       )}
 
       {solicitacoes.length === 0 ? (
-        <p className="text-[11px] text-slate-500 text-center py-4">
+        <p className="text-[11px] text-slate-500 dark:text-slate-400 text-center py-4">
           {`Nenhum pedido aguardando na clínica de ${
             user?.curso === 'psicologia' ? 'Psicologia' : 'Odontologia'
           }.`}
@@ -166,39 +166,39 @@ export function SolicitacoesCadastro() {
               (s.perfil_declarado === 'rt' ||
                 s.perfil_declarado === 'coordenacao');
             return (
-              <li key={s.id} className="bg-white border border-slate-200 rounded-lg">
+              <li key={s.id} className="bg-white dark:bg-[#0E1729] border border-slate-200 dark:border-slate-800 rounded-lg transition-colors">
                 <button
                   type="button"
                   onClick={() => abrir(s.id)}
                   className="w-full text-left px-3.5 py-2.5 flex items-center justify-between gap-3"
                 >
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-slate-900 truncate">{s.nome}</p>
-                    <p className="text-[10px] text-slate-500 font-mono truncate">
+                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{s.nome}</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate">
                       {s.matricula} • {s.email}
                     </p>
                   </div>
-                  <div className="text-[10px] font-semibold text-slate-500 shrink-0 text-right">
+                  <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 shrink-0 text-right">
                     <p>
                       Declarou:{' '}
                       {PERFIL_LABEL[s.perfil_declarado as RoleType] ??
                         s.perfil_declarado}
                     </p>
-                    <p className="font-mono text-slate-400">#{s.id}</p>
+                    <p className="font-mono text-slate-400 dark:text-slate-500">#{s.id}</p>
                   </div>
                 </button>
 
                 {aberto && (
-                  <div className="px-3.5 pb-3.5 pt-1 border-t border-slate-100 space-y-3">
+                  <div className="px-3.5 pb-3.5 pt-2 border-t border-slate-100 dark:border-slate-800 space-y-3">
                     {erro && (
-                      <p className="p-2.5 bg-rose-50 border border-rose-200 text-rose-800 text-[11px] font-semibold rounded-lg flex items-start gap-1.5">
+                      <p className="p-2.5 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800/70 text-rose-800 dark:text-rose-200 text-[11px] font-semibold rounded-lg flex items-start gap-1.5">
                         <ExclamationTriangleIcon className="w-3.5 h-3.5 shrink-0 mt-px" />
                         {erro}
                       </p>
                     )}
 
                     {foraDaAlcada ? (
-                      <p className="p-2.5 bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-semibold rounded-lg">
+                      <p className="p-2.5 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/70 text-amber-800 dark:text-amber-200 text-[11px] font-semibold rounded-lg">
                         Somente a RT pode decidir pedidos de RT ou de coordenação.
                       </p>
                     ) : (
@@ -207,19 +207,19 @@ export function SolicitacoesCadastro() {
                         inicial só existe nesse endereço, e a linha recolhida
                         trunca o e-mail em `text-[10px]`. Por isso ele aparece
                         inteiro aqui, antes do botão de aprovar. */}
-                    <div className="p-2.5 rounded-lg border border-slate-200 bg-slate-50 space-y-1">
-                      <p className="text-[11px] font-bold text-slate-700">
+                    <div className="p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/70 space-y-1">
+                      <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
                         A senha inicial será enviada para este endereço:
                       </p>
-                      <p className="text-xs font-mono font-bold text-slate-900 break-all">
+                      <p className="text-xs font-mono font-bold text-slate-900 dark:text-white break-all">
                         {s.email}
                       </p>
-                      <p className="text-[10px] text-slate-500">
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
                         Matrícula {s.matricula} ·{' '}
                         {s.curso_declarado === 'psicologia' ? 'Psicologia' : 'Odontologia'}
                       </p>
                       {!eInstitucional(s.email) && (
-                        <p className="pt-1 text-[11px] font-semibold text-amber-800 flex items-start gap-1.5">
+                        <p className="pt-1 text-[11px] font-semibold text-amber-800 dark:text-amber-300 flex items-start gap-1.5">
                           <ExclamationTriangleIcon className="w-3.5 h-3.5 shrink-0 mt-px" />
                           <span>
                             Este endereço não é de domínio institucional. Confirme
@@ -231,7 +231,7 @@ export function SolicitacoesCadastro() {
                     </div>
                     {mostrarRecusa ? (
                       <div className="space-y-2">
-                        <label className="block text-[11px] font-bold text-slate-700">
+                        <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
                           Motivo da recusa (obrigatório)
                         </label>
                         <textarea
@@ -239,13 +239,13 @@ export function SolicitacoesCadastro() {
                           value={motivo}
                           onChange={(e) => setMotivo(e.target.value)}
                           placeholder="Ex: e-mail sem vínculo ativo com a clínica."
-                          className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#002B49] focus:outline-none"
+                          className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-[#002B49] dark:focus:ring-blue-500 focus:outline-none"
                         />
                         <div className="flex gap-2 justify-end">
                           <button
                             type="button"
                             onClick={() => setMostrarRecusa(false)}
-                            className="px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:text-slate-900"
+                            className="px-3 py-1.5 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
                           >
                             Voltar
                           </button>
@@ -262,13 +262,13 @@ export function SolicitacoesCadastro() {
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                         <div>
-                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
                             Perfil confirmado
                           </label>
                           <select
                             value={perfil}
                             onChange={(e) => setPerfil(e.target.value as RoleType)}
-                            className="w-full px-2.5 py-2 text-xs border border-slate-200 rounded-lg bg-slate-50"
+                            className="w-full px-2.5 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100"
                           >
                             <option value="estagiario">Estagiário</option>
                             <option value="supervisor">Supervisor</option>
@@ -284,21 +284,21 @@ export function SolicitacoesCadastro() {
                           </select>
                         </div>
                         <div>
-                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
                             Registro profissional
                           </label>
                           <input
                             value={registro}
                             onChange={(e) => setRegistro(e.target.value)}
                             placeholder="Ex: CRP 19/1234"
-                            className="w-full px-2.5 py-2 text-xs border border-slate-200 rounded-lg bg-slate-50 font-mono"
+                            className="w-full px-2.5 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 font-mono"
                           />
                         </div>
                         <div>
-                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
                             Senha inicial
                           </label>
-                          <p className="px-2.5 py-2 text-[11px] leading-relaxed border border-emerald-200 rounded-lg bg-emerald-50 text-emerald-800">
+                          <p className="px-2.5 py-2 text-[11px] leading-relaxed border border-emerald-200 dark:border-emerald-800/70 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200">
                             Gerada automaticamente pelo servidor e enviada por
                             e-mail ao solicitante. A gestão não define esta senha.
                           </p>
@@ -311,7 +311,7 @@ export function SolicitacoesCadastro() {
                         <button
                           type="button"
                           onClick={() => setMostrarRecusa(true)}
-                          className="px-3 py-1.5 text-[11px] font-semibold text-rose-700 hover:bg-rose-50 rounded-lg flex items-center gap-1"
+                          className="px-3 py-1.5 text-[11px] font-semibold text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/60 rounded-lg flex items-center gap-1"
                         >
                           <XMarkIcon className="w-3.5 h-3.5" />
                           Recusar
@@ -320,7 +320,7 @@ export function SolicitacoesCadastro() {
                           type="button"
                           disabled={isSaving}
                           onClick={() => void aprovar(s.id)}
-                          className="px-3 py-1.5 text-[11px] font-bold bg-[#002B49] hover:bg-[#001a2b] text-white rounded-lg disabled:opacity-50 flex items-center gap-1"
+                          className="px-3 py-1.5 text-[11px] font-bold bg-[#002B49] hover:bg-[#001a2b] dark:bg-blue-600 dark:hover:bg-blue-500 text-white rounded-lg disabled:opacity-50 flex items-center gap-1"
                         >
                           <CheckIcon className="w-3.5 h-3.5" />
                           Aprovar e criar conta

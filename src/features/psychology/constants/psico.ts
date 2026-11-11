@@ -46,19 +46,22 @@ export const META_TIPO_REGISTRO_PSICO: Record<
   SESSAO: {
     titulo: 'Sessão Clínica',
     badge: 'Sessão Clínica',
-    classeBadge: 'bg-blue-50 text-blue-700 border-blue-200',
+    classeBadge:
+      'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-200 border-blue-200 dark:border-blue-800/70',
     ordemImpressao: 'Evolução de Sessão',
   },
   DEMANDA: {
     titulo: 'Avaliação da Demanda',
     badge: 'Demanda',
-    classeBadge: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    classeBadge:
+      'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-200 border-indigo-200 dark:border-indigo-800/70',
     ordemImpressao: 'Avaliação da Demanda',
   },
   ENCERRAMENTO: {
     titulo: 'Registro de Encerramento',
     badge: 'Encerramento',
-    classeBadge: 'bg-purple-50 text-purple-700 border-purple-200',
+    classeBadge:
+      'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-200 border-purple-200 dark:border-purple-800/70',
     ordemImpressao: 'Registro de Encerramento',
   },
 };

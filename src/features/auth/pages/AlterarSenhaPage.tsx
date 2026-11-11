@@ -76,8 +76,8 @@ export function AlterarSenhaPage() {
   };
 
   const campo =
-    'w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-600 transition-colors font-mono pr-10';
-  const rotulo = 'block text-[11px] font-bold text-slate-700 mb-1.5 uppercase tracking-wider';
+    'w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-blue-600 dark:focus:border-blue-500 transition-colors font-mono pr-10';
+  const rotulo = 'block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wider';
 
   return (
     <AppLayout
@@ -88,14 +88,14 @@ export function AlterarSenhaPage() {
     >
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-xl space-y-6">
-          <form onSubmit={handleSubmit} className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-5">
-            <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
+          <form onSubmit={handleSubmit} className="bg-white dark:bg-[#0E1729] p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-5">
+            <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
               <div className="w-10 h-10 rounded-xl bg-blue-700 text-white flex items-center justify-center shrink-0">
                 <KeyIcon className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Alterar senha</h3>
-                <p className="text-[11px] text-slate-500">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Alterar senha</h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
                   {user?.nome} • {user?.perfil} • {user?.curso}
                 </p>
               </div>
@@ -122,11 +122,11 @@ export function AlterarSenhaPage() {
                 value={novaSenha}
                 onChange={(e) => setNovaSenha(e.target.value)}
                 placeholder="Mínimo 6 caracteres"
-                className={`${campo} ${novaCurta ? 'border-amber-400 bg-amber-50/40' : ''}`}
+                className={`${campo} ${novaCurta ? 'border-amber-400 dark:border-amber-500 bg-amber-50/40 dark:bg-amber-950/30' : ''}`}
                 autoComplete="new-password"
               />
               {novaCurta && (
-                <p className="text-[10px] text-amber-700 font-semibold mt-1">
+                <p className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold mt-1">
                   Faltam {6 - novaSenha.length} caracteres.
                 </p>
               )}
@@ -140,11 +140,11 @@ export function AlterarSenhaPage() {
                 value={confirmacao}
                 onChange={(e) => setConfirmacao(e.target.value)}
                 placeholder="Repita a nova senha"
-                className={`${campo} ${naoCoincidem ? 'border-rose-400 bg-rose-50/40' : ''}`}
+                className={`${campo} ${naoCoincidem ? 'border-rose-400 dark:border-rose-500 bg-rose-50/40 dark:bg-rose-950/30' : ''}`}
                 autoComplete="new-password"
               />
               {naoCoincidem && (
-                <p className="text-[10px] text-rose-700 font-semibold mt-1">
+                <p className="text-[10px] text-rose-700 dark:text-rose-400 font-semibold mt-1">
                   A confirmação não bate com a nova senha.
                 </p>
               )}
@@ -153,31 +153,31 @@ export function AlterarSenhaPage() {
             <button
               type="button"
               onClick={() => setMostrar(!mostrar)}
-              className="text-[11px] text-slate-600 hover:text-slate-900 font-semibold flex items-center gap-1.5"
+              className="text-[11px] text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-semibold flex items-center gap-1.5"
             >
               <EyeIcon className="w-3.5 h-3.5" />
               {mostrar ? 'Ocultar senhas' : 'Mostrar senhas'}
             </button>
 
             {erroMsg && (
-              <p className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl font-semibold">
+              <p className="p-3.5 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/70 text-rose-800 dark:text-rose-200 text-xs rounded-xl font-semibold">
                 Não foi possível trocar a senha: {erroMsg}
               </p>
             )}
             {okMsg && (
-              <p className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl font-semibold">
+              <p className="p-3.5 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/70 text-emerald-800 dark:text-emerald-200 text-xs rounded-xl font-semibold">
                 {okMsg}
               </p>
             )}
 
-            <div className="flex justify-end pt-2 border-t border-slate-100">
+            <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="submit"
                 disabled={!podeEnviar}
                 className={`px-5 py-2.5 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-1.5 ${
                   podeEnviar
                     ? 'bg-blue-700 hover:bg-blue-800 shadow-xs'
-                    : 'bg-slate-300 cursor-not-allowed opacity-70'
+                    : 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed opacity-70'
                 }`}
               >
                 <LockClosedIcon className="w-3.5 h-3.5" />
@@ -186,13 +186,12 @@ export function AlterarSenhaPage() {
             </div>
           </form>
 
-          {/* O que a tela não promete: revocation, porque não existe. */}
-          <div className="bg-slate-100 border border-slate-200 p-4 rounded-2xl text-xs text-slate-800 space-y-1">
-            <p className="font-bold text-slate-900 flex items-center gap-1.5">
-              <ShieldCheckIcon className="w-3.5 h-3.5 text-emerald-700" />
+          <div className="bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl text-xs text-slate-800 dark:text-slate-200 space-y-1">
+            <p className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+              <ShieldCheckIcon className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
               Como sua senha é guardada
             </p>
-            <p className="text-[11px] leading-relaxed text-slate-600">
+            <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">
               A senha nunca é gravada em texto claro: o servidor guarda apenas o
               hash bcrypt, e ninguém — nem a coordenação — consegue consultá-la.
               Alterar a senha aqui não encerra as sessões já abertas neste

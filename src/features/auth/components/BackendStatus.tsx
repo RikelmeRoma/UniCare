@@ -95,15 +95,15 @@ export function BackendStatus() {
     estado === null ? 'bg-slate-400' : estado === 'disponivel' ? 'bg-emerald-500' : 'bg-rose-500';
 
   return (
-    <div className="flex items-center justify-between text-[11px] text-slate-500">
+    <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
       <span className="flex items-center gap-1.5">
         <span className={`w-2 h-2 rounded-full ${corDoPonto} ${estado === null ? 'animate-pulse' : ''}`}></span>
-        <span className={`font-semibold ${estado === 'indisponivel' ? 'text-rose-700' : 'text-slate-700'}`}>
+        <span className={`font-semibold ${estado === 'indisponivel' ? 'text-rose-700 dark:text-rose-400' : 'text-slate-700 dark:text-slate-200'}`}>
           {rotulo}
         </span>
       </span>
       {detalhe && (
-        <span className="text-[10px] font-medium text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded">
+        <span className="text-[10px] font-medium text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800/70 px-2 py-0.5 rounded">
           {detalhe}
         </span>
       )}

@@ -28,7 +28,7 @@ export function PsyReceptionDashboard() {
           <button
             type="button"
             onClick={() => setIsPatientModalOpen(true)}
-            className="bg-blue-700 hover:bg-blue-800 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs"
+            className="bg-blue-700 hover:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs"
           >
             <UserPlusIcon className="w-4 h-4" />
             <span>Cadastrar Paciente SPA</span>
@@ -36,9 +36,9 @@ export function PsyReceptionDashboard() {
           <button
             type="button"
             onClick={() => setIsAppointmentModalOpen(true)}
-            className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs"
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-100 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs"
           >
-            <CalendarIcon className="w-4 h-4 text-slate-600" />
+            <CalendarIcon className="w-4 h-4 text-slate-600 dark:text-slate-300" />
             <span>Agendar Sessão</span>
           </button>
         </div>
@@ -61,9 +61,9 @@ export function PsyReceptionDashboard() {
 
 
             {/* Painel Informativo de Ética e Sigilo */}
-            <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-5">
-              <h4 className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
-                <ShieldCheckIcon className="w-4 h-4 text-blue-700" />
+            <div className="bg-white dark:bg-[#0E1729] rounded-2xl shadow-xs border border-slate-200/80 dark:border-slate-800 p-5 transition-colors">
+              <h4 className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 text-xs">
+                <ShieldCheckIcon className="w-4 h-4 text-blue-700 dark:text-blue-400" />
                 <span>Segurança e Sigilo no SPA</span>
                 <InfoTooltip
                   align="right"

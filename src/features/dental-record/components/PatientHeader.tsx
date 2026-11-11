@@ -19,28 +19,28 @@ export function PatientHeader({ paciente }: PatientHeaderProps) {
     : '—';
 
   return (
-    <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="bg-white dark:bg-[#0E1729] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-colors">
       <div className="flex items-center gap-3.5">
-        <div className="w-11 h-11 bg-slate-900 text-white rounded-xl flex items-center justify-center text-sm font-bold shadow-xs">
+        <div className="w-11 h-11 bg-slate-900 dark:bg-slate-700 text-white rounded-xl flex items-center justify-center text-sm font-bold shadow-xs">
           {iniciais}
         </div>
         <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-base font-bold text-slate-900 tracking-tight">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
               {nome}
             </h2>
             {paciente && (
-              <span className="bg-emerald-50 text-emerald-700 text-[10px] px-2 py-0.5 rounded-md font-bold border border-emerald-200/60 uppercase tracking-wider">
+              <span className="bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[10px] px-2 py-0.5 rounded-md font-bold border border-emerald-200/60 dark:border-emerald-800/70 uppercase tracking-wider">
                 Prontuário Ativo
               </span>
             )}
             {paciente?.ehMenor && (
-              <span className="bg-indigo-50 text-indigo-700 text-[10px] px-2 py-0.5 rounded-md font-bold border border-indigo-200/60 uppercase tracking-wider">
+              <span className="bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-[10px] px-2 py-0.5 rounded-md font-bold border border-indigo-200/60 dark:border-indigo-800/70 uppercase tracking-wider">
                 Odontopediatria
               </span>
             )}
           </div>
-          <p className="text-xs text-slate-500 mt-0.5 font-mono">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-mono">
             Nasc: {dataNasc} · CPF: {cpf}
             {paciente?.nomeResponsavel
               ? ` · Resp: ${paciente.nomeResponsavel}`
@@ -51,17 +51,17 @@ export function PatientHeader({ paciente }: PatientHeaderProps) {
 
       <div className="flex gap-4">
         <div className="text-right">
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
             Protocolo Odonto
           </p>
-          <p className="text-xs font-semibold text-slate-800 font-mono">—</p>
+          <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 font-mono">—</p>
         </div>
-        <div className="w-px bg-slate-200"></div>
+        <div className="w-px bg-slate-200 dark:bg-slate-800"></div>
         <div className="text-right">
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
             Risco Sistêmico
           </p>
-          <p className="text-xs font-bold text-slate-500 font-mono">—</p>
+          <p className="text-xs font-bold text-slate-500 dark:text-slate-400 font-mono">—</p>
         </div>
       </div>
     </div>

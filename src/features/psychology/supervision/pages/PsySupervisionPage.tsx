@@ -237,14 +237,14 @@ export function PsySupervisionPage() {
 
         {/* Feedback Toast de Sucesso */}
         {feedbackSuccess && (
-          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between gap-3 text-xs text-emerald-800 shadow-xs animate-fadeIn">
+          <div className="p-4 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/70 rounded-xl flex items-center justify-between gap-3 text-xs text-emerald-800 dark:text-emerald-200 shadow-xs animate-fadeIn">
             <div className="flex items-center gap-2">
-              <CheckCircleIcon className="w-5 h-5 text-emerald-600 shrink-0" />
+              <CheckCircleIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <span className="font-semibold">{feedbackSuccess}</span>
             </div>
             <button
               onClick={() => setFeedbackSuccess('')}
-              className="text-emerald-700 hover:text-emerald-900"
+              className="text-emerald-700 dark:text-emerald-300 hover:text-emerald-900 dark:hover:text-emerald-100"
             >
               <XMarkIcon className="w-4 h-4" />
             </button>
@@ -264,11 +264,11 @@ export function PsySupervisionPage() {
         />
 
         {/* Estagiários sob Orientação Docente */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 pb-3 border-b border-slate-100">
+        <div className="bg-white dark:bg-[#0E1729] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-6 transition-colors">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
             <div>
-              <h4 className="font-bold text-slate-900 text-xs flex items-center gap-2 uppercase tracking-wider">
-                <UserGroupIcon className="w-4 h-4 text-blue-700" />
+              <h4 className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-2 uppercase tracking-wider">
+                <UserGroupIcon className="w-4 h-4 text-blue-700 dark:text-blue-400" />
                 <span>Estagiários sob Orientação Docente (Clínica de Psicologia)</span>
                 <InfoTooltip
                   texto={
@@ -281,7 +281,7 @@ export function PsySupervisionPage() {
             </div>
 
 <div className="flex items-center gap-2">
-            <span className="text-[10px] bg-blue-50 text-blue-800 border border-blue-200 font-mono font-bold px-3 py-1 rounded-full">
+            <span className="text-[10px] bg-blue-50 dark:bg-blue-950/60 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800/70 font-mono font-bold px-3 py-1 rounded-full">
                 {psicoInternsFiltrados.length === psicoInterns.length
                   ? `${psicoInterns.length} acadêmicos vinculados`
                   : `${psicoInternsFiltrados.length} de ${psicoInterns.length} acadêmicos`}
@@ -295,26 +295,26 @@ export function PsySupervisionPage() {
                   setSupervisorEscolhido('');
                   setShowVincularModal(true);
                 }}
-                className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-xs transition-colors flex items-center gap-1.5 border border-blue-900"
+                className="bg-blue-700 hover:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-xs transition-colors flex items-center gap-1.5 border border-blue-900 dark:border-blue-500"
               >
                 <UserGroupIcon className="w-4 h-4" />
                 <span>Vincular Estagiário</span>
               </button>
             </div>
             <div className="relative w-full sm:w-64">
-              <MagnifyingGlassIcon className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <MagnifyingGlassIcon className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
                 placeholder="Buscar estagiário por nome ou matrícula..."
-                className="pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs w-full focus:outline-none focus:bg-white focus:border-blue-600 transition-colors"
+                className="pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 w-full focus:outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-blue-600 transition-colors"
               />
             </div>
           </div>
 
           {psicoInternsFiltrados.length === 0 ? (
-            <p className="text-xs text-slate-400 italic bg-slate-50 border border-dashed border-slate-200 rounded-xl p-4 text-center">
+            <p className="text-xs text-slate-400 dark:text-slate-500 italic bg-slate-50 dark:bg-slate-900/70 border border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-4 text-center">
               {psicoInterns.length === 0
                 ? isGestor
                   ? 'Nenhum estagiário de psicologia cadastrado.'
@@ -328,27 +328,27 @@ export function PsySupervisionPage() {
                 key={key}
                 className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
                   intern.ativo
-                    ? 'border-slate-200/80 bg-slate-50/50 hover:bg-slate-50'
-                    : 'border-slate-200/80 bg-white opacity-70'
+                    ? 'border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/70 hover:bg-slate-50 dark:hover:bg-slate-900'
+                    : 'border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#0E1729] opacity-70'
                 }`}
               >
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <p className="font-bold text-slate-900 truncate">{intern.nome}</p>
+                    <p className="font-bold text-slate-900 dark:text-white truncate">{intern.nome}</p>
                   </div>
-                  <p className="text-slate-500 text-[11px] font-mono">
+                  <p className="text-slate-500 dark:text-slate-400 text-[11px] font-mono">
                     Matrícula: {intern.matricula}
                   </p>
-                  <p className="text-[10px] text-slate-400 mt-0.5 truncate">
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">
                     {intern.registro_profissional || '—'}
                   </p>
                 </div>
-                <div className="mt-3 pt-2.5 border-t border-slate-200/60 flex items-center justify-between">
+                <div className="mt-3 pt-2.5 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between">
                   <div
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-md border font-mono inline-block ${
                       intern.ativo
-                        ? 'text-blue-700 bg-blue-50 border-blue-200'
-                        : 'text-slate-500 bg-slate-100 border-slate-300'
+                        ? 'text-blue-700 dark:text-blue-200 bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800/70'
+                        : 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700'
                     }`}
                   >
                     {intern.ativo ? 'Habilitado' : 'Desativado'}
@@ -357,7 +357,7 @@ export function PsySupervisionPage() {
                     <button
                       type="button"
                       onClick={() => handleOpenEdit(key, intern)}
-                      className="p-1 text-slate-400 hover:text-blue-700 hover:bg-blue-100 rounded-md transition-colors"
+                      className="p-1 text-slate-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-950/60 rounded-md transition-colors"
                       title="Editar estagiário"
                     >
                       <PencilSquareIcon className="w-3.5 h-3.5" />
@@ -366,7 +366,7 @@ export function PsySupervisionPage() {
                       <button
                         type="button"
                         onClick={() => setInternToDelete({ key, nome: intern.nome })}
-                        className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                        className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/60 rounded-md transition-colors"
                         title="Desativar estagiário"
                       >
                         <TrashIcon className="w-3.5 h-3.5" />
@@ -375,7 +375,7 @@ export function PsySupervisionPage() {
                       <button
                         type="button"
                         onClick={() => handleAtivarEstagiario(key)}
-                        className="p-1 text-slate-400 hover:bg-blue-100 hover:text-blue-700 rounded-md transition-colors"
+                        className="p-1 text-slate-400 hover:bg-blue-100 dark:hover:bg-blue-950/60 hover:text-blue-700 dark:hover:text-blue-300 rounded-md transition-colors"
                         title="Ativar estagiário"
                       >
                         <ArrowPathIcon className="w-3.5 h-3.5" />
@@ -392,15 +392,15 @@ export function PsySupervisionPage() {
 
       {/* Modal de Vínculo de Estagiário (SPA Psicologia) */}
       {showVincularModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white dark:bg-[#0E1729] rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-blue-700 text-white flex items-center justify-center font-bold text-xs shadow-xs">
                   SPA
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                     Vincular Estagiário (Psicologia)
                     <InfoTooltip
                       texto={
@@ -415,7 +415,7 @@ export function PsySupervisionPage() {
               <button
                 type="button"
                 onClick={() => setShowVincularModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg"
               >
                 <XMarkIcon className="w-5 h-5" />
               </button>
@@ -427,7 +427,7 @@ export function PsySupervisionPage() {
                   aparece na lista de ninguém, e sem isto o supervisor só
                   enxerga quem ele mesmo criou. */}
               <div className="space-y-2">
-                <p className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
+                <p className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-200">
                   Vincular estagiário já cadastrado
                   <InfoTooltip
                     align="left"
@@ -440,20 +440,20 @@ export function PsySupervisionPage() {
                 </p>
 
                 {disponiveis.length === 0 ? (
-                  <p className="text-[10px] text-slate-400 italic bg-slate-50 border border-dashed border-slate-200 rounded-lg px-3 py-2">
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 italic bg-slate-50 dark:bg-slate-900/70 border border-dashed border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2">
                     Nenhum estagiário ativo sem supervisor nesta clínica.
                   </p>
                 ) : (
                   <>
                     {isGestor && (
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
                           Supervisor Responsável *
                         </label>
                         <select
                           value={supervisorEscolhido}
                           onChange={(e) => setSupervisorEscolhido(e.target.value)}
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-600 text-xs"
+                          className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-blue-600 text-xs"
                         >
                           <option value="">Selecione o supervisor…</option>
                           {supervisores.map((s) => (
@@ -463,7 +463,7 @@ export function PsySupervisionPage() {
                           ))}
                         </select>
                         {supervisores.length === 0 && (
-                          <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mt-1">
+                          <p className="text-[10px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/70 rounded-lg px-2.5 py-1.5 mt-1">
                             Nenhum supervisor ativo nesta clínica.
                           </p>
                         )}
@@ -471,14 +471,14 @@ export function PsySupervisionPage() {
                     )}
 
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
                         Estagiário *
                       </label>
                       <div className="flex gap-2">
                         <select
                           value={disponivelEscolhido}
                           onChange={(e) => setDisponivelEscolhido(e.target.value)}
-                          className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-600 text-xs"
+                          className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-blue-600 text-xs"
                         >
                           <option value="">Selecione o estagiário…</option>
                           {disponiveis.map((e) => (
@@ -495,7 +495,7 @@ export function PsySupervisionPage() {
                             !disponivelEscolhido ||
                             (isGestor && !supervisorEscolhido)
                           }
-                          className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs transition-colors disabled:opacity-50 whitespace-nowrap"
+                          className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-xl font-bold text-xs transition-colors disabled:opacity-50 whitespace-nowrap"
                         >
                           {vinculando ? 'Vinculando...' : 'Vincular'}
                         </button>
@@ -503,7 +503,7 @@ export function PsySupervisionPage() {
                     </div>
 
                     {vincularErro && (
-                      <p className="text-[10px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5">
+                      <p className="text-[10px] text-red-700 dark:text-red-200 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800/70 rounded-lg px-2.5 py-1.5">
                         {vincularErro}
                       </p>
                     )}
@@ -511,11 +511,11 @@ export function PsySupervisionPage() {
                 )}
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setShowVincularModal(false)}
-                  className="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 font-bold transition-colors"
+                  className="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold transition-colors"
                 >
                   Fechar
                 </button>
@@ -527,15 +527,15 @@ export function PsySupervisionPage() {
 
       {/* Modal de Edição de Estagiário (Psicologia) */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white dark:bg-[#0E1729] rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs shadow-xs">
-                  <PencilSquareIcon className="w-4 h-4 text-blue-800" />
+                <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 flex items-center justify-center font-bold text-xs shadow-xs">
+                  <PencilSquareIcon className="w-4 h-4 text-blue-800 dark:text-blue-300" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                     Editar Estagiário (Psicologia)
                     <InfoTooltip texto="Atualize os dados acadêmicos ou credenciais do estagiário." />
                   </h3>
@@ -544,7 +544,7 @@ export function PsySupervisionPage() {
               <button
                 type="button"
                 onClick={() => setShowEditModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg"
               >
                 <XMarkIcon className="w-5 h-5" />
               </button>
@@ -552,7 +552,7 @@ export function PsySupervisionPage() {
 
             <form onSubmit={handleSaveEdit} className="space-y-3.5 text-xs">
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Nome Completo *
                 </label>
                 <input
@@ -560,14 +560,14 @@ export function PsySupervisionPage() {
                   value={editNome}
                   onChange={(e) => setEditNome(e.target.value)}
                   placeholder="Nome do estagiário"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600/20"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-blue-600 focus:ring-1 focus:ring-blue-600/20"
                   required
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Matrícula Acadêmica *
                   </label>
                   <input
@@ -575,12 +575,12 @@ export function PsySupervisionPage() {
                     value={editMatricula}
                     onChange={(e) => setEditMatricula(e.target.value)}
                     placeholder="Matrícula"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600/20 font-mono"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-blue-600 focus:ring-1 focus:ring-blue-600/20 font-mono"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Período / Turma
                   </label>
                   <input
@@ -588,13 +588,13 @@ export function PsySupervisionPage() {
                     value={editRegistro}
                     onChange={(e) => setEditRegistro(e.target.value)}
                     placeholder="Ex: 9º Período • Turma A"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-600 font-mono text-[11px]"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-blue-600 font-mono text-[11px]"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
                   E-mail Institucional
                 </label>
                 <input
@@ -602,27 +602,27 @@ export function PsySupervisionPage() {
                   value={editEmail}
                   onChange={(e) => setEditEmail(e.target.value)}
                   placeholder="E-mail"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-600 font-mono text-[11px]"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-blue-600 font-mono text-[11px]"
                 />
               </div>
 
               {validationError && (
-                <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs">
+                <div className="p-2.5 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800/70 rounded-xl text-red-700 dark:text-red-200 text-xs">
                   {validationError}
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setShowEditModal(false)}
-                  className="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 font-bold transition-colors"
+                  className="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-xl font-bold transition-all shadow-xs border border-blue-900 flex items-center gap-1.5"
+                  className="px-4 py-2 bg-blue-700 hover:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white rounded-xl font-bold transition-all shadow-xs border border-blue-900 dark:border-blue-500 flex items-center gap-1.5"
                 >
                   <CheckCircleIcon className="w-4 h-4 text-emerald-300" />
                   <span>Salvar Alterações</span>
@@ -635,27 +635,27 @@ export function PsySupervisionPage() {
 
       {/* Modal de Confirmação de Exclusão de Estagiário */}
       {internToDelete && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white dark:bg-[#0E1729] rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
-                <TrashIcon className="w-5 h-5 text-red-600" />
+              <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-950/60 flex items-center justify-center shrink-0">
+                <TrashIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                   Desativar Estagiário
                   <InfoTooltip texto="Revogação de acesso de estagiário." />
                 </h3>
               </div>
             </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Deseja realmente remover o estagiário <strong className="text-slate-900">{internToDelete.nome}</strong>? Ele não conseguirá mais efetuar login no módulo de Psicologia.
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              Deseja realmente remover o estagiário <strong className="text-slate-900 dark:text-white">{internToDelete.nome}</strong>? Ele não conseguirá mais efetuar login no módulo de Psicologia.
             </p>
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
                 onClick={() => setInternToDelete(null)}
-                className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+                className="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
               >
                 Cancelar
               </button>

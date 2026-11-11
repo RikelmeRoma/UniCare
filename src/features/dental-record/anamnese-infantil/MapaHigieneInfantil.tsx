@@ -136,12 +136,12 @@ function NumeroDente({
       onClick={() => onAlternarDente(dente)}
       aria-pressed={ausente}
       title={ausente ? 'Marcar dente como presente' : 'Marcar dente como ausente'}
-      className={`documento-dado w-full border-r border-black py-0.5 text-center font-mono text-[10px] font-bold transition-colors first:border-l ${
+      className={`documento-dado w-full border-r border-black dark:border-slate-600 py-0.5 text-center font-mono text-[10px] font-bold transition-colors first:border-l ${
         comBordaInferior ? 'border-b' : ''
       } ${
         ausente
-          ? 'bg-slate-100 text-slate-400 line-through'
-          : 'bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+          ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 line-through'
+          : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
       }`}
     >
       {dente}
@@ -164,13 +164,13 @@ function ResultadoIndice({
 }: ResultadoIndiceProps) {
   const resultado = percentualInfantil(marcadas, facesPresentes);
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60 px-3 py-2">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
         {sigla} — {descricao}
       </p>
-      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
         <span>({marcadas} / {facesPresentes} x 100) =</span>
-        <span className="rounded-lg border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] font-bold text-slate-900">
+        <span className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1 font-mono text-[11px] font-bold text-slate-900 dark:text-white tabular-nums">
           {resultado}
         </span>
         <span>%</span>
@@ -260,8 +260,8 @@ export function MapaHigieneInfantil({ mapa, onChange }: MapaHigieneInfantilProps
               aria-pressed={ferramenta === opcao.valor}
               className={`rounded-lg border px-2.5 py-1 text-[10px] font-bold transition-colors ${
                 ferramenta === opcao.valor
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                  ? 'border-slate-900 bg-slate-900 text-white dark:border-blue-500 dark:bg-blue-600'
+                  : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:text-white'
               }`}
             >
               {opcao.rotulo}
@@ -271,7 +271,7 @@ export function MapaHigieneInfantil({ mapa, onChange }: MapaHigieneInfantilProps
         <button
           type="button"
           onClick={limpar}
-          className="rounded-lg border border-slate-200 px-2.5 py-1 text-[10px] font-bold text-slate-600 transition-colors hover:border-rose-300 hover:text-rose-900"
+          className="rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800/60 px-2.5 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 transition-colors hover:border-rose-300 dark:hover:border-rose-500/60 hover:text-rose-900 dark:hover:text-rose-300"
         >
           Limpar marcações
         </button>
@@ -293,7 +293,7 @@ export function MapaHigieneInfantil({ mapa, onChange }: MapaHigieneInfantilProps
       </div>
 
       <div className="overflow-x-auto pb-1">
-        <div className="mx-auto min-w-[560px] max-w-[720px] bg-white pt-0.5">
+        <div className="mx-auto min-w-[560px] max-w-[720px] rounded-md bg-white dark:bg-slate-900 pt-0.5">
           <div className="grid grid-cols-10">
             {DENTES_DECIDUOS_SUPERIORES.map((dente) => (
               <CaixaDente
@@ -347,18 +347,18 @@ export function MapaHigieneInfantil({ mapa, onChange }: MapaHigieneInfantilProps
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500">
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500 dark:text-slate-400">
         <span>
-          <strong className="font-mono text-slate-900">V</strong> topo
+          <strong className="font-mono text-slate-900 dark:text-slate-100">V</strong> topo
         </span>
         <span>
-          <strong className="font-mono text-slate-900">D</strong> direita
+          <strong className="font-mono text-slate-900 dark:text-slate-100">D</strong> direita
         </span>
         <span>
-          <strong className="font-mono text-slate-900">L</strong> base
+          <strong className="font-mono text-slate-900 dark:text-slate-100">L</strong> base
         </span>
         <span>
-          <strong className="font-mono text-slate-900">M</strong> esquerda
+          <strong className="font-mono text-slate-900 dark:text-slate-100">M</strong> esquerda
         </span>
         <span>Clique no número para marcar o dente como ausente.</span>
       </div>

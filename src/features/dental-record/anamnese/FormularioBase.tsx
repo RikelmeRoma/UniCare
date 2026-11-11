@@ -23,18 +23,18 @@ export function SectionCard({
   return (
     <section
       id={id}
-      className="scroll-mt-28 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs"
+      className="scroll-mt-28 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#0E1729] p-5 shadow-xs"
     >
       <header className="mb-4 flex items-start gap-3">
         {numero !== undefined && (
-          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
+          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-900 dark:bg-blue-600 text-[10px] font-bold text-white">
             {typeof numero === 'number' ? String(numero).padStart(2, '0') : numero}
           </span>
         )}
         <div>
           <h3 className={TITULO_SECAO}>{titulo}</h3>
           {descricao && (
-            <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{descricao}</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">{descricao}</p>
           )}
         </div>
       </header>
@@ -112,7 +112,7 @@ export function TextAreaField({
         <div className="mb-1 flex items-center justify-between gap-2">
           <label
             htmlFor={id}
-            className="block text-[11px] font-bold text-slate-600"
+            className="block text-[11px] font-bold text-slate-600 dark:text-slate-300"
           >
             {label}
           </label>
@@ -168,8 +168,8 @@ export function RadioGroup<T extends string>({
               }}
               className={`relative cursor-pointer rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
                 ativo
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                  ? 'border-slate-900 bg-slate-900 text-white dark:border-blue-500 dark:bg-blue-600 dark:text-white'
+                  : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:text-white'
               }`}
             >
               <input
@@ -233,8 +233,8 @@ export function CheckboxGroup({
               key={opcao}
               className={`relative cursor-pointer rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
                 ativo
-                  ? 'border-slate-900 bg-slate-100 text-slate-900'
-                  : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                  ? 'border-slate-900 bg-slate-100 text-slate-900 dark:border-blue-500 dark:bg-blue-950/60 dark:text-blue-200'
+                  : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:text-white'
               }`}
             >
               <input
@@ -270,7 +270,7 @@ export function InlineInput({
 }: InlineInputProps) {
   return (
     <div className={`flex items-center gap-2 ${className ?? ''}`}>
-      <span className="shrink-0 text-[11px] font-bold text-slate-500">{rotulo}</span>
+      <span className="shrink-0 text-[11px] font-bold text-slate-500 dark:text-slate-400">{rotulo}</span>
       <input
         type="text"
         value={value}
@@ -284,7 +284,7 @@ export function InlineInput({
 
 export function SubTitulo({ children }: { children: ReactNode }) {
   return (
-    <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+    <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
       {children}
     </h4>
   );
@@ -312,7 +312,7 @@ export function InlineTextInput({
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       aria-label={ariaLabel}
-      className={`rounded-md border-b border-slate-300 bg-transparent px-1 py-0.5 text-xs font-semibold text-slate-900 outline-none transition-colors focus:border-slate-800 ${className ?? ''}`}
+      className={`rounded-md border-b border-slate-300 dark:border-slate-600 bg-transparent px-1 py-0.5 text-xs font-semibold text-slate-900 dark:text-slate-100 outline-none transition-colors focus:border-slate-800 dark:focus:border-blue-400 ${className ?? ''}`}
     />
   );
 }
@@ -336,9 +336,9 @@ export function SignatureField({ label, value, onChange }: SignatureFieldProps) 
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full border-b border-slate-400 bg-transparent px-2 pb-1 pt-6 text-center text-xs font-semibold text-slate-900 outline-none focus:border-slate-800"
+        className="w-full border-b border-slate-400 dark:border-slate-600 bg-transparent px-2 pb-1 pt-6 text-center text-xs font-semibold text-slate-900 dark:text-slate-100 outline-none focus:border-slate-800 dark:focus:border-blue-400"
       />
-      <p className="mt-1 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500">
+      <p className="mt-1 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
         {label}
       </p>
     </div>

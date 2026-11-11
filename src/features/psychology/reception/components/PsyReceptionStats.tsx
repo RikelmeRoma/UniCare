@@ -68,37 +68,37 @@ export function PsyReceptionStats() {
       rotulo: 'Agendamentos',
       valor: indicadores.total,
       rodape: 'Sessões individuais SPA',
-      numero: 'text-slate-900',
-      rodapeClass: 'text-slate-400',
+      numero: 'text-slate-900 dark:text-white',
+      rodapeClass: 'text-slate-400 dark:text-slate-400',
       icone: <CalendarIcon className="w-4 h-4" />,
-      iconeClass: 'bg-slate-100 text-slate-700',
+      iconeClass: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200/70 dark:border-slate-700',
     },
     {
       rotulo: 'Sala de Espera SPA',
       valor: indicadores.emEspera,
       rodape: 'Pacientes aguardando acolhimento',
-      numero: 'text-blue-700',
-      rodapeClass: 'text-blue-700',
+      numero: 'text-blue-700 dark:text-blue-400',
+      rodapeClass: 'text-blue-700 dark:text-blue-300',
       icone: <ClockIcon className="w-4 h-4" />,
-      iconeClass: 'bg-blue-50 text-blue-700',
+      iconeClass: 'bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800/60',
     },
     {
       rotulo: 'Em Psicoterapia',
       valor: indicadores.emAtendimento,
       rodape: `${indicadores.salasEmUso} de ${TOTAL_CONSULTORIOS_SPA} consultórios em uso (${Math.max(TOTAL_CONSULTORIOS_SPA - indicadores.salasEmUso, 0)} disponíveis)`,
-      numero: 'text-emerald-800',
-      rodapeClass: 'text-emerald-800',
+      numero: 'text-emerald-800 dark:text-emerald-400',
+      rodapeClass: 'text-emerald-800 dark:text-emerald-300',
       icone: <UserGroupIcon className="w-4 h-4" />,
-      iconeClass: 'bg-emerald-50 text-emerald-700',
+      iconeClass: 'bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-800/60',
     },
     {
       rotulo: 'Cancelamentos',
       valor: indicadores.cancelados,
       rodape: 'Vagas liberadas para remanejamento',
-      numero: 'text-amber-700',
-      rodapeClass: 'text-amber-800',
+      numero: 'text-amber-700 dark:text-amber-400',
+      rodapeClass: 'text-amber-800 dark:text-amber-300',
       icone: <XMarkIcon className="w-4 h-4" />,
-      iconeClass: 'bg-amber-50 text-amber-700',
+      iconeClass: 'bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-100 dark:border-amber-800/60',
     },
     {
       // Não substitui "Cancelamentos": as duas dizem coisas diferentes. Falta é
@@ -107,10 +107,10 @@ export function PsyReceptionStats() {
       rotulo: 'Faltas',
       valor: `${indicadores.taxaAbsenteismo.toFixed(1)}%`,
       rodape: `${indicadores.faltas} sessão(ões) sem comparecimento`,
-      numero: 'text-rose-700',
-      rodapeClass: 'text-rose-700',
+      numero: 'text-rose-700 dark:text-rose-400',
+      rodapeClass: 'text-rose-700 dark:text-rose-300',
       icone: <ExclamationTriangleIcon className="w-4 h-4" />,
-      iconeClass: 'bg-rose-50 text-rose-700',
+      iconeClass: 'bg-rose-50 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 border border-rose-100 dark:border-rose-800/60',
     },
   ];
 
@@ -119,14 +119,14 @@ export function PsyReceptionStats() {
   // recepção de odontologia já mostra (ReceptionStats.tsx).
   const origemLabel =
     sync.estado === 'sincronizando'
-      ? { texto: 'Sincronizando...', classe: 'bg-slate-100 text-slate-600' }
+      ? { texto: 'Sincronizando...', classe: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300' }
       : sync.estado === 'sincronizado'
-        ? { texto: 'Dados da API', classe: 'bg-emerald-50 text-emerald-700' }
+        ? { texto: 'Dados da API', classe: 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-800/60' }
         : sync.estado === 'parcial'
-          ? { texto: 'Dados parciais da API', classe: 'bg-amber-50 text-amber-700' }
+          ? { texto: 'Dados parciais da API', classe: 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/70 dark:border-amber-800/60' }
           : sync.estado === 'erro'
-            ? { texto: 'Falha na API', classe: 'bg-red-50 text-red-700' }
-            : { texto: 'Aguardando login', classe: 'bg-slate-100 text-slate-500' };
+            ? { texto: 'Falha na API', classe: 'bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 border border-red-200/70 dark:border-red-800/60' }
+            : { texto: 'Aguardando login', classe: 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400' };
 
   // A recepção leva 403 em prontuários e fichas odonto **por desenho** — a RN-001
   // bloqueia dado clínico. O `ClinicContext` não conta esse 403 como falha, então
@@ -143,7 +143,7 @@ export function PsyReceptionStats() {
         </span>
         {detalheFalha && (
           <span
-            className="text-amber-700 text-[10px] font-mono truncate ml-3"
+            className="text-amber-700 dark:text-amber-400 text-[10px] font-mono truncate ml-3"
             title={sync.falhas.join(' | ')}
           >
             {detalheFalha}
@@ -155,13 +155,13 @@ export function PsyReceptionStats() {
         {cartoes.map((c) => (
           <div
             key={c.rotulo}
-            className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex justify-between items-start"
+            className="bg-white dark:bg-[#0E1729] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs hover:shadow-sm transition-all flex justify-between items-start"
           >
             <div>
               <p className={`text-[11px] font-bold uppercase tracking-wider mb-2 ${c.numero}`}>
                 {c.rotulo}
               </p>
-              <h3 className={`text-3xl font-bold font-mono ${c.numero}`}>
+              <h3 className={`text-3xl font-bold font-mono tabular-nums ${c.numero}`}>
                 {semDado
                   ? '—'
                   : typeof c.valor === 'number'
@@ -178,12 +178,12 @@ export function PsyReceptionStats() {
       </div>
 
       {/* Mapa rápido dos 6 consultórios disponíveis no SPA */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4">
+      <div className="bg-white dark:bg-[#0E1729] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-4 transition-colors">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
             Consultórios do SPA ({TOTAL_CONSULTORIOS_SPA} disponíveis)
           </p>
-          <span className="text-[11px] text-slate-500">
+          <span className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
             {indicadores.salasEmUso} em atendimento agora · {Math.max(TOTAL_CONSULTORIOS_SPA - indicadores.salasEmUso, 0)} livre(s)
           </span>
         </div>
@@ -198,10 +198,10 @@ export function PsyReceptionStats() {
             return (
               <div
                 key={sala}
-                className={`rounded-xl border px-3 py-2 text-xs ${
+                className={`rounded-xl border px-3 py-2 text-xs transition-colors ${
                   ativoAgora
-                    ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
-                    : 'bg-slate-50/70 border-slate-200/80 text-slate-700'
+                    ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/70 text-emerald-900 dark:text-emerald-200'
+                    : 'bg-slate-50/70 dark:bg-slate-900/70 border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-200'
                 }`}
               >
                 <div className="flex items-center justify-between gap-1">
@@ -210,11 +210,11 @@ export function PsyReceptionStats() {
                   </span>
                   <span
                     className={`w-2 h-2 rounded-full ${
-                      ativoAgora ? 'bg-emerald-500' : 'bg-slate-300'
+                      ativoAgora ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)]' : 'bg-slate-300 dark:bg-slate-600'
                     }`}
                   />
                 </div>
-                <p className="text-[10px] mt-0.5 truncate text-slate-500">
+                <p className="text-[10px] mt-0.5 truncate text-slate-500 dark:text-slate-400">
                   {ativoAgora
                     ? `${ativoAgora.horario} · ${ativoAgora.estagiarioNome.split(' ')[0]}`
                     : 'Disponível'}

@@ -24,7 +24,7 @@ export function ReceptionDashboard() {
           <button
             type="button"
             onClick={() => setIsPatientModalOpen(true)}
-            className="bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs"
+            className="bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 border border-transparent dark:border-slate-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs"
           >
             <UserPlusIcon className="w-4 h-4" />
             <span>Cadastrar Paciente</span>
@@ -32,7 +32,7 @@ export function ReceptionDashboard() {
           <button
             type="button"
             onClick={() => setIsAppointmentModalOpen(true)}
-            className="bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs"
+            className="bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs"
           >
             <CalendarIcon className="w-4 h-4" />
             <span>Novo Agendamento</span>

@@ -68,13 +68,13 @@ export function DentalRecordPage() {
       badgeType="emerald"
       actions={
         <div className="w-64 sm:w-72">
-          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+          <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
             Paciente da Clínica
           </label>
           <select
             value={pacienteSelecionado?.id ?? ''}
             onChange={(e) => setSelectedPatientId(Number(e.target.value))}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-slate-800 focus:outline-none"
+            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-slate-800 dark:focus:ring-blue-500 focus:outline-none"
           >
             {pacientesOdonto.map((p) => (
               <option key={p.id} value={p.id}>
@@ -106,7 +106,7 @@ export function DentalRecordPage() {
             />
           )
         ) : (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-xs font-semibold text-amber-900">
+          <div className="rounded-2xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 p-6 text-xs font-semibold text-amber-900 dark:text-amber-300">
             Nenhum paciente odontológico selecionado.
           </div>
         )}

@@ -41,50 +41,50 @@ export function PsySupervisionStats() {
       rotulo: 'Evoluções Aguardando Homologação',
       valor: aguardando,
       rodape: 'pendentes na fila docente',
-      numero: 'text-amber-700',
+      numero: 'text-amber-700 dark:text-amber-400',
       semDado: semDados.agendamentos,
       icone: <DocumentTextIcon className="w-4 h-4" />,
-      iconeClass: 'bg-amber-50 text-amber-700',
+      iconeClass: 'bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-100 dark:border-amber-800/60',
     },
     {
       rotulo: 'Sessões Homologadas',
       valor: validados,
       rodape: `${evolucoesPsico.length} evolução(ões) no total`,
-      numero: 'text-emerald-700',
+      numero: 'text-emerald-700 dark:text-emerald-400',
       semDado: semDados.agendamentos,
       icone: <CheckCircleIcon className="w-4 h-4" />,
-      iconeClass: 'bg-emerald-50 text-emerald-700',
+      iconeClass: 'bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-800/60',
     },
     {
       rotulo: 'Devolvidas para Revisão Técnica',
       valor: devolvidos,
       rodape: 'em ajuste pelo estagiário',
-      numero: 'text-red-700',
+      numero: 'text-red-700 dark:text-red-400',
       semDado: semDados.agendamentos,
       icone: <ExclamationTriangleIcon className="w-4 h-4" />,
-      iconeClass: 'bg-red-50 text-red-700',
+      iconeClass: 'bg-red-50 dark:bg-red-950/70 text-red-700 dark:text-red-300 border border-red-100 dark:border-red-800/60',
     },
     {
       rotulo: 'Estagiários sob Orientação',
       valor: estagiarios,
       rodape: 'na clínica de psicologia',
-      numero: 'text-blue-700',
+      numero: 'text-blue-700 dark:text-blue-400',
       semDado: semDados.estagiarios,
       icone: <UserGroupIcon className="w-4 h-4" />,
-      iconeClass: 'bg-blue-50 text-blue-700',
+      iconeClass: 'bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800/60',
     },
   ];
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       {cartoes.map((c) => (
-        <div key={c.rotulo} className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+        <div key={c.rotulo} className="bg-white dark:bg-[#0E1729] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs hover:shadow-sm transition-all">
           <div className="flex justify-between items-start mb-2">
-            <p className="text-xs font-bold text-slate-700">{c.rotulo}</p>
+            <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{c.rotulo}</p>
             <span className={`p-2 rounded-xl ${c.iconeClass}`}>{c.icone}</span>
           </div>
           <div className="flex items-end gap-2 mt-2">
-            <h3 className={`text-3xl font-bold text-slate-900 font-mono ${c.semDado ? 'text-slate-400' : ''}`}>
+            <h3 className={`text-3xl font-bold text-slate-900 dark:text-white font-mono tabular-nums ${c.semDado ? 'text-slate-400 dark:text-slate-500' : ''}`}>
               {c.semDado ? '—' : String(c.valor).padStart(2, '0')}
             </h3>
             <span className={`text-[11px] font-semibold mb-1 ${c.numero}`}>

@@ -151,7 +151,7 @@ export function PsyAppointmentsPage() {
         <button
           type="button"
           onClick={() => void sincronizar()}
-          className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 font-bold px-3.5 py-2 rounded-xl text-xs transition-colors hover:bg-slate-50"
+          className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold px-3.5 py-2 rounded-xl text-xs transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
         >
           <ArrowPathIcon className="w-3.5 h-3.5" />
           Recarregar
@@ -163,23 +163,23 @@ export function PsyAppointmentsPage() {
             institucional é pior do que campo vazio. */}
         {mostrarLista && total > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            <div className="bg-white dark:bg-[#0E1729] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs transition-colors">
+              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
                 Sessões na sua agenda
               </p>
-              <p className="text-2xl font-bold text-slate-900 mt-1">{total}</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1 tabular-nums">{total}</p>
             </div>
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            <div className="bg-white dark:bg-[#0E1729] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs transition-colors">
+              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
                 Ainda aguardando atendimento
               </p>
-              <p className="text-2xl font-bold text-slate-900 mt-1">{pendentes}</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1 tabular-nums">{pendentes}</p>
             </div>
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            <div className="bg-white dark:bg-[#0E1729] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs transition-colors">
+              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
                 Pacientes na sua agenda
               </p>
-              <p className="text-2xl font-bold text-slate-900 mt-1">
+              <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1 tabular-nums">
                 {grupos.length}
               </p>
             </div>
@@ -187,7 +187,7 @@ export function PsyAppointmentsPage() {
         )}
 
         {carregando && (
-          <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs text-sm text-slate-500">
+          <div className="bg-white dark:bg-[#0E1729] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs text-sm text-slate-500 dark:text-slate-400">
             Carregando sua agenda…
           </div>
         )}
@@ -195,11 +195,11 @@ export function PsyAppointmentsPage() {
         {/* Falha de leitura não é "sem agendamento". Mostra o erro em vez da
             lista — nem vazia, nem os dados de mentira do estado inicial. */}
         {!carregando && agendamentosFalharam && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
-            <h2 className="text-sm font-bold text-red-900">
+          <div className="bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800/70 rounded-2xl p-5">
+            <h2 className="text-sm font-bold text-red-900 dark:text-red-200">
               Não foi possível carregar sua agenda
             </h2>
-            <p className="text-xs text-red-800 mt-1.5 leading-relaxed">
+            <p className="text-xs text-red-800 dark:text-red-300 mt-1.5 leading-relaxed">
               A lista de agendamentos não chegou do servidor. Nada foi
               descartado — use “Recarregar” para tentar de novo.
             </p>
@@ -207,12 +207,12 @@ export function PsyAppointmentsPage() {
         )}
 
         {mostrarLista && total === 0 && (
-          <div className="bg-white p-10 rounded-2xl border border-slate-200/80 shadow-xs text-center">
-            <CalendarIcon className="w-10 h-10 mx-auto text-slate-300" />
-            <h2 className="text-sm font-bold text-slate-800 mt-3">
+          <div className="bg-white dark:bg-[#0E1729] p-10 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs text-center">
+            <CalendarIcon className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600" />
+            <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-3">
               Nenhuma sessão na sua agenda no momento
             </h2>
-            <p className="text-xs text-slate-500 mt-1.5 leading-relaxed max-w-md mx-auto">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed max-w-md mx-auto">
               A recepção do SPA é quem monta a agenda. Assim que uma sessão for
               atribuída a você, ela aparece nesta tela.
             </p>
@@ -223,18 +223,18 @@ export function PsyAppointmentsPage() {
           grupos.map((grupo) => (
             <div
               key={grupo.pacienteId}
-              className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden"
+              className="bg-white dark:bg-[#0E1729] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden transition-colors"
             >
-              <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100">
+              <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 bg-blue-700 text-white rounded-xl flex items-center justify-center text-sm font-bold shadow-xs shrink-0">
+                  <div className="w-12 h-12 bg-blue-700 dark:bg-blue-600 text-white rounded-xl flex items-center justify-center text-sm font-bold shadow-xs shrink-0">
                     {iniciais(grupo.pacienteNome)}
                   </div>
                   <div>
-                    <h2 className="text-base font-bold text-slate-900 tracking-tight">
+                    <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
                       {grupo.pacienteNome}
                     </h2>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                       {grupo.sessoes.length}{' '}
                       {grupo.sessoes.length === 1
                         ? 'sessão agendada'
@@ -251,7 +251,7 @@ export function PsyAppointmentsPage() {
                         state: { pacienteId: grupo.pacienteId },
                       })
                     }
-                    className="flex items-center gap-1.5 self-start sm:self-auto text-xs font-bold text-blue-700 hover:text-blue-900 px-3 py-2 rounded-xl hover:bg-blue-50 transition-colors"
+                    className="flex items-center gap-1.5 self-start sm:self-auto text-xs font-bold text-blue-700 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 px-3 py-2 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-950/60 transition-colors"
                   >
                     <DocumentTextIcon className="w-4 h-4" />
                     Abrir prontuário
@@ -259,7 +259,7 @@ export function PsyAppointmentsPage() {
                   </button>
                 ) : (
                   <p
-                    className="self-start sm:self-auto text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 leading-relaxed max-w-xs"
+                    className="self-start sm:self-auto text-[11px] text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/70 rounded-xl px-3 py-2 leading-relaxed max-w-xs"
                     title="A agenda é filtrada pela sua matrícula, mas o prontuário é filtrado pelo vínculo. Este paciente saiu da sua lista de pacientes."
                   >
                     Este paciente não está mais vinculado a você, então o
@@ -268,12 +268,12 @@ export function PsyAppointmentsPage() {
                 )}
               </div>
 
-              <ul className="divide-y divide-slate-100">
+              <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                 {grupo.sessoes.map((s) => (
                   <li key={s.id} className="px-5 py-4">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
-                      <p className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <p className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         <span
                           className="font-mono"
                           title={
@@ -284,19 +284,19 @@ export function PsyAppointmentsPage() {
                         >
                           {rotuloData(s.dataSessao)}
                         </span>
-                        <span className="text-slate-300">·</span>
-                        <ClockIcon className="w-4 h-4 text-slate-400" />
+                        <span className="text-slate-300 dark:text-slate-600">·</span>
+                        <ClockIcon className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                         {s.horario || '—'}
-                        <span className="text-xs font-semibold text-slate-500">
+                        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                           {ROTULO_TURNO[s.turno] ?? s.turno}
                         </span>
                       </p>
-                      <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1.5">
-                        <MapPinIcon className="w-3.5 h-3.5 text-slate-400" />
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1.5">
+                        <MapPinIcon className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                         {s.salaOuCadeira}
                         {s.tipoConsulta ? ` · ${s.tipoConsulta}` : ''}
                       </p>
-                      <p className="text-[11px] text-slate-500 mt-1">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                         Responsável: {s.estagiarioNome} · Matrícula{' '}
                         {s.estagiarioMatricula}
                       </p>
@@ -305,7 +305,7 @@ export function PsyAppointmentsPage() {
                     </div>
 
                     {s.status === 'FALTOU' && s.motivoFalta && (
-                      <div className="mt-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-800">
+                      <div className="mt-3 flex items-start gap-2 rounded-xl border border-red-200 dark:border-red-800/70 bg-red-50 dark:bg-red-950/50 px-3 py-2 text-[11px] text-red-800 dark:text-red-200">
                         <ExclamationTriangleIcon className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                         <p className="leading-relaxed">
                           <strong>Motivo da falta:</strong> {s.motivoFalta}

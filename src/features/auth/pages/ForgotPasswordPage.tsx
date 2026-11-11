@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../../services/api';
+import { ThemeToggle } from '../../../components/ui/ThemeToggle';
 import {
   ShieldCheckIcon,
   ExclamationTriangleIcon,
@@ -74,8 +75,8 @@ export function ForgotPasswordPage() {
   }, [segundosReenvio]);
 
   const campo =
-    'w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-600 transition-colors font-mono pr-10';
-  const rotulo = 'block text-[11px] font-bold text-slate-700 mb-1.5 uppercase tracking-wider';
+    'w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-blue-600 dark:focus:border-blue-500 transition-colors font-mono pr-10';
+  const rotulo = 'block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wider';
 
   const novaCurta = novaSenha.length > 0 && novaSenha.length < 6;
   const naoCoincidem = confirmacao.length > 0 && confirmacao !== novaSenha;
@@ -158,28 +159,29 @@ export function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
-      <header className="bg-white border-b border-slate-200 px-6 sm:px-8 py-4 flex justify-between items-center shrink-0">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#060B16] flex flex-col font-sans text-slate-900 dark:text-slate-100 transition-colors">
+      <header className="bg-white/90 dark:bg-[#0B1220]/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-6 sm:px-8 py-4 flex justify-between items-center shrink-0">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight leading-tight">UniCare Enterprise Health</h1>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">UniCare Enterprise Health</h1>
           <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Hospital-Escola UNINASSAU</p>
         </div>
-        <div className="hidden sm:flex items-center gap-6 text-xs font-semibold text-slate-600">
-          <span className="bg-slate-100 text-slate-700 px-3 py-1.5 rounded-xl flex items-center gap-1.5 text-xs font-bold border border-slate-200">
-            <MapPinIcon className="w-3.5 h-3.5 text-slate-500" />
+        <div className="flex items-center gap-3 text-xs font-semibold text-slate-600 dark:text-slate-300">
+          <span className="hidden sm:flex bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-xl items-center gap-1.5 text-xs font-bold border border-slate-200 dark:border-slate-700">
+            <MapPinIcon className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
             <span>Campus Aracaju</span>
           </span>
+          <ThemeToggle />
         </div>
       </header>
 
       <main className="flex-1 flex flex-col items-center justify-center p-6">
-        <div className="mb-6 flex items-center gap-2 text-xs font-bold text-blue-700 bg-blue-50 px-4 py-1.5 rounded-full border border-blue-200/80 uppercase tracking-wider">
-          <ShieldCheckIcon className="w-4 h-4 text-blue-700" />
-          <span>Portal de Identidade & Acesso Institucional</span>
+        <div className="mb-6 flex items-center gap-2 text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 px-4 py-1.5 rounded-full border border-blue-200/80 dark:border-blue-800/70 uppercase tracking-wider">
+          <ShieldCheckIcon className="w-4 h-4 text-blue-700 dark:text-blue-400" />
+          <span>Portal de Identidade &amp; Acesso Institucional</span>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-200">
-          <div className="bg-slate-900 text-white p-8 text-center">
+        <div className="bg-white dark:bg-[#0D1628] rounded-2xl shadow-xl dark:shadow-black/50 w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-800">
+          <div className="bg-slate-900 dark:bg-[#061325] text-white p-8 text-center">
             <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center mx-auto mb-4 border border-white/20">
               {etapa === 'pedido' ? (
                 <ArrowPathIcon className="w-6 h-6 text-slate-300" />
@@ -214,13 +216,13 @@ export function ForgotPasswordPage() {
                 </div>
 
                 {envioIndisponivel && (
-                  <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-900 text-xs rounded-xl space-y-1.5">
+                  <div className="p-3.5 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/70 text-amber-900 dark:text-amber-200 text-xs rounded-xl space-y-1.5">
                     <p className="font-bold flex items-center gap-1.5">
                       <ExclamationTriangleIcon className="w-4 h-4" />
                       O envio por e-mail está indisponível agora
                     </p>
                     <p>{erroMsg}</p>
-                    <p className="text-amber-800">
+                    <p className="text-amber-800 dark:text-amber-300">
                       Enquanto isso, procure a coordenação da sua clínica-escola: a
                       Referência Técnica pode redefinir a sua senha.
                     </p>
@@ -228,13 +230,13 @@ export function ForgotPasswordPage() {
                 )}
 
                 {erroMsg && !envioIndisponivel && (
-                  <p className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl font-semibold">
+                  <p className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/70 text-rose-800 dark:text-rose-200 text-xs rounded-xl font-semibold">
                     {erroMsg}
                   </p>
                 )}
 
                 {okMsg && (
-                  <p className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl font-semibold">
+                  <p className="p-3 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/70 text-emerald-800 dark:text-emerald-200 text-xs rounded-xl font-semibold">
                     {okMsg}
                   </p>
                 )}
@@ -244,8 +246,8 @@ export function ForgotPasswordPage() {
                   disabled={identificador.trim().length < 3 || isSaving}
                   className={`w-full px-5 py-3 rounded-xl text-xs font-bold text-white transition-all ${
                     identificador.trim().length >= 3 && !isSaving
-                      ? 'bg-blue-700 hover:bg-blue-800 shadow-xs'
-                      : 'bg-slate-300 cursor-not-allowed opacity-70'
+                      ? 'bg-blue-700 hover:bg-blue-800 shadow-xs cursor-pointer'
+                      : 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed opacity-70'
                   }`}
                 >
                   {isSaving ? 'Enviando…' : 'Enviar código'}
@@ -279,7 +281,7 @@ export function ForgotPasswordPage() {
                     required
                   />
                   {novaCurta && (
-                    <p className="text-[10px] text-amber-700 font-semibold mt-1">
+                    <p className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold mt-1">
                       Faltam {6 - novaSenha.length} caracteres.
                     </p>
                   )}
@@ -298,7 +300,7 @@ export function ForgotPasswordPage() {
                     required
                   />
                   {naoCoincidem && (
-                    <p className="text-[10px] text-rose-700 font-semibold mt-1">
+                    <p className="text-[10px] text-rose-700 dark:text-rose-400 font-semibold mt-1">
                       A confirmação não bate com a nova senha.
                     </p>
                   )}
@@ -307,18 +309,18 @@ export function ForgotPasswordPage() {
                 <button
                   type="button"
                   onClick={() => setMostrar(!mostrar)}
-                  className="text-[11px] text-slate-600 hover:text-slate-900 font-semibold"
+                  className="text-[11px] text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-semibold"
                 >
                   {mostrar ? 'Ocultar senhas' : 'Mostrar senhas'}
                 </button>
 
                 {erroMsg && (
-                  <p className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl font-semibold">
+                  <p className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/70 text-rose-800 dark:text-rose-200 text-xs rounded-xl font-semibold">
                     {erroMsg}
                   </p>
                 )}
                 {okMsg && (
-                  <p className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl font-semibold flex items-start gap-1.5">
+                  <p className="p-3 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/70 text-emerald-800 dark:text-emerald-200 text-xs rounded-xl font-semibold flex items-start gap-1.5">
                     <CheckCircleIcon className="w-4 h-4 shrink-0 mt-px" />
                     {okMsg}
                   </p>
@@ -328,7 +330,7 @@ export function ForgotPasswordPage() {
                   <button
                     type="button"
                     onClick={() => { setEtapa('pedido'); setErroMsg(''); }}
-                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs hover:bg-slate-50"
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-xs hover:bg-slate-50 dark:hover:bg-slate-800"
                   >
                     Voltar
                   </button>
@@ -337,8 +339,8 @@ export function ForgotPasswordPage() {
                     disabled={!podeResgatar}
                     className={`flex-1 px-5 py-2.5 rounded-xl text-xs font-bold text-white transition-all flex items-center justify-center gap-1.5 ${
                       podeResgatar
-                        ? 'bg-blue-700 hover:bg-blue-800 shadow-xs'
-                        : 'bg-slate-300 cursor-not-allowed opacity-70'
+                        ? 'bg-blue-700 hover:bg-blue-800 shadow-xs cursor-pointer'
+                        : 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed opacity-70'
                     }`}
                   >
                     <LockClosedIcon className="w-3.5 h-3.5" />
@@ -348,15 +350,10 @@ export function ForgotPasswordPage() {
               </form>
             )}
 
-            {/* Saída para quem não recebeu. Sem este bloco, digitar um endereço
-                que não está no cadastro (o Gmail institucional que ENVIA as
-                mensagens, por exemplo) levava a uma tela parada esperando um
-                código que nunca viria — a resposta é genérica de propósito,
-                mas o silêncio não podia ser a única resposta. */}
             {etapa === 'codigo' && (
-              <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 text-[11px] text-slate-600 leading-relaxed space-y-1.5">
-                <p className="font-bold text-slate-700 flex items-center gap-1.5">
-                  <ExclamationTriangleIcon className="w-3.5 h-3.5 text-amber-600" />
+              <div className="bg-slate-50 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-xl p-3.5 text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed space-y-1.5">
+                <p className="font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                  <ExclamationTriangleIcon className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                   Não recebi o código
                 </p>
                 <p>
@@ -372,7 +369,7 @@ export function ForgotPasswordPage() {
                   className={`mt-1 inline-flex items-center gap-1.5 font-bold ${
                     segundosReenvio > 0 || isSaving
                       ? 'text-slate-400 cursor-not-allowed'
-                      : 'text-blue-700 hover:underline'
+                      : 'text-blue-700 dark:text-blue-400 hover:underline'
                   }`}
                 >
                   <ArrowPathIcon className="w-3.5 h-3.5" />
@@ -383,34 +380,33 @@ export function ForgotPasswordPage() {
               </div>
             )}
 
-            {/* O que a tela não promete: revogação de sessões já abertas. */}
-            <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 text-[11px] text-slate-600 leading-relaxed">
+            <div className="bg-slate-50 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-xl p-3.5 text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
               O código vale por poucos minutos e só funciona uma vez. A senha nova é
               guardada apenas como hash bcrypt — nem a coordenação consegue consultá-la.
               Trocar a senha aqui não encerra sessões já abertas neste dispositivo.
             </div>
 
             <div className="flex items-center justify-between text-xs">
-              <Link to="/login" className="font-semibold text-slate-600 hover:text-slate-900">
+              <Link to="/login" className="font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">
                 Voltar para o login
               </Link>
-              <Link to="/cadastro" className="font-bold text-blue-700 hover:underline">
+              <Link to="/cadastro" className="font-bold text-blue-700 dark:text-blue-400 hover:underline">
                 Ainda não tenho conta
               </Link>
             </div>
           </div>
         </div>
 
-        <p className="mt-4 text-xs font-semibold text-slate-500 flex items-center gap-1.5">
+        <p className="mt-4 text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
           <ShieldCheckIcon className="w-3.5 h-3.5 text-slate-400" />
           <span>Coordenação de Odontologia e Serviço de Psicologia Aplicada — Aracaju</span>
         </p>
       </main>
 
-      <footer className="border-t border-slate-200 bg-white px-6 sm:px-8 py-3.5 flex justify-between items-center text-[10px] text-slate-500 shrink-0">
+      <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0B1220] px-6 sm:px-8 py-3.5 flex justify-between items-center text-[10px] text-slate-500 dark:text-slate-400 shrink-0">
         <p>© 2026 UniCare UNINASSAU — Todos os direitos reservados.</p>
         <p className="flex items-center gap-1.5 font-mono">
-          <ShieldCheckIcon className="w-3 h-3 text-emerald-600" />
+          <ShieldCheckIcon className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
           <span>LGPD Art. 11 — dados sensíveis de saúde</span>
         </p>
       </footer>

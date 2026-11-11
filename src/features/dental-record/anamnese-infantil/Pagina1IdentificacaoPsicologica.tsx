@@ -152,7 +152,7 @@ export function Pagina1IdentificacaoPsicologica({
             onChange={(valor) => alterarIdentificacao({ raca: valor })}
           />
         </div>
-        <p className="text-[10px] text-slate-400">
+        <p className="text-[10px] text-slate-500 dark:text-slate-400">
           Idade calculada: {calcularIdadeInfantil(identificacao.dataNascimento) || '—'}
         </p>
       </SectionCard>

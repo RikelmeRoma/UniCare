@@ -229,16 +229,16 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 font-sans">
-      <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
+    <div className="fixed inset-0 bg-slate-900/40 dark:bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 font-sans">
+      <div className="bg-white dark:bg-[#0E1729] rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 mt-1">Novo Agendamento Clínico</h2>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white mt-1">Novo Agendamento Clínico</h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg"
+            className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1.5 rounded-lg"
           >
             <XMarkIcon className="w-5 h-5" />
           </button>
@@ -246,7 +246,7 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Selecione o Paciente Cadastrado *</label>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Selecione o Paciente Cadastrado *</label>
             <select
               value={pacienteId}
               onChange={(e) => {
@@ -263,7 +263,7 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
                   setAuxiliarMatricula('');
                 }
               }}
-              className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none"
+              className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:border-blue-600 outline-none"
             >
               {pacientes.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -275,7 +275,7 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Especialidade</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Especialidade</label>
               <select
                 value={curso}
                 onChange={(e) => {
@@ -288,7 +288,7 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
                     val === 'psicologia' ? CONSULTORIOS_SPA[0] : 'Cadeira Odonto 03'
                   );
                 }}
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none"
+                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none"
               >
                 {/* A recepção concilia a agenda da própria clínica: oferecer a
                     outra aqui só geraria um 403 na hora de salvar. */}
@@ -299,19 +299,19 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Horário Previsto</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Horário Previsto</label>
               <input
                 type="time"
                 value={horario}
                 onChange={(e) => setHorario(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none font-mono"
+                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none font-mono"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Data da Sessão *
               </label>
               <input
@@ -320,16 +320,16 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
                 defaultValue={hojeIso()}
                 min={hojeIso()}
                 onChange={(e) => setDataDisponibilidade(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none font-mono"
+                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:border-blue-600 outline-none font-mono"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Turno</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Turno</label>
               <select
                 value={turno}
                 onChange={(e) => setTurno(e.target.value as 'manha' | 'tarde' | 'noite')}
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none"
+                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none"
               >
                 <option value="manha">Manhã</option>
                 <option value="tarde">Tarde</option>
@@ -342,10 +342,10 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
             <div className="space-y-3">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-semibold text-slate-700">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                     Local / Consultório SPA (6 disponíveis)
                   </label>
-                  <span className="text-[10px] font-semibold text-slate-500">
+                  <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
                     {Math.max(TOTAL_CONSULTORIOS_SPA - salasOcupadasNoSlot.size, 0)} de {TOTAL_CONSULTORIOS_SPA} livre(s) às {horario}
                   </span>
                 </div>
@@ -366,10 +366,10 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
                         }
                         className={`px-2.5 py-2 rounded-xl border text-left ${
                           ocupacao
-                            ? 'bg-red-50/70 border-red-200 text-red-400 cursor-not-allowed'
+                            ? 'bg-red-50/70 dark:bg-red-950/40 border-red-200 dark:border-red-800/70 text-red-400 dark:text-red-300/70 cursor-not-allowed'
                             : selecionada
-                              ? 'bg-blue-700 border-blue-700 text-white shadow-xs'
-                              : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-blue-400 hover:bg-white'
+                              ? 'bg-blue-700 dark:bg-blue-600 border-blue-700 dark:border-blue-500 text-white shadow-xs'
+                              : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-blue-400 hover:bg-white dark:hover:bg-slate-800'
                         }`}
                       >
                         <span className="block text-[11px] font-bold">
@@ -378,10 +378,10 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
                         <span
                           className={`block text-[10px] truncate ${
                             ocupacao
-                              ? 'text-red-500'
+                              ? 'text-red-500 dark:text-red-400'
                               : selecionada
                                 ? 'text-blue-100'
-                                : 'text-emerald-700'
+                                : 'text-emerald-700 dark:text-emerald-400'
                           }`}
                         >
                           {ocupacao ? `Ocupada (${ocupacao.estagiarioNome.split(' ')[0]})` : 'Disponível'}
@@ -393,53 +393,53 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Procedimento ou Demanda Prevista</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Procedimento ou Demanda Prevista</label>
                 <input
                   type="text"
                   value={tipoConsulta}
                   onChange={(e) => setTipoConsulta(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none"
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none"
                 />
               </div>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Local / Box Clínico</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Local / Box Clínico</label>
                 <input
                   type="text"
                   value={salaOuCadeira}
                   onChange={(e) => setSalaOuCadeira(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none"
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Procedimento ou Demanda Prevista</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Procedimento ou Demanda Prevista</label>
                 <input
                   type="text"
                   value={tipoConsulta}
                   onChange={(e) => setTipoConsulta(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none"
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none"
                 />
               </div>
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               {ehPsico ? 'Estagiário Responsável *' : 'Dupla de Estagiários *'}
             </label>
 
             {carregandoEstagiarios ? (
-              <p className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-400">
+              <p className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-400 dark:text-slate-500">
                 Carregando estagiários…
               </p>
             ) : erroEstagiarios ? (
               // Select vazio aqui pareceria "não existe estagiário na
               // clínica", que é uma mentira — a clínica tem, a lista é que
               // não chegou. A pessoa precisa saber qual dos dois é.
-              <p className="w-full text-xs p-2.5 rounded-xl border border-red-200 bg-red-50 text-red-700 leading-relaxed">
+              <p className="w-full text-xs p-2.5 rounded-xl border border-red-200 dark:border-red-800/70 bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-200 leading-relaxed">
                 Não foi possível carregar os estagiários: {erroEstagiarios}{' '}
                 Feche e abra o modal para tentar de novo.
               </p>
@@ -447,7 +447,7 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
               <>
                 <div className={ehPsico ? '' : 'grid grid-cols-2 gap-3'}>
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                    <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
                       {ehPsico ? 'Responsável *' : 'Operador *'}
                     </label>
                     <select
@@ -458,7 +458,7 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
                         if (ehPsico) setEscolheuEstagiario(true);
                         if (valor === auxiliarMatricula) setAuxiliarMatricula('');
                       }}
-                      className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none"
+                      className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:border-blue-600 outline-none"
                     >
                       <option value="">
                         {ehPsico
@@ -475,13 +475,13 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
 
                   {!ehPsico && (
                     <div>
-                      <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                      <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
                         Auxiliar *
                       </label>
                       <select
                         value={auxiliarMatricula}
                         onChange={(e) => setAuxiliarMatricula(e.target.value)}
-                        className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-600 outline-none"
+                        className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:border-blue-600 outline-none"
                       >
                         <option value="">Selecione o auxiliar…</option>
                         {estagiarios
@@ -500,7 +500,7 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
                   estagiarioSelecionado &&
                   responsavelAtual &&
                   matriculaDoResponsavel !== matriculaOperador && (
-                    <p className="mt-1.5 text-[11px] leading-relaxed text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/70 rounded-lg px-2.5 py-1.5">
                       Hoje este paciente é de{' '}
                       <strong>{responsavelAtual.estagiarioNome}</strong>. Ao
                       confirmar, o responsável passa a ser{' '}
@@ -510,7 +510,7 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
                   )}
 
                 {ehPsico && estagiarioSelecionado && !responsavelAtual && (
-                  <p className="mt-1.5 text-[11px] leading-relaxed text-blue-800 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1.5">
+                  <p className="mt-1.5 text-[11px] leading-relaxed text-blue-800 dark:text-blue-200 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/70 rounded-lg px-2.5 py-1.5">
                     Este paciente ainda não tem responsável. Ao confirmar, passa
                     a ser de {estagiarioSelecionado.nome} — e é isso que permite
                     ao aluno abrir o prontuário dele.
@@ -518,7 +518,7 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
                 )}
 
                 {!ehPsico && estagiarios.length < 2 && (
-                  <p className="mt-1.5 text-[11px] leading-relaxed text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                  <p className="mt-1.5 text-[11px] leading-relaxed text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/70 rounded-lg px-2.5 py-1.5">
                     A clínica precisa de dois estagiários ativos para montar a
                     dupla. Cadastre o segundo aluno antes de agendar.
                   </p>
@@ -528,35 +528,35 @@ export function NewAppointmentModal({ onClose, defaultCurso = 'odontologia' }: N
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Observações Logísticas</label>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Observações Logísticas</label>
             <input
               type="text"
               value={observacaoLogistica}
               onChange={(e) => setObservacaoLogistica(e.target.value)}
               placeholder="Ex: Paciente cadeirante, contato prévio confirmado..."
-              className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 outline-none"
+              className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none"
             />
           </div>
 
-          <div className="pt-3 border-t border-slate-100 flex justify-end gap-2.5">
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50"
+              className="px-4 py-2 text-xs font-semibold border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isSaving || !duplaValida}
-              className="px-5 py-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-xs disabled:opacity-50"
+              className="px-5 py-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white rounded-xl shadow-xs disabled:opacity-50"
             >
               {isSaving ? 'Salvando...' : 'Confirmar Agendamento'}
             </button>
           </div>
         </form>
         {errorMsg && (
-          <p className="mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          <p className="mt-3 text-xs text-red-700 dark:text-red-200 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800/70 rounded-lg px-3 py-2">
             {errorMsg}
           </p>
         )}
