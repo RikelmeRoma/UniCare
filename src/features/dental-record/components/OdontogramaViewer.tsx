@@ -239,6 +239,8 @@ function ToothSVG({ fdi, data, activeTool, onCellClick, onSelect, isSelected }: 
         </defs>
 
         <g clipPath={`url(#${clipId})`}>
+          {/* Base opaca da coroa: evita que o fundo escuro vaze nos 4 cantos fora da cruz anatomica */}
+          <rect x={0} y={0} width={w} height={h} fill="#FFFFFF" />
           {cellCommon("V", 14, 0, 16, 16)}
           {cellCommon(leftKey, 0, 16, 14, 22)}
           {cellCommon("O", 14, 16, 16, 22)}
