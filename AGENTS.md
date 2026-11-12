@@ -390,6 +390,26 @@ continua limpo, porque o comparador só olha o tipo. Sempre declare
 corrigir isso ainda está aberta. `anamneses.afetido_em` foi criada como DateTime
 para não repetir o defeito.
 
+**Coluna `DateTime` na migração precisa de `timezone=True`.** O SQLModel mapeia
+`datetime` para `DateTime(timezone=True)` — UTCDateTime. Mas `sa.DateTime()`
+sem argumento na migração vira `timestamp without time zone` no Postgres, e o
+`alembic check` passa a acusar `modify_type` na coluna. Foi o que aconteceu com
+`ocorrencias_estagiarios.criado_em` na revisão `8b4e2a9c1f07`: as outras 11
+tabelas do projeto têm `criado_em` como `timestamptz` e só essa ficou sem fuso.
+Escreva `sa.DateTime(timezone=True)` em `op.create_table`/`op.add_column`, e
+confirme com `alembic check` — "No new upgrade operations detected." é o estado
+esperado, não um detalhe.
+
+**Script de shell com CRLF quebra o container em loop.** `core.autocrlf=true` no
+Windows reescreve os `.sh` com CRLF, e o shebang vira `#!/bin/sh\r`: o kernel
+procura `/bin/sh\r`, não acha, e o container morre com `exec
+./docker/entrypoint.sh: no such file or directory` — reiniciando para sempre,
+sem log de aplicação. O `.gitattributes` da raiz tem `*.sh text eol=lf` por
+isso; o `Dockerfile` ainda roda `sed -i 's/\r$//'` como segunda linha de defesa.
+Se o entrypoint já funcionava e começou a falhar, **olhe as quebras de linha do
+arquivo, não o código**: o blob no git pode estar com LF enquanto a cópia de
+trabalho está com CRLF, e o `git status` não acusa a diferença.
+
 **A autoria de registro clínico vem do token, não do corpo.** O POST de anamnese
 não tem campo de responsável: o backend preenche com `current_user`. Se o corpo
 aceitasse o responsável, qualquer cliente registraria aferição em nome de outra

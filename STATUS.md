@@ -1,5 +1,61 @@
 # STATUS — UniCare
 
+## Atualização — 2026-11-12 (pull do `teste` + container quebrado pelo CRLF)
+
+**Pull:** 8 commits do Guilherme entrados por fast-forward (`89e3cbb..8e5a3c6`) —
+assistente clínico Gemini com voz, modo escuro completo, sidebar retrátil,
+extensões do SPA de Psicologia (demanda, encerramento, PDF com assinaturas,
+6 consultórios, ocorrências) e ajustes do login. Nada meu foi perdido
+(`13ecc12`, `c046727`, `03d28c1` continuam no remoto) e as correções de
+recuperação de senha sobreviveram intactas: `_identificador_incompleto`, o
+cooldown de 60 s, `faltaArroba` e a contagem de reenvio.
+
+**O que quebrou no caminho — e não foi o pull.** O container `unicare_api`
+entrou em loop de reinício com `exec ./docker/entrypoint.sh: no such file or
+directory`. A causa não era código: `backend/docker/entrypoint.sh` estava com
+**CRLF** na cópia de trabalho (`core.autocrlf=true` do Windows), e o shebang
+virou `#!/bin/sh\r` — o kernel procura `/bin/sh\r` e não encontra. O blob no git
+está com LF; o `git status` não acusa a diferença.
+
+- `.gitattributes` da raiz: `*.sh text eol=lf`.
+- `backend/Dockerfile`: `RUN chmod +x docker/entrypoint.sh && sed -i 's/\r$//'
+  docker/entrypoint.sh` — segunda linha de defesa, para build a partir de zip
+  ou de máquina sem `.gitattributes`.
+
+**Dependência nova:** `google-genai>=2.30.1` (assistente Gemini). O
+`docker-compose.yml` instala dependências no **build** da imagem, então não
+adianta reiniciar o container: é preciso `pip install -r requirements.txt` (venv)
+e `docker compose up -d --build api`. Sem isso o `main.py` quebra no import de
+`app/routers/ia.py` (`ModuleNotFoundError: No module named 'google'`) e a API
+não sobe. `GEMINI_API_KEY` é opcional — vazia, as rotas `/ia/*` respondem 503
+explicito.
+
+**Migration nova com fuso errado:** a revisão `8b4e2a9c1f07` (do Guilherme)
+criou `ocorrencias_estagiarios.criado_em` com `sa.DateTime()`, que no Postgres
+é `timestamp without time zone`. O model é UTCDateTime, e as outras 11 tabelas
+do projeto têm `criado_em` como `timestamptz` — o `alembic check` acusava
+`modify_type`. Como a `8b4e2a9c1f07` **já estava aplicada**, a correção veio em
+revisão nova: `c7e91d4a2b08` (`ALTER COLUMN ... TYPE timestamptz` com
+`SET LOCAL TIME ZONE 'UTC'`). `alembic check` → "No new upgrade operations
+detected."
+
+**Recuperação de senha — o e-mail funciona.** Diagnóstico definitivo: pedido
+com `16032935@sempreuninassau.com.br` responde **200**, cria token para o
+usuário **21** (o mesmo da matrícula `16032935`) e grava
+`RECUPERACAO_SOLICITADA` na trilha. O SMTP aceitou a mensagem — o `503` que o
+servidor devolve quando o envio falha não apareceu. Ou seja: **matrícula e
+e-mail chegam ao mesmo destino, pelo mesmo caminho**. O que decide se a
+mensagem aparece na caixa é a entrega depois do SMTP: o MX de
+`sempreuninassau.com.br` responde `250 Recipient OK` para **qualquer** endereço
+(aceita e descarta depois), então "enviado" não prova entrega. Havia um token
+do usuário 21 criado em 2026-11-01 18:55 — o pedido por e-mail também funcionou
+naquele dia, e a mensagem não apareceu.
+
+**Verificação:** `pytest -q` → **149 passed, 1 deselected** (marcador `rede`);
+`npm run build` verde; `npm run lint` sem regressão; `/health` respondendo
+`{"status":"healthy", "conectado":true}`; container `unicare_api` **healthy**;
+`alembic current` = `c7e91d4a2b08 (head)`.
+
 ## Atualização — 2026-11-11 (extensões do SPA de Psicologia: Demanda, Encerramento, PDF com assinaturas, 6 consultórios e ocorrências pela recepção)
 
 - **Prontuário Psicológico (`DEMANDA` e `ENCERRAMENTO` + linha do tempo unificada)**:

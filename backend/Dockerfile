@@ -17,8 +17,12 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # O .dockerignore impede que .env, .venv/ e caches entrem na imagem.
 COPY . .
 
-# Garante permissao de execucao no entrypoint, independente do host de build
-RUN chmod +x docker/entrypoint.sh
+# Garante permissao de execucao no entrypoint, independente do host de build.
+# O sed e a segunda linha de defesa: se o .sh chegar com CRLF (checkout do
+# Windows com core.autocrlf=true, arquivo vindo de zip, ou .gitattributes
+# ignorado), o shebang vira "#!/bin/sh\r" e o container morre em loop de
+# reinicio com "exec ./docker/entrypoint.sh: no such file or directory".
+RUN chmod +x docker/entrypoint.sh && sed -i 's/\r$//' docker/entrypoint.sh
 
 EXPOSE 8000
 

@@ -1,1 +1,9 @@
 *.pdf binary
+
+# Script de shell SEMPRE com LF, mesmo no checkout do Windows.
+#
+# O core.autocrlf=true desta maquina reescreve os .sh com CRLF, e o shebang
+# vira "#!/bin/sh\r": o kernel procura o interpretador "/bin/sh\r", nao acha, e
+# o container morre com "exec ./docker/entrypoint.sh: no such file or
+# directory" — loop de reinicio, sem log de aplicacao.
+*.sh text eol=lf
