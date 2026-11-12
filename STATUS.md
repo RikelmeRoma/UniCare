@@ -1,5 +1,50 @@
 # STATUS — UniCare
 
+## Atualização — 2026-11-12 (chave do Gemini no lugar certo + ditado por voz corrigido)
+
+**Chave configurada.** `GEMINI_API_KEY` foi para o `backend/.env` — o único
+lugar certo: o container a lê pelo `env_file` do compose, e ela **nunca** vai
+para o frontend (quem chama o Gemini é o backend). O `.env` está no
+`.gitignore` e no `.dockerignore`, e `git ls-files` não lista nenhum `.env` — a
+chave não entra em nenhum commit. Detalhe que trava: **`docker compose restart`
+não relê o `env_file`**; é preciso `docker compose up -d api`, que recria o
+container.
+
+**A chave foi testada de verdade contra a API do Google** (28 modelos
+listados; `gemini-3.5-flash-lite` respondeu de primeira).
+
+**Dois defeitos na feature, que a chave sozinha não resolvia:**
+
+1. **`GEMINI_MODEL_TRANSCRIBE=gemini-3.5-transcribe` não existe** — 404 "Model
+   is not found". E `transcrever_ditado_clinico` nem usava essa variável: ela
+   chamava a cadeia de texto, cujo primário (`gemini-3.5-flash-lite`) responde
+   com **texto vazio** quando o pedido leva áudio. O ditado por voz morria com
+   502 mesmo com a chave configurada. Agora o ditado vai para
+   `GEMINI_MODEL_TRANSCRIBE`, com a cadeia de texto como plano B, e o padrão
+   virou `gemini-2.5-flash` — o único que transcreve de verdade (devolveu
+   "(Silêncio)" com um WAV de silêncio).
+2. **Resposta vazia não acionedava o fallback.** `_executar_interaction_com_
+   fallback` só continuava a cadeia em erro transitório (503, 429, timeout).
+   `_eh_resposta_vazia()` trata esse caso.
+
+**Aviso clínico — silêncio no ditado vira texto inventado.** Com um áudio de
+silêncio, o `gemini-2.5-flash` devolveu uma anamnese completa e coerente
+("dor espontânea no elemento 16... pulpectomia em sessão única"): o modelo
+obedece a "converta o áudio falado em texto clínico" e **preenche o silêncio**.
+Isso entra no prontuário como se fosse ditado real. A conferência do
+profissional é obrigatória, e a trilha (`DITADO_VOZ_IA`) é o que permite auditar
+o que foi ditado. **Pendência:** o backend ainda não recusa áudio sem fala.
+
+**Verificação (pela API, com a chave real):** `GET /ia/status` → `{"configurado":
+true, "modelo_padrao": "gemini-3.5-flash-lite", "modelo_transcricao":
+"gemini-2.5-flash"}` · `POST /ia/assistente` → 200 com resposta clínica
+fundamentada no prontuário (`modelo_utilizado: gemini-3.5-flash-lite`) ·
+`POST /ia/transcrever` → 200 (`modelo_utilizado: gemini-2.5-flash`) ·
+container `unicare_api` healthy · suíte `pytest -q` sem regressão.
+
+**Segurança:** a chave ficou no histórico desta conversa. Se ela for
+compartilhada ou exportada, rotacionar no console do Google.
+
 ## Atualização — 2026-11-12 (pull do `teste` + container quebrado pelo CRLF)
 
 **Pull:** 8 commits do Guilherme entrados por fast-forward (`89e3cbb..8e5a3c6`) —

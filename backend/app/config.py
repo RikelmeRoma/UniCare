@@ -88,7 +88,11 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL_PRIMARY: str = "gemini-3.5-flash-lite"
     GEMINI_MODEL_FALLBACK: str = "gemini-3.5-flash,gemini-3.8-flash"
-    GEMINI_MODEL_TRANSCRIBE: str = "gemini-3.5-transcribe"
+    # O modelo de ditado NAO e o da cadeia de texto: `gemini-3.5-transcribe`
+    # nao existe (404 "Model is not found") e `gemini-3.5-flash-lite` responde
+    # com texto VAZIO quando recebe audio. `gemini-2.5-flash` e o que
+    # transcreve de verdade — verificado contra a API com audio valido.
+    GEMINI_MODEL_TRANSCRIBE: str = "gemini-2.5-flash"
     GEMINI_TIMEOUT_SEGUNDOS: int = 20
 
     @property

@@ -327,6 +327,17 @@ def _eh_erro_transitorio(exc: Exception) -> bool:
     return any(ind in txt for ind in indicadores)
 
 
+def _eh_resposta_vazia(exc: Exception) -> bool:
+    """O modelo respondeu, mas sem texto.
+
+    Não é erro transitório — a chamada funcionou. Ainda assim é motivo para
+    tentar o próximo modelo da cadeia: o `gemini-3.5-flash-lite` devolve texto
+    vazio quando o pedido leva áudio, e sem esta exceção a cadeia de fallback
+    nunca era exercitada nesse caso.
+    """
+    return "resposta vazia" in str(exc).lower()
+
+
 def _criar_cliente() -> genai.Client:
     if not settings.gemini_configurado:
         raise HTTPException(
@@ -376,7 +387,11 @@ def _executar_interaction_com_fallback(
             ultimo_erro = exc
             msg = _sanitizar_erro(str(exc))
             logger.warning("Falha na chamada Gemini (modelo=%s, tentativa=%d): %s", modelo, idx + 1, msg)
-            if idx < len(modelos) - 1 and _eh_erro_transitorio(exc):
+            # Resposta vazia tambem justifica continuar: o proximo modelo
+            # pode responder, e o caso real e o audio no flash-lite.
+            if idx < len(modelos) - 1 and (
+                _eh_erro_transitorio(exc) or _eh_resposta_vazia(exc)
+            ):
                 continue
             if _eh_erro_transitorio(exc):
                 break
@@ -563,8 +578,16 @@ def transcrever_ditado_clinico(
         "Retorne APENAS o texto final limpo."
     )
 
+    # O ditado vai para o modelo de transcricao, e nao para a cadeia de
+    # texto: o flash-lite responde com texto VAZIO quando o pedido leva audio.
+    # A cadeia de texto fica como plano B, para quando o modelo de
+    # transcricao estiver sobrecarregado.
+    modelos_transcricao = [
+        settings.GEMINI_MODEL_TRANSCRIBE,
+        *settings.gemini_modelos_cadeia,
+    ]
     texto, modelo_usado = _executar_interaction_com_fallback(
-        modelos=settings.gemini_modelos_cadeia,
+        modelos=modelos_transcricao,
         input_payload=[
             {"type": "text", "text": instrucao},
             {"type": "audio", "data": b64_audio, "mime_type": mime_ok},

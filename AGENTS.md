@@ -484,6 +484,41 @@ isso disparava a carga antes do token existir e deixava a tela nos mocks até um
 Use `sync` do contexto (`estado`, `origem`, `falhas`) para distinguir dado real de
 mock — nunca assuma que a lista veio do Postgres.
 
+**A chave do Gemini entra no `backend/.env`, e só lá.** Ela é lida pelo
+container pelo `env_file` do compose — **e `docker compose restart` NÃO relê o
+`env_file`**: é preciso `docker compose up -d api`, que recria o container. Sem
+a chave, as rotas `/ia/*` respondem 503 com a orientação de configurar. A chave
+**nunca** vai para o frontend: quem chama o Gemini é o backend. O `.env` está no
+`.gitignore` e no `.dockerignore`, e `git ls-files` não deve listar nenhum.
+
+**O modelo do ditado não é o modelo do texto.** São duas coisas diferentes e
+dependentes do modelo: `gemini-3.5-transcribe` **não existe** (404 "Model is
+not found") e `gemini-3.5-flash-lite` responde com texto **vazio** quando o
+pedido leva áudio. Quem transcreve de verdade é `gemini-2.5-flash` — foi o que
+respondeu "Aqui está a transcrição: (Silêncio)" com um WAV de silêncio. Como o
+`transcrever_ditado_clinico` usava a cadeia de texto, o ditado por voz morria
+com 502 mesmo com a chave configurada.
+
+**Resposta vazia do modelo precisa acionar o fallback.** `_executar_interaction_
+com_fallback` só continuava a cadeia em erro transitório (503, 429, timeout).
+"Resposta vazia" não é transitório, mas também não é motivo para desistir: o
+`flash-lite` devolve vazio com áudio. `_eh_resposta_vazia()` trata esse caso.
+
+**O Google responde 503 "high demand" sem aviso.** Os modelos de fallback
+(`gemini-3.5-flash`, `gemini-3.8-flash`) podem responder `503 UNAVAILABLE`
+mesmo com a chave correta — é demanda do serviço, não erro de configuração. Por
+isso a cadeia existe, e por isso "a IA falhou" não é imediatamente "a chave
+está errada": `GET /ia/status` devolvendo `configurado: true` é a checagem
+primeira.
+
+**Silêncio no ditado vira texto clínico inventado.** Com um áudio de silêncio,
+o `gemini-2.5-flash` devolveu uma anamnese completa e coerente ("dor espontânea
+no elemento 16, pulpectomia em sessão única") — invenção, não transcrição. O
+modelo obedece à instrução "converta o áudio falado em texto clínico" e
+**preenche o silêncio**. Antes de gravar isso no prontuário, o texto precisa
+passar pela conferência do profissional; e o registro de `DITADO_VOZ_IA` na
+trilha é o que permite auditar o que foi ditado.
+
 ---
 
 ## Convenções
