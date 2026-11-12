@@ -10,9 +10,12 @@ import {
   CheckCircleIcon,
   ClockIcon,
   PrinterIcon,
+  SparklesIcon,
 } from '../../../../components/icons/CorporateIcons';
 import { RelatorioImpressao } from '../../../../shared/impressao/RelatorioImpressao';
 import { ProntuarioPsicoPrint } from '../components/ProntuarioPsicoPrint';
+import { ClinicalAssistantDrawer } from '../../../ai-assistant/components/ClinicalAssistantDrawer';
+import { InlineVoiceButton } from '../../../ai-assistant/components/InlineVoiceButton';
 import {
   calcularIdade,
   formatarDataBr,
@@ -96,6 +99,7 @@ export function PsyRecordPage() {
 
   const [activeTab, setActiveTab] = useState<'registro' | 'demanda' | 'encerramento' | 'historico'>('registro');
   const [showImpressao, setShowImpressao] = useState(false);
+  const [showAssistenteIA, setShowAssistenteIA] = useState(false);
 
   // A escrita é exclusiva do estagiário. Para os demais perfis, a tela sempre
   // abre na linha do tempo, mesmo que o estado da aba ainda seja o inicial.
@@ -377,6 +381,15 @@ export function PsyRecordPage() {
             <button
               type="button"
               disabled={!pacienteSelecionado}
+              onClick={() => setShowAssistenteIA(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-indigo-600 dark:hover:bg-indigo-500 disabled:bg-slate-300 dark:disabled:bg-slate-800 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white text-xs font-bold shadow-xs transition-colors"
+            >
+              <SparklesIcon className="w-4 h-4" />
+              <span>Assistente IA</span>
+            </button>
+            <button
+              type="button"
+              disabled={!pacienteSelecionado}
               onClick={() => setShowImpressao(true)}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-500 disabled:bg-slate-300 dark:disabled:bg-slate-800 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white text-xs font-bold shadow-xs transition-colors"
             >
@@ -556,13 +569,24 @@ export function PsyRecordPage() {
               </div>
 
               <div>
-                <div className="flex justify-between items-center mb-1">
+                <div className="flex flex-wrap justify-between items-center gap-2 mb-1.5">
                   <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                     Relato da sessao em paragrafos, do acolhimento ao fechamento
                   </label>
-                  {temAspas && (
-                    <span className="text-[10px] text-amber-700 dark:text-amber-400 font-bold">Aspas identificadas</span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {temAspas && (
+                      <span className="text-[10px] text-amber-700 dark:text-amber-400 font-bold">Aspas identificadas</span>
+                    )}
+                    <InlineVoiceButton
+                      curso="psicologia"
+                      campoAlvo="síntese da sessão psicológica"
+                      pacienteId={pacienteSelecionado?.id}
+                      disabled={!isEstagiario || !pacienteSelecionado}
+                      onTranscribed={(txt) =>
+                        setRedacao((prev) => (prev.trim() ? `${prev.trimEnd()}\n\n${txt}` : txt))
+                      }
+                    />
+                  </div>
                 </div>
                 <textarea
                   rows={14}
@@ -672,9 +696,20 @@ export function PsyRecordPage() {
 
             <div className="space-y-5">
               <div>
-                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1.5">
-                  Avaliação da Demanda ou Queixa: *
-                </label>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                  <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
+                    Avaliação da Demanda ou Queixa: *
+                  </label>
+                  <InlineVoiceButton
+                    curso="psicologia"
+                    campoAlvo="avaliação da demanda ou queixa"
+                    pacienteId={pacienteSelecionado?.id}
+                    disabled={!isEstagiario || !pacienteSelecionado}
+                    onTranscribed={(txt) =>
+                      setAvaliacaoDemanda((prev) => (prev.trim() ? `${prev.trimEnd()}\n${txt}` : txt))
+                    }
+                  />
+                </div>
                 <textarea
                   rows={4}
                   value={avaliacaoDemanda}
@@ -801,9 +836,20 @@ export function PsyRecordPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1.5">
-                Avaliação Final do Caso: *
-              </label>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
+                  Avaliação Final do Caso: *
+                </label>
+                <InlineVoiceButton
+                  curso="psicologia"
+                  campoAlvo="avaliação final do encerramento"
+                  pacienteId={pacienteSelecionado?.id}
+                  disabled={!isEstagiario || !pacienteSelecionado}
+                  onTranscribed={(txt) =>
+                    setAvaliacaoFinal((prev) => (prev.trim() ? `${prev.trimEnd()}\n${txt}` : txt))
+                  }
+                />
+              </div>
               <textarea
                 rows={4}
                 value={avaliacaoFinal}
@@ -1129,6 +1175,80 @@ export function PsyRecordPage() {
             />
           </RelatorioImpressao>
         )}
+
+        <ClinicalAssistantDrawer
+          open={showAssistenteIA}
+          onClose={() => setShowAssistenteIA(false)}
+          curso="psicologia"
+          paciente={pacienteSelecionado}
+          abaAtual={abaAtiva}
+          somenteLeitura={!isEstagiario}
+          rascunhoAtual={
+            abaAtiva === 'registro'
+              ? redacao
+              : abaAtiva === 'demanda'
+                ? [avaliacaoDemanda, objetivosIntervencao, hipoteseDiagnostica]
+                    .filter(Boolean)
+                    .join('\n\n')
+                : abaAtiva === 'encerramento'
+                  ? [avaliacaoFinal, informacoesAdicionais]
+                      .filter(Boolean)
+                      .join('\n\n')
+                  : ''
+          }
+          fichaResumo={{
+            abaAtiva,
+            numeroSessao,
+            totalSessoesRegistradas: historicoSessoes.length,
+          }}
+          onApplyFields={(campos, modo) => {
+            const limpar = (v: string) => v.replace(/[“”«»"]/g, '').trim();
+            const juntar = (atual: string, novo?: string) => {
+              const limpo = novo ? limpar(novo) : '';
+              if (!limpo) return atual;
+              if (modo === 'acrescentar' && atual.trim()) {
+                return `${atual.trimEnd()}\n\n${limpo}`;
+              }
+              return limpo;
+            };
+
+            if (campos.redacao_texto) {
+              setRedacao((prev) => juntar(prev, campos.redacao_texto));
+              setActiveTab('registro');
+            }
+            if (
+              campos.avaliacao_demanda ||
+              campos.objetivos_intervencao ||
+              campos.hipotese_diagnostica
+            ) {
+              if (campos.avaliacao_demanda) {
+                setAvaliacaoDemanda((prev) => juntar(prev, campos.avaliacao_demanda));
+              }
+              if (campos.objetivos_intervencao) {
+                setObjetivosIntervencao((prev) =>
+                  juntar(prev, campos.objetivos_intervencao)
+                );
+              }
+              if (campos.hipotese_diagnostica) {
+                setHipoteseDiagnostica((prev) =>
+                  juntar(prev, campos.hipotese_diagnostica)
+                );
+              }
+              setActiveTab('demanda');
+            }
+            if (campos.avaliacao_final || campos.informacoes_adicionais) {
+              if (campos.avaliacao_final) {
+                setAvaliacaoFinal((prev) => juntar(prev, campos.avaliacao_final));
+              }
+              if (campos.informacoes_adicionais) {
+                setInformacoesAdicionais((prev) =>
+                  juntar(prev, campos.informacoes_adicionais)
+                );
+              }
+              setActiveTab('encerramento');
+            }
+          }}
+        />
       </div>
     </AppLayout>
   );

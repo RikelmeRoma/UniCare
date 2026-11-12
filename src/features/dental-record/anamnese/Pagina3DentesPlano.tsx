@@ -11,10 +11,14 @@ import {
   TextAreaField,
 } from './FormularioBase';
 import { PlusIcon, TrashIcon } from '../../../components/icons/CorporateIcons';
+import { InlineVoiceButton } from '../../ai-assistant/components/InlineVoiceButton';
+import { dataHojeLocalIso } from '../../ai-assistant/hooks/useVoiceRecorder';
 
 interface SecaoProps {
   exameDental: ExameDental;
   setDados: Dispatch<SetStateAction<AnamneseCliFor45>>;
+  pacienteId?: number;
+  somenteLeitura?: boolean;
 }
 
 const CABECALHO_CELULA =
@@ -77,6 +81,8 @@ export function ExamesComplementaresSection({
 export function TratamentoProgramadoSection({
   exameDental,
   setDados,
+  pacienteId,
+  somenteLeitura = false,
 }: SecaoProps) {
   const alterarPlanejamento = (indice: number, valor: string) =>
     setDados((prev) => ({
@@ -98,6 +104,28 @@ export function TratamentoProgramadoSection({
       },
     }));
 
+  const adicionarPlanejamentoPorVoz = (texto: string) =>
+    setDados((prev) => {
+      const lista = prev.exameDental.planejamento;
+      const vazia = lista.findIndex((item) => !item.trim());
+      if (vazia >= 0) {
+        return {
+          ...prev,
+          exameDental: {
+            ...prev.exameDental,
+            planejamento: lista.map((item, pos) => (pos === vazia ? texto : item)),
+          },
+        };
+      }
+      return {
+        ...prev,
+        exameDental: {
+          ...prev.exameDental,
+          planejamento: [...lista, texto],
+        },
+      };
+    });
+
   const removerPlanejamento = (indice: number) =>
     setDados((prev) => ({
       ...prev,
@@ -114,6 +142,16 @@ export function TratamentoProgramadoSection({
       id="cli45-p3-secao-2"
       numero={1}
       titulo="Tratamento Programado"
+      acao={
+        <InlineVoiceButton
+          curso="odontologia"
+          campoAlvo="plano de tratamento odontológico"
+          pacienteId={pacienteId}
+          disabled={somenteLeitura || !pacienteId}
+          label="Ditar etapa"
+          onTranscribed={adicionarPlanejamentoPorVoz}
+        />
+      }
     >
       {exameDental.planejamento.length === 0 && (
         <p className="text-[11px] text-slate-400 dark:text-slate-500">
@@ -198,6 +236,8 @@ export function TermoAutorizacaoSection({
 export function EvolucaoAdultoSection({
   exameDental,
   setDados,
+  pacienteId,
+  somenteLeitura = false,
 }: SecaoProps) {
   const alterarEvolucao = (indice: number, patch: Partial<EvolucaoLinha>) =>
     setDados((prev) => ({
@@ -222,6 +262,18 @@ export function EvolucaoAdultoSection({
       },
     }));
 
+  const adicionarEvolucaoPorVoz = (texto: string) =>
+    setDados((prev) => ({
+      ...prev,
+      exameDental: {
+        ...prev.exameDental,
+        evolucao: [
+          ...prev.exameDental.evolucao,
+          { data: dataHojeLocalIso(), intervencao: texto, assinaturaDocente: '' },
+        ],
+      },
+    }));
+
   const removerEvolucao = (indice: number) =>
     setDados((prev) => ({
       ...prev,
@@ -239,6 +291,16 @@ export function EvolucaoAdultoSection({
       numero={1}
       titulo="Folha de Evolução"
       descricao="Registre as intervenções realizadas, a data e a assinatura do docente responsável."
+      acao={
+        <InlineVoiceButton
+          curso="odontologia"
+          campoAlvo="folha de evolução odontológica"
+          pacienteId={pacienteId}
+          disabled={somenteLeitura || !pacienteId}
+          label="Ditar evolução"
+          onTranscribed={adicionarEvolucaoPorVoz}
+        />
+      }
     >
       <div className="overflow-x-auto">
         <table className="w-full min-w-[560px] border-collapse">

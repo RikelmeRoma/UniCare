@@ -32,6 +32,8 @@ import { AdultAlertsTab } from '../tabs/AdultAlertsTab';
 import { IndicesGengivaisCard } from '../indices/IndicesGengivaisCard';
 import { DentalRadiologyTab } from '../components/DentalRadiologyTab';
 import { FichaOdontoAdultoPrint } from '../components/FichaOdontoPrint';
+import { ClinicalAssistantDrawer } from '../../ai-assistant/components/ClinicalAssistantDrawer';
+import { dataHojeLocalIso } from '../../ai-assistant/hooks/useVoiceRecorder';
 import {
   ClinicalTabNav,
   type ClinicalTab,
@@ -69,6 +71,7 @@ export function AdultRecordWorkspace({
 }: AdultRecordWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<ClinicalTabKey>('anamnese');
   const [previaAberta, setPreviaAberta] = useState(false);
+  const [assistenteAberto, setAssistenteAberto] = useState(false);
   const conteudoDocumento = documento?.conteudo as
     | {
         anamnese?: AnamneseCliFor45;
@@ -139,6 +142,7 @@ export function AdultRecordWorkspace({
         onSalvar={salvarManual}
         onExportar={exportar}
         onExportarPdf={() => setPreviaAberta(true)}
+        onAbrirAssistente={() => setAssistenteAberto(true)}
         onLimpar={() => setConfirmandoLimpeza(true)}
         confirmandoLimpeza={confirmandoLimpeza}
         onCancelarLimpeza={() => setConfirmandoLimpeza(false)}
@@ -229,6 +233,8 @@ export function AdultRecordWorkspace({
         <TratamentoProgramadoSection
           exameDental={dados.exameDental}
           setDados={setDados}
+          pacienteId={paciente?.id}
+          somenteLeitura={somenteLeitura}
         />
       )}
 
@@ -236,6 +242,8 @@ export function AdultRecordWorkspace({
         <EvolucaoAdultoSection
           exameDental={dados.exameDental}
           setDados={setDados}
+          pacienteId={paciente?.id}
+          somenteLeitura={somenteLeitura}
         />
       )}
 
@@ -271,6 +279,102 @@ export function AdultRecordWorkspace({
           />
         </RelatorioImpressao>
       )}
+
+      <ClinicalAssistantDrawer
+        open={assistenteAberto}
+        onClose={() => setAssistenteAberto(false)}
+        curso="odontologia"
+        paciente={paciente}
+        abaAtual={activeTab}
+        somenteLeitura={somenteLeitura}
+        fichaResumo={{
+          subtipo: 'adulto',
+          abaAtual: activeTab,
+          ultimaAfericao: ultima ?? null,
+          historiaMedica: dados.historiaMedica,
+          historiaOdontologica: dados.historiaOdontologica,
+          habitos: dados.habitos,
+          planejamento: dados.exameDental.planejamento,
+          evolucaoRecente: dados.exameDental.evolucao.slice(-5),
+        }}
+        rascunhoAtual={
+          activeTab === 'anamnese'
+            ? dados.historiaOdontologica.historiaDoenca
+            : activeTab === 'plano'
+              ? dados.exameDental.planejamento.filter(Boolean).join('\n')
+              : activeTab === 'evolucao'
+                ? dados.exameDental.evolucao
+                    .map((e) => `${e.data}: ${e.intervencao}`)
+                    .join('\n')
+                : dados.exameFisico.periodonto.observacoes
+        }
+        onApplyFields={(campos, modo) => {
+          const hoje = dataHojeLocalIso();
+
+          setDados((prev) => {
+            let next = { ...prev };
+            if (campos.historia_doenca) {
+              const atual = next.historiaOdontologica.historiaDoenca;
+              const historiaDoenca =
+                modo === 'acrescentar' && atual.trim()
+                  ? `${atual.trimEnd()}\n${campos.historia_doenca}`
+                  : campos.historia_doenca;
+              next = {
+                ...next,
+                historiaOdontologica: { ...next.historiaOdontologica, historiaDoenca },
+              };
+            }
+            if (campos.plano_tratamento) {
+              const lista = [...next.exameDental.planejamento];
+              const idxVazia = lista.findIndex((p) => !p.trim());
+              if (idxVazia >= 0) {
+                lista[idxVazia] = campos.plano_tratamento;
+              } else {
+                lista.push(campos.plano_tratamento);
+              }
+              next = {
+                ...next,
+                exameDental: { ...next.exameDental, planejamento: lista },
+              };
+            }
+            if (campos.evolucao_procedimento) {
+              next = {
+                ...next,
+                exameDental: {
+                  ...next.exameDental,
+                  evolucao: [
+                    ...next.exameDental.evolucao,
+                    {
+                      data: hoje,
+                      intervencao: campos.evolucao_procedimento,
+                      assinaturaDocente: '',
+                    },
+                  ],
+                },
+              };
+            }
+            if (campos.observacoes_exame) {
+              const atualObs = next.exameFisico.periodonto.observacoes;
+              const observacoes =
+                modo === 'acrescentar' && atualObs.trim()
+                  ? `${atualObs.trimEnd()}\n${campos.observacoes_exame}`
+                  : campos.observacoes_exame;
+              next = {
+                ...next,
+                exameFisico: {
+                  ...next.exameFisico,
+                  periodonto: { ...next.exameFisico.periodonto, observacoes },
+                },
+              };
+            }
+            return next;
+          });
+
+          if (campos.evolucao_procedimento) setActiveTab('evolucao');
+          else if (campos.plano_tratamento) setActiveTab('plano');
+          else if (campos.historia_doenca) setActiveTab('anamnese');
+        }}
+      />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import {
   EyeSlashIcon,
   InformationCircleIcon,
   PrinterIcon,
+  SparklesIcon,
   TrashIcon,
 } from '../../../components/icons/CorporateIcons';
 
@@ -24,6 +25,7 @@ interface AnamneseHeaderProps {
   onSalvar: () => void;
   onExportar: () => void;
   onExportarPdf?: () => void;
+  onAbrirAssistente?: () => void;
   onLimpar: () => void;
   confirmandoLimpeza: boolean;
   onCancelarLimpeza: () => void;
@@ -45,6 +47,7 @@ export function AnamneseHeader({
   onSalvar,
   onExportar,
   onExportarPdf,
+  onAbrirAssistente,
   onLimpar,
   confirmandoLimpeza,
   onCancelarLimpeza,
@@ -82,6 +85,17 @@ export function AnamneseHeader({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {onAbrirAssistente && (
+            <button
+              type="button"
+              disabled={!paciente}
+              onClick={onAbrirAssistente}
+              className="flex items-center gap-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 disabled:opacity-50 px-3 py-2 text-[11px] font-bold text-white shadow-xs transition-colors"
+            >
+              <SparklesIcon className="h-3.5 w-3.5" />
+              Assistente IA
+            </button>
+          )}
           {mostrarAlternar && (
             <button
               type="button"

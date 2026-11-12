@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { api, type ApiUsuario, type SolicitacaoCadastro } from '../../../services/api';
+import { limparTodasConversasIa } from '../../ai-assistant/utils/chatStorage';
 
 export type RoleType = 'estagiario' | 'supervisor' | 'recepcao' | 'rt' | 'coordenacao';
 /** 'geral' = papéis institucionais (RT e recepção), que não pertencem a uma clínica. */
@@ -341,6 +342,7 @@ try {
   const logout = () => {
     setUser(null);
     localStorage.removeItem(STORAGE_KEY);
+    limparTodasConversasIa();
     api.clearToken();
   };
 

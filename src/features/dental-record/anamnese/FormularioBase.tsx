@@ -10,6 +10,7 @@ interface SectionCardProps {
   titulo: string;
   descricao?: string;
   id?: string;
+  acao?: ReactNode;
   children: ReactNode;
 }
 
@@ -18,6 +19,7 @@ export function SectionCard({
   titulo,
   descricao,
   id,
+  acao,
   children,
 }: SectionCardProps) {
   return (
@@ -25,18 +27,21 @@ export function SectionCard({
       id={id}
       className="scroll-mt-28 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#0E1729] p-5 shadow-xs"
     >
-      <header className="mb-4 flex items-start gap-3">
-        {numero !== undefined && (
-          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-900 dark:bg-blue-600 text-[10px] font-bold text-white">
-            {typeof numero === 'number' ? String(numero).padStart(2, '0') : numero}
-          </span>
-        )}
-        <div>
-          <h3 className={TITULO_SECAO}>{titulo}</h3>
-          {descricao && (
-            <p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">{descricao}</p>
+      <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          {numero !== undefined && (
+            <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-900 dark:bg-blue-600 text-[10px] font-bold text-white">
+              {typeof numero === 'number' ? String(numero).padStart(2, '0') : numero}
+            </span>
           )}
+          <div>
+            <h3 className={TITULO_SECAO}>{titulo}</h3>
+            {descricao && (
+              <p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">{descricao}</p>
+            )}
+          </div>
         </div>
+        {acao && <div className="shrink-0">{acao}</div>}
       </header>
       <div className="space-y-4">{children}</div>
     </section>

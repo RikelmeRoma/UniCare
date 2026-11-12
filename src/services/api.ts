@@ -375,8 +375,9 @@ class ApiService {
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const token = this.getToken();
+    const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(options.headers as Record<string, string> || {}),
     };
 
@@ -974,9 +975,94 @@ class ApiService {
     return this.request<RelatorioEstatisticas>(`/relatorios/estatisticas${param}`);
   }
 
+  // --- Assistente Clínico IA (Gemini) ---
+  async getIaStatus(): Promise<ApiIaStatus> {
+    return this.request<ApiIaStatus>('/ia/status');
+  }
+
+  async consultarAssistenteIA(params: {
+    pacienteId: number;
+    curso: 'psicologia' | 'odontologia';
+    modo: 'chat' | 'resumo' | 'rascunho';
+    abaAtual: string;
+    mensagem: string;
+    rascunhoAtual?: string;
+    fichaResumo?: Record<string, unknown>;
+    historico?: Array<{ papel: 'user' | 'assistant'; texto: string }>;
+    audioBlob?: Blob | null;
+  }): Promise<ApiIaAssistenteResponse> {
+    const formData = new FormData();
+    formData.append('paciente_id', String(params.pacienteId));
+    formData.append('curso', params.curso);
+    formData.append('modo', params.modo);
+    formData.append('aba_atual', params.abaAtual);
+    formData.append('mensagem', params.mensagem);
+    formData.append('rascunho_atual', params.rascunhoAtual ?? '');
+    formData.append('historico_json', JSON.stringify(params.historico ?? []));
+    formData.append('ficha_resumo_json', JSON.stringify(params.fichaResumo ?? {}));
+    if (params.audioBlob) {
+      const ext = params.audioBlob.type.includes('ogg')
+        ? 'ogg'
+        : params.audioBlob.type.includes('mp4')
+          ? 'm4a'
+          : 'webm';
+      formData.append('audio', params.audioBlob, `ditado.${ext}`);
+    }
+    return this.request<ApiIaAssistenteResponse>('/ia/assistente', {
+      method: 'POST',
+      body: formData,
+    });
+  }
+
+  async transcreverAudioIA(params: {
+    curso: 'psicologia' | 'odontologia';
+    campoAlvo: string;
+    audioBlob: Blob;
+    pacienteId?: number;
+  }): Promise<ApiIaTranscricaoResponse> {
+    const formData = new FormData();
+    formData.append('curso', params.curso);
+    formData.append('campo_alvo', params.campoAlvo);
+    if (params.pacienteId !== undefined) {
+      formData.append('paciente_id', String(params.pacienteId));
+    }
+    const ext = params.audioBlob.type.includes('ogg')
+      ? 'ogg'
+      : params.audioBlob.type.includes('mp4')
+        ? 'm4a'
+        : 'webm';
+    formData.append('audio', params.audioBlob, `ditado.${ext}`);
+    return this.request<ApiIaTranscricaoResponse>('/ia/transcrever', {
+      method: 'POST',
+      body: formData,
+    });
+  }
+
   // Demandas de estágio removidas: o botão "Conciliar" só escrevia a palavra
   // `Agendado` sem agendar nem atribuir paciente a ninguém. O vínculo do RF-001
   // (`/atribuicoes/psico`) faz o trabalho de verdade.
+}
+
+export interface ApiIaStatus {
+  configurado: boolean;
+  modelo_padrao: string;
+  modelos_fallback: string[];
+  modelo_transcricao: string;
+}
+
+export interface ApiIaAssistenteResponse {
+  transcricao?: string | null;
+  resposta: string;
+  campos_sugeridos: Record<string, string>;
+  alertas_clinicos: string[];
+  avisos_conformidade: string[];
+  modelo_utilizado: string;
+}
+
+export interface ApiIaTranscricaoResponse {
+  texto: string;
+  modelo_utilizado: string;
+  avisos_conformidade: string[];
 }
 
 export interface RelatorioEstatisticas {

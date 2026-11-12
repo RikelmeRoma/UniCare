@@ -11,10 +11,14 @@ import {
   SectionCard,
   SignatureField,
 } from '../anamnese/FormularioBase';
+import { InlineVoiceButton } from '../../ai-assistant/components/InlineVoiceButton';
+import { dataHojeLocalIso } from '../../ai-assistant/hooks/useVoiceRecorder';
 
 interface EvolucaoProps {
   evolucao: EvolucaoInfantilLinha[];
   setDados: Dispatch<SetStateAction<AnamneseInfantil>>;
+  pacienteId?: number;
+  somenteLeitura?: boolean;
 }
 
 interface TermoProps {
@@ -33,6 +37,8 @@ const CAMPO_CELULA =
 export function EvolucaoInfantilSection({
   evolucao,
   setDados,
+  pacienteId,
+  somenteLeitura = false,
 }: EvolucaoProps) {
   const alterarEvolucao = (
     indice: number,
@@ -54,6 +60,15 @@ export function EvolucaoInfantilSection({
       ],
     }));
 
+  const adicionarEvolucaoPorVoz = (texto: string) =>
+    setDados((prev) => ({
+      ...prev,
+      evolucao: [
+        ...prev.evolucao,
+        { data: dataHojeLocalIso(), procedimento: texto, assinaturaProfessor: '' },
+      ],
+    }));
+
   const removerEvolucao = (indice: number) =>
     setDados((prev) => ({
       ...prev,
@@ -66,6 +81,16 @@ export function EvolucaoInfantilSection({
       numero={1}
       titulo="Sequência Favorável do Plano de Tratamento (Evolução por Sessão)"
       descricao="Registre a data, o procedimento ou segmento realizado e a assinatura do professor responsável."
+      acao={
+        <InlineVoiceButton
+          curso="odontologia"
+          campoAlvo="evolução por sessão de odontopediatria"
+          pacienteId={pacienteId}
+          disabled={somenteLeitura || !pacienteId}
+          label="Ditar sessão"
+          onTranscribed={adicionarEvolucaoPorVoz}
+        />
+      }
     >
       <div className="overflow-x-auto">
         <table className="w-full min-w-[620px] border-collapse">

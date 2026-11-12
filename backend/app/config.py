@@ -82,6 +82,29 @@ class Settings(BaseSettings):
     # de propósito — reenviar precisa funcionar quando a mensagem se perde.
     TOKEN_RECUPERACAO_INTERVALO_SEGUNDOS: int = 60
 
+    # --- Assistente Clínico IA (Google Gemini) ---
+    # Opcional: sem chave configurada, a aplicação continua operando normalmente e
+    # as rotas `/ia/*` respondem 503 explícito orientando configurar GEMINI_API_KEY.
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL_PRIMARY: str = "gemini-3.5-flash-lite"
+    GEMINI_MODEL_FALLBACK: str = "gemini-3.5-flash,gemini-3.8-flash"
+    GEMINI_MODEL_TRANSCRIBE: str = "gemini-3.5-transcribe"
+    GEMINI_TIMEOUT_SEGUNDOS: int = 20
+
+    @property
+    def gemini_configurado(self) -> bool:
+        return bool(self.GEMINI_API_KEY.strip())
+
+    @property
+    def gemini_modelos_cadeia(self) -> list[str]:
+        brutos = [self.GEMINI_MODEL_PRIMARY, *self.GEMINI_MODEL_FALLBACK.split(",")]
+        unicos: list[str] = []
+        for item in brutos:
+            modelo = item.strip()
+            if modelo and modelo not in unicos:
+                unicos.append(modelo)
+        return unicos
+
     @property
     def mail_configurado(self) -> bool:
         """E-mail só é considerado configurado com host, usuário e senha.

@@ -30,6 +30,8 @@ import { useDraft } from '../hooks/useDraft';
 import { ChildAlertsTab } from '../tabs/ChildAlertsTab';
 import { DentalRadiologyTab } from '../components/DentalRadiologyTab';
 import { FichaOdontoInfantilPrint } from '../components/FichaOdontoPrint';
+import { ClinicalAssistantDrawer } from '../../ai-assistant/components/ClinicalAssistantDrawer';
+import { dataHojeLocalIso } from '../../ai-assistant/hooks/useVoiceRecorder';
 import {
   ClinicalTabNav,
   type ClinicalTab,
@@ -65,6 +67,7 @@ export function ChildRecordWorkspace({
 }: ChildRecordWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<ClinicalTabKey>('anamnese');
   const [previaAberta, setPreviaAberta] = useState(false);
+  const [assistenteAberto, setAssistenteAberto] = useState(false);
   const conteudoDocumento = documento?.conteudo as
     | { anamnese?: AnamneseInfantil }
     | undefined;
@@ -116,6 +119,7 @@ export function ChildRecordWorkspace({
         onSalvar={salvarManual}
         onExportar={exportar}
         onExportarPdf={() => setPreviaAberta(true)}
+        onAbrirAssistente={() => setAssistenteAberto(true)}
         onLimpar={() => setConfirmandoLimpeza(true)}
         confirmandoLimpeza={confirmandoLimpeza}
         onCancelarLimpeza={() => setConfirmandoLimpeza(false)}
@@ -215,6 +219,8 @@ export function ChildRecordWorkspace({
         <EvolucaoInfantilSection
           evolucao={dados.evolucao}
           setDados={setDados}
+          pacienteId={paciente?.id}
+          somenteLeitura={somenteLeitura}
         />
       )}
 
@@ -246,6 +252,98 @@ export function ChildRecordWorkspace({
           />
         </RelatorioImpressao>
       )}
+
+      <ClinicalAssistantDrawer
+        open={assistenteAberto}
+        onClose={() => setAssistenteAberto(false)}
+        curso="odontologia"
+        paciente={paciente}
+        abaAtual={activeTab}
+        somenteLeitura={somenteLeitura}
+        fichaResumo={{
+          subtipo: 'infantil',
+          abaAtual: activeTab,
+          avaliacaoPsicologica: dados.avaliacaoPsicologica,
+          posNatalSaude: dados.posNatalSaude,
+          planoTratamento: dados.planoTratamento,
+          evolucaoRecente: dados.evolucao.slice(-5),
+        }}
+        rascunhoAtual={
+          activeTab === 'anamnese'
+            ? dados.antecedentesHereditarios.relato
+            : activeTab === 'plano'
+              ? [
+                  dados.planoTratamento.etapaPreventiva,
+                  dados.planoTratamento.adequacaoMeio,
+                  dados.planoTratamento.etapaRestauradora,
+                ]
+                  .filter(Boolean)
+                  .join('\n')
+              : activeTab === 'evolucao'
+                ? dados.evolucao
+                    .map((e) => `${e.data}: ${e.procedimento}`)
+                    .join('\n')
+                : dados.odontograma.diagnosticoRadiografico
+        }
+        onApplyFields={(campos, modo) => {
+          const hoje = dataHojeLocalIso();
+
+          setDados((prev) => {
+            let next = { ...prev };
+            if (campos.historia_doenca) {
+              const atual = next.antecedentesHereditarios.relato;
+              const relato =
+                modo === 'acrescentar' && atual.trim()
+                  ? `${atual.trimEnd()}\n${campos.historia_doenca}`
+                  : campos.historia_doenca;
+              next = {
+                ...next,
+                antecedentesHereditarios: { ...next.antecedentesHereditarios, relato },
+              };
+            }
+            if (campos.plano_tratamento) {
+              const atualPlano = next.planoTratamento.etapaRestauradora;
+              const etapaRestauradora =
+                modo === 'acrescentar' && atualPlano.trim()
+                  ? `${atualPlano.trimEnd()}\n${campos.plano_tratamento}`
+                  : campos.plano_tratamento;
+              next = {
+                ...next,
+                planoTratamento: { ...next.planoTratamento, etapaRestauradora },
+              };
+            }
+            if (campos.evolucao_procedimento) {
+              next = {
+                ...next,
+                evolucao: [
+                  ...next.evolucao,
+                  {
+                    data: hoje,
+                    procedimento: campos.evolucao_procedimento,
+                    assinaturaProfessor: '',
+                  },
+                ],
+              };
+            }
+            if (campos.observacoes_exame) {
+              const atualDiag = next.odontograma.diagnosticoRadiografico;
+              const diagnosticoRadiografico =
+                modo === 'acrescentar' && atualDiag.trim()
+                  ? `${atualDiag.trimEnd()}\n${campos.observacoes_exame}`
+                  : campos.observacoes_exame;
+              next = {
+                ...next,
+                odontograma: { ...next.odontograma, diagnosticoRadiografico },
+              };
+            }
+            return next;
+          });
+
+          if (campos.evolucao_procedimento) setActiveTab('evolucao');
+          else if (campos.plano_tratamento) setActiveTab('plano');
+          else if (campos.historia_doenca) setActiveTab('anamnese');
+        }}
+      />
     </div>
   );
 }
