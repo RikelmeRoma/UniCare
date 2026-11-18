@@ -306,24 +306,26 @@ tela.
 
 ## Normas (RN) e Requisitos (RF)
 
-Os identificadores `RF-001` a `RF-009` seguem o
-[`RELATORIO_CONSOLIDADO_PROJETO.md`](../RELATORIO_CONSOLIDADO_PROJETO.md), que é a
-fonte normativa. Os `RN` são registrados abaixo porque o relatório **menciona**
-`RN-001` a `RN-006` no cabeçalho mas não os define em nenhum ponto do documento —
-esta tabela é a definição que o código assume.
+Os identificadores `RF-001` a `RF-009` e as regras `RN` estão definidos em
+[`PRD.md`](../PRD.md), que é a fonte normativa. O relatório original
+(`RELATORIO_CONSOLIDADO_PROJETO.md`) foi incorporado ao `PRD.md`/`SPEC.md` em
+18/11/2026 e continua recuperável em
+`git show b1c8bf0:RELATORIO_CONSOLIDADO_PROJETO.md`.
 
 | RN | Regra | Onde é imposta |
 |---|---|---|
-| RN-001 | Perfil `recepcao` é bloqueado no prontuário | `require_roles` em `prontuarios.py`; o guard de papel roda **antes** do de curso para preservar o `detail` |
+| RN-001 | Perfil `recepcao` é bloqueado no prontuário e em todo dado clínico | `require_roles`/`autorizado_clinico`; o guard de papel roda **antes** do de curso para preservar o `detail` |
 | RN-002 | Vedação de falas literais (CFP 06/2019) | validador de aspas no `ProntuarioPsicoCreate` (422) |
 | RN-003 | Salvaguarda institucional da RT e da coordenação | `require_roles` — mas **não** atravessa a clínica; `require_curso` não tem bypass |
-| RN-004 | Homologação é ato docente | `autorizado_homologacao`/`autorizado_homologacao_psico` + conferência do curso do paciente |
-| RN-004 (parcial) | Responsável obrigatório para menor | `cadastrar_paciente` (400) |
-| RNF-004 | Trilha de auditoria com IP real e curso | `registrar_log` + `ip_do_cliente` |
+| RN-004 | Menor de idade exige nome e contato do responsável legal | `cadastrar_paciente` (400) |
+
+`RN-005` e `RN-006` não estão definidas em nenhuma fonte; não invente número para
+regra nova. A trilha de auditoria com IP real e curso é `RF-007`, descrita em
+[`PRD.md`](../PRD.md).
 
 **Atenção:** o relatório usa RF-007 para *Trilha de Auditoria* e RF-009 para
-*Gerenciamento RBAC*. O bloqueio de CPF duplicado não
-têm número no relatório e são citados por descrição, para não criar colisão.
+*Gerenciamento RBAC*. O bloqueio de CPF duplicado não tem número no relatório e é
+citado por descrição, para não criar colisão.
 
 | RF | Recurso | Onde |
 |---|---|---|
