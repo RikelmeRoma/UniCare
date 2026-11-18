@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { AppLayout } from '../../../components/layout/AppLayout';
+import { SeletorComBusca } from '../../../components/ui/SeletorComBusca';
 import { PatientHeader } from '../components/PatientHeader';
 import { useClinic } from '../../clinic/context/ClinicContext';
 import { useAuth } from '../../auth/context/AuthContext';
@@ -67,22 +68,19 @@ export function DentalRecordPage() {
       badge="Supervisão Clínica CFO"
       badgeType="emerald"
       actions={
-        <div className="w-64 sm:w-72">
-          <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-            Paciente da Clínica
-          </label>
-          <select
-            value={pacienteSelecionado?.id ?? ''}
-            onChange={(e) => setSelectedPatientId(Number(e.target.value))}
-            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-slate-800 dark:focus:ring-blue-500 focus:outline-none"
-          >
-            {pacientesOdonto.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome} ({p.cpf})
-              </option>
-            ))}
-          </select>
-        </div>
+        <SeletorComBusca
+          rotulo="Paciente da Clínica"
+          opcoes={pacientesOdonto.map((p) => ({
+            id: p.id,
+            rotulo: p.nome,
+            detalhe: p.cpf,
+          }))}
+          valor={pacienteSelecionado?.id}
+          onSelecionar={setSelectedPatientId}
+          placeholderBusca="Buscar por nome ou CPF..."
+          exibirDetalheNoGatilho
+          vazio="Nenhum paciente odontológico disponível."
+        />
       }
     >
       <div className="max-w-6xl mx-auto space-y-6">

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { AppLayout } from '../../../../components/layout/AppLayout';
+import { SeletorComBusca } from '../../../../components/ui/SeletorComBusca';
 import { useAuth } from '../../../auth/context/AuthContext';
 import { useClinic, type EvolucaoPsico } from '../../../clinic/context/ClinicContext';
 import {
@@ -72,18 +73,18 @@ export function PsyRecordPage() {
   // A API do vínculo não éfiltrada por clínica no cliente, e `atribuicoes` só
   // recebe a lista de quem está chamando. Estagiário sem nenhum vínculo
   // recebe 403 com a orientação de procurar a recepção — a tela repete a
-  // instrução em vez de mostrar um <select> vazio sem explicação.
+  // instrução em vez de mostrar um seletor vazio sem explicação.
   const vinculoIndisponivel =
     isEstagiario &&
     (sync.estado === 'erro' || sync.estado === 'aguardando-login');
   const semVinculo = isEstagiario && !vinculoIndisponivel && pacientesPsico.length === 0;
 
   // `?? 1` era id fixo: no primeiro render a lista real ainda não tinha chegado,
-  // então o <select> ficava sem opção correspondente quando os ids do banco eram
+  // então o seletor ficava sem opção correspondente quando os ids do banco eram
   // outros. O valor exibido é derivado do paciente resolvido, não do estado cru.
   //
   // "Meus Agendamentos" manda o paciente escolhido pelo `state` da navegação.
-  // Lido uma vez, na montagem: depois disso quem muda o paciente é o <select>,
+  // Lido uma vez, na montagem: depois disso quem muda o paciente é o seletor,
   // pelo caminho de sempre.
   const location = useLocation();
   const pacienteDaNavegacao = (location.state as { pacienteId?: number } | null)
@@ -297,32 +298,26 @@ export function PsyRecordPage() {
       title="Prontuário Psicológico Individual"
       info="Registro estruturado de psicoterapia e histórico longitudinal sob conformidade com a Resolução CFP nº 06/2019 e LGPD Artigo 11"
       actions={
-        <div className="w-64 sm:w-72">
-          <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider mb-1">
-            {isEstagiario ? 'Meus Pacientes (SPA)' : 'Paciente Ativo (SPA)'}
-          </label>
-          {semVinculo || vinculoIndisponivel ? (
-            // <select> vazio sem explicação deixava o aluno achando que o
-            // sistema quebrou. O que ele precisa fazer é falar com a recepção.
-            <p className="text-[11px] leading-relaxed text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/70 rounded-xl px-3 py-2">
-              {vinculoIndisponivel
-                ? 'Não foi possível carregar seus pacientes.'
-                : 'Nenhum paciente vinculado a você. Procure a recepção da clínica para ser atribuído.'}
-            </p>
-          ) : (
-            <select
-              value={pacienteSelecionado?.id ?? ''}
-              onChange={(e) => setSelectedPatientId(Number(e.target.value))}
-              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-600 focus:outline-none"
-            >
-              {pacientesPsico.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nome}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
+        <SeletorComBusca
+          rotulo={isEstagiario ? 'Meus Pacientes (SPA)' : 'Paciente Ativo (SPA)'}
+          opcoes={pacientesPsico.map((p) => ({
+            id: p.id,
+            rotulo: p.nome,
+            detalhe: p.cpf,
+          }))}
+          valor={pacienteSelecionado?.id}
+          onSelecionar={setSelectedPatientId}
+          placeholderBusca="Buscar por nome ou CPF..."
+          // Seletor vazio sem explicação deixava o aluno achando que o
+          // sistema quebrou. O que ele precisa fazer é falar com a recepção.
+          aviso={
+            vinculoIndisponivel
+              ? 'Não foi possível carregar seus pacientes.'
+              : semVinculo
+                ? 'Nenhum paciente vinculado a você. Procure a recepção da clínica para ser atribuído.'
+                : undefined
+          }
+        />
       }
     >
       <div className="max-w-6xl mx-auto space-y-6">

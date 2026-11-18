@@ -23,7 +23,6 @@ interface AnamneseHeaderProps {
   mostrarAlternar?: boolean;
   rotuloAlternar?: string;
   onSalvar: () => void;
-  onExportar: () => void;
   onExportarPdf?: () => void;
   onAbrirAssistente?: () => void;
   onLimpar: () => void;
@@ -45,7 +44,6 @@ export function AnamneseHeader({
   mostrarAlternar = true,
   rotuloAlternar,
   onSalvar,
-  onExportar,
   onExportarPdf,
   onAbrirAssistente,
   onLimpar,
@@ -121,14 +119,6 @@ export function AnamneseHeader({
           >
             <CheckCircleIcon className="h-3.5 w-3.5" />
             Salvar progresso
-          </button>
-          <button
-            type="button"
-            onClick={onExportar}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-[11px] font-bold text-slate-700 dark:text-slate-200 transition-colors hover:border-slate-300 dark:hover:border-slate-600 hover:text-slate-900 dark:hover:text-white"
-          >
-            <DocumentTextIcon className="h-3.5 w-3.5" />
-            Baixar cópia
           </button>
           {onExportarPdf && (
             <button

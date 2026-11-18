@@ -21,7 +21,6 @@ import {
   calcularIdadeInfantil,
   carregarRascunhoInfantil,
   criarAnamneseInfantilVazia,
-  exportarJsonInfantil,
   removerRascunhoInfantil,
   salvarRascunhoInfantil,
 } from '../anamnese-infantil/estado';
@@ -75,7 +74,6 @@ export function ChildRecordWorkspace({
     dados,
     setDados,
     mensagem,
-    setMensagem,
     confirmandoLimpeza,
     setConfirmandoLimpeza,
     conteudoOculto,
@@ -90,15 +88,6 @@ export function ChildRecordWorkspace({
     salvar: salvarRascunhoInfantil,
     remover: removerRascunhoInfantil,
   });
-
-  const exportar = () => {
-    if (!paciente) return;
-    exportarJsonInfantil(paciente, dados);
-    setMensagem({
-      tipo: 'ok',
-      texto: 'Arquivo exportado para conferência.',
-    });
-  };
 
   const montarConteudo = () => ({ anamnese: dados });
 
@@ -117,7 +106,6 @@ export function ChildRecordWorkspace({
         mostrarAlternar={activeTab === 'anamnese'}
         rotuloAlternar="ficha"
         onSalvar={salvarManual}
-        onExportar={exportar}
         onExportarPdf={() => setPreviaAberta(true)}
         onAbrirAssistente={() => setAssistenteAberto(true)}
         onLimpar={() => setConfirmandoLimpeza(true)}

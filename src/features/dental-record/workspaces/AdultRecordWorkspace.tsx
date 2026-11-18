@@ -22,7 +22,6 @@ import {
   calcularIdade,
   carregarRascunho,
   criarAnamneseVazia,
-  exportarJson,
   removerRascunho,
   salvarRascunho,
 } from '../anamnese/estado';
@@ -93,7 +92,6 @@ export function AdultRecordWorkspace({
     dados,
     setDados,
     mensagem,
-    setMensagem,
     confirmandoLimpeza,
     setConfirmandoLimpeza,
     conteudoOculto,
@@ -108,15 +106,6 @@ export function AdultRecordWorkspace({
     salvar: salvarRascunho,
     remover: removerRascunho,
   });
-
-  const exportar = () => {
-    if (!paciente) return;
-    exportarJson(paciente, dados);
-    setMensagem({
-      tipo: 'ok',
-      texto: 'Arquivo exportado para conferência.',
-    });
-  };
 
   const montarConteudo = () => ({
     anamnese: dados,
@@ -140,7 +129,6 @@ export function AdultRecordWorkspace({
         mostrarAlternar={activeTab === 'anamnese'}
         rotuloAlternar="ficha"
         onSalvar={salvarManual}
-        onExportar={exportar}
         onExportarPdf={() => setPreviaAberta(true)}
         onAbrirAssistente={() => setAssistenteAberto(true)}
         onLimpar={() => setConfirmandoLimpeza(true)}
