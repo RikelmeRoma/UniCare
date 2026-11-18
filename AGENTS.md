@@ -93,12 +93,12 @@ Estas seis quebram o sistema em silêncio. As demais armadilhas estão em
 
 O mapa arquitetural vem do grafo persistido em `graphify-out/`:
 
-- `graphify-out/graph.json` — 2014 nós, 5955 arestas, 78 comunidades.
+- `graphify-out/graph.json` — 2021 nós, 5974 arestas, 82 comunidades.
 - `graphify-out/GRAPH_REPORT.md` — god nodes, comunidades, conexões inesperadas.
 - `graphify-out/graph.html` — visualização interativa.
 
 `ARCHITECTURE.md` é derivado desse diretório **sem reescanear o código**. O corpus
-é code-only (200 arquivos; `.md`, PDFs, apresentações e imagens ficaram fora).
+é code-only (201 arquivos; `.md`, PDFs, apresentações e imagens ficaram fora).
 `graphify-out/` não é versionado — se precisar dele, reconstrua com o CLI
 `graphify`. Para consultar: `graphify query "<pergunta>"` e
 `graphify explain "<nó>"`.

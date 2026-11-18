@@ -11,15 +11,16 @@ refactor.
 
 | Item | Valor |
 |---|---|
-| Corpus | code-only — 200 arquivos, ~151.479 palavras |
+| Corpus | code-only — 201 arquivos, ~152.248 palavras |
 | Fora do corpus | `.md`, PDFs, apresentações, imagens |
-| Nós | **2.014** |
-| Arestas | **5.955** |
-| Comunidades | **78** (53 mostradas, 25 thin omitidas) |
+| Nós | **2.021** |
+| Arestas | **5.974** |
+| Comunidades | **82** (57 mostradas, 25 thin omitidas) |
 | Extração | 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS |
 | Arestas inferidas | 321 (confiança média 0,94) |
 | Custo de tokens | 0 input · 0 output |
 | Não classificados | 12 arquivos (5 sem tipo, 3 `.css`, 2 `.ini`) |
+| Commit de origem | `d5dd5841` |
 
 Artefatos em `graphify-out/`:
 
@@ -151,7 +152,7 @@ maioria dos casos (exceção: enums compartilhados). Detalhe dos contratos em
 | `src/features/coordination` | 1 | Gestão da coordenação |
 | `src/features/clinic` | 1 | Contexto de clínica |
 | `src/shared/impressao` | — | `RelatorioImpressao` + `relatorio.css` |
-| `src/components` | — | `layout/`, `ui/`, `icons/` |
+| `src/components` | — | `layout/`, `ui/` (inclui `SeletorComBusca`), `icons/` |
 | `src/services` | — | `api.ts` (`ApiService`) |
 | `src/context` | — | `ThemeContext` |
 
@@ -159,7 +160,7 @@ maioria dos casos (exceção: enums compartilhados). Detalhe dos contratos em
 
 | Nó | Arestas | Leitura |
 |---|---|---|
-| `react` | 73 | Bridge entre quase todas as comunidades de UI |
+| `react` | 74 | Bridge entre quase todas as comunidades de UI |
 | `ApiService` | 59 | Único cliente HTTP; toda chamada passa por ele |
 | `useClinic()` | 45 | Estado clínico global, consumido por praticamente toda tela |
 | `useAuth()` | 43 | Sessão e perfil, usado por guards, sidebar e telas |
@@ -183,85 +184,92 @@ após o login. `AuthContext` guarda sessão, usuários e escrita de conta.
 
 ## 5. Comunidades do grafo
 
-As 78 comunidades se agrupam em cinco famílias. Nomes conforme o relatório.
+As 82 comunidades se agrupam em quatro famílias. Os nomes são os do relatório;
+comunidade que o `update` criou sem rótulo aparece com o nome do arquivo de
+origem (`arquivo`), porque o agrupamento mudou e o rótulo salvo não se aplicava.
 
 ### Backend — domínio
 
 | Comunidade | Nós | Conteúdo |
 |---|---|---|
-| Usuários e Pedidos de Credencial | 35 | `Usuario`, `PerfilUsuario`, `SolicitacaoCadastro`, aprovação |
-| Prontuários e Homologação | 27 | `DocumentoFichaOdonto`, `RadiografiaOdonto`, criação e homologação |
-| Agendamentos: Modelo e Rotas | 14 | `Agendamento`, `StatusAgendamento`, salas, status |
-| Vínculo Paciente-Estagiário | 15 | `AtribuicaoClinica`, `SituacaoAtribuicao`, transferência |
-| Duplas Clínicas de Odontologia | 15 | `DuplaOdonto`, criação/desativação |
-| Ocorrências: Modelo e Rota | 4 | `OcorrenciaEstagiario` |
-| Rotas de Pacientes | 6 | cadastro, anamnese, visibilidade |
-| Schemas de Paciente | 4 | CPF, formatação |
-| Schemas de Prontuário | 13 | validação CFP/CFO |
-| Núcleo FastAPI e Banco | 22 | app, health, sessão |
-| Configuração e Settings | — | `Settings` |
-| Serviço de E-mail SMTP | 4 | conexão, montagem, envio |
+| Prontuários e Homologação | 25 | `DocumentoFichaOdonto`, `RadiografiaOdonto`, criação e homologação |
+| Duplas Clínicas de Odontologia | 23 | `DuplaOdonto`, criação/desativação |
+| Recuperação de Senha por Token | 22 | código, hash, validade |
 | Assistente Clínico Gemini | 20 | saídas estruturadas, status |
+| `usuarios.py` (arquivo) | 18 | cadastro, edição, RBAC de gestão |
+| `solicitacoes.py` (arquivo) | 16 | aprovação, recusa, fila de pedidos |
+| Núcleo FastAPI e Banco | 15 | app, health, sessão, JWT |
+| Vínculo Paciente-Estagiário | 15 | `AtribuicaoClinica`, `SituacaoAtribuicao`, transferência |
+| Agendamentos: Modelo e Rotas | 13 | `Agendamento`, `StatusAgendamento`, salas, status |
+| Schemas de Prontuário | 13 | validação CFP/CFO |
+| Seed de Demonstração | 12 | pacientes, agenda, fichas, duplas |
+| Rotas de Pacientes | 11 | cadastro, anamnese, visibilidade |
+| Ocorrências: Modelo e Rota | 5 | `OcorrenciaEstagiario` |
+| `models/__init__.py` (arquivo) | 5 | reexportação dos models |
+| Serviço de E-mail SMTP | 4 | conexão, montagem, envio |
 | Rotas da IA (Áudio/Texto) | 4 | assistente e transcrição |
-| Seed de Demonstração | 13 | pacientes, agenda, fichas, duplas |
-| Recuperação de Senha por Token | 24 | código, hash, validade |
+| Configuração e Settings | thin | `Settings` |
 
 ### Frontend — features
 
 | Comunidade | Nós | Conteúdo |
 |---|---|---|
-| Shell da Aplicação e Navegação | 46 | `App`, sidebar, ícones de navegação |
-| Contexto Clínico Global | 53 | `ClinicContext`, `ClinicProvider`, classificação |
-| Relatórios Executivos da RT | 49 | `RTStatsDashboard`, gráficos, impressão |
-| Abas do Prontuário Odonto | 31 | abas, cartões clínicos, drawer |
-| Impressão da Ficha Odontológica | 48 | formulário base, assinaturas, seções |
+| Abas do Prontuário Odonto | 59 | abas, cartões clínicos, drawer |
+| Contexto Clínico Global | 49 | `ClinicContext`, `ClinicProvider`, classificação |
+| Agenda de Odontologia (UI) | 48 | agenda, turnos, status |
+| `CorporateIcons.tsx` (arquivo) | 47 | 41 ícones + variantes |
+| Formulários Base de Anamnese | 44 | campos, seções, ajuda |
+| Dependências do Frontend | 44 | `package.json` |
 | Odontograma Adulto SVG | 38 | dentes, condições, ferramentas |
-| Estado do Odontograma Infantil | 55 | dentições, cores, faces |
-| Constantes do Odontograma Infantil | 61 | opções e tabelas infantis |
-| Periograma Periodontal | 21 | sítios, faces, NIC |
-| Índices Gengivais Locais | 23 | cálculo e persistência local |
-| Anamnese Infantil: Higiene | 22 | mapa de higiene |
-| Mapa de Higiene Infantil | 16 | faces e percentual |
-| Formulários Base de Anamnese | 57 | campos, seções, ajuda |
-| Rascunho de Anamnese | 24 | rascunho local de aferições |
-| Agenda de Odontologia (UI) | 29 | agenda, turnos, status |
-| Ocorrências de Estagiários UI | 22 | cartão, consultórios, tipos |
-| Supervisão Psicologia UI | 8 | fila, histórico, cabeçalho docente |
-| Drawer do Assistente IA | 25 | drawer, atalhos, microfone |
-| Ícones Corporativos (Navegação) | 29 | 41 ícones, subconjunto de navegação |
+| `anamnese-infantil/estado.ts` (arquivo) | 36 | dentições, faces, alternâncias |
+| `FormularioBase.tsx` (arquivo) | 33 | campos, grupos, assinaturas |
+| Estado do Odontograma Infantil | 32 | dentições, cores, faces |
 | Ícones Corporativos (Ações) | 31 | subconjunto de ações |
-| Emblemas Institucionais | — | símbolos de curso |
+| `RTStatsDashboard.tsx` (arquivo) | 26 | gráficos, impressão, busca de paciente (`SeletorComBusca`) |
+| Drawer do Assistente IA | 25 | drawer, atalhos, microfone |
+| Índices Gengivais Locais | 24 | cálculo e persistência local |
+| Periograma Periodontal | 21 | sítios, faces, NIC |
+| Anamnese Infantil: Higiene | 20 | mapa de higiene |
+| Rascunho de Anamnese | 20 | rascunho local de aferições |
+| `react` | 20 | dependências React e `App` |
+| Config TypeScript App | 19 | `tsconfig.app.json` |
+| Config TypeScript Node | 16 | `tsconfig.node.json` |
+| `RelatorioExecutivo.tsx` (arquivo) | 15 | relatório impresso da RT |
+| `PsyRecordPage.tsx` (arquivo) | 13 | prontuário de psicologia, impressão |
+| `ExclamationTriangleIcon` | 13 | ícones de aviso, `ForgotPasswordPage` |
+| `DossiePacientePrint.tsx` (arquivo) | 11 | dossiê impresso |
 | Tema Claro e Escuro | 9 | `ThemeProvider`, storage, sistema |
-| Cliente HTTP ApiService | — | `api.ts` |
-| Dependências do Frontend | 48 | `package.json` |
+| `AppSidebar.tsx` (arquivo) | 8 | navegação lateral |
+| Cliente HTTP ApiService | thin | `api.ts` |
+| Config TypeScript Raiz | thin | `tsconfig.json` |
+| Entrypoint do Container | thin | `docker-entrypoint.sh` |
 
 ### Testes
 
 | Comunidade | Nós |
 |---|---|
-| Testes: Homologação e RBAC | 38 |
 | Testes: Vínculo Paciente-Estagiário | 43 |
+| Testes: Homologação e RBAC | 38 |
 | Testes: Duplas e Ficha Odonto | 36 |
 | Testes: Solicitações e E-mail | 20 |
 | Testes: Recuperação de Senha | 15 |
-| Testes: Extensões Psi | 6 |
+| Testes de Extensões Psi | 6 |
 | Testes: Supervisão de Alunos | 4 |
 | Testes: Agenda de Duplas | 3 |
 | Fixtures de Teste (conftest) | 3 |
-| Dublê de E-mail em Testes | — |
+| Dublê de E-mail em Testes | thin |
+| Testes: Desativação de Aluno · Testes: RF-009 Cadastro RT · Teste: Lista Psi da Recepção · Teste: Segregação por Curso | thin |
 
 ### Migrações e infraestrutura
 
 | Comunidade | Nós |
 |---|---|
-| Migrações: Schema Inicial | 10 |
-| Migrações: RBAC e Radiografia | 3 |
-| Migrações: Ficha e Tokens | 4 |
-| Migrações: Constraints de Tamanho / Duplas / Demanda / Autoria / Senha / Vínculo / Curso na Auditoria / Anamnese / Vínculo Supervisor / Motivo da Falta / Endereço | 1–4 cada |
 | Infraestrutura Docker | 34 |
-| Entrypoint do Container | — |
+| Migrações: Schema Inicial | 10 |
+| Migrações: Ficha e Tokens | 4 |
+| Migrações: RBAC e Radiografia | 3 |
+| 11 migrações nomeadas (Constraints de Tamanho, Duplas Odonto, Demanda e Ocorrências, Autoria da Ficha, Senha por E-mail, Vínculo Paciente, Curso na Auditoria, Anamnese e Sinais, Vínculo Supervisor, Motivo da Falta, Endereço do Paciente) | thin |
 | Script de Diagnóstico SMTP | 4 |
-| Config TypeScript App / Node / Raiz | 19 / 16 / — |
 
 ---
 
@@ -271,7 +279,7 @@ As 78 comunidades se agrupam em cinco famílias. Nomes conforme o relatório.
 |---|---|---|---|
 | 1 | `get_auth_token()` | 118 | `backend/tests/test_compliance.py` |
 | 2 | `Usuario` | 111 | `models/usuario.py` |
-| 3 | `react` | 73 | dependência |
+| 3 | `react` | 74 | dependência |
 | 4 | `PerfilUsuario` | 72 | `models/usuario.py` |
 | 5 | `ApiService` | 59 | `services/api.ts` |
 | 6 | `registrar_log()` | 47 | `services/auditoria_service.py` |
@@ -319,6 +327,9 @@ o contexto clínico a partir do banco, não do corpo da requisição. Ver
 - **12 arquivos não classificados** — 5 sem tipo, 3 `.css`, 2 `.ini`. Os CSS
   (`index.css`, `relatorio.css`, `App.css`) ficam fora da malha de dependências
   do grafo.
+- **4 comunidades sem rótulo.** O `update` preservou 78 rótulos, mas o novo
+  agrupamento gerou 82 comunidades; as quatro que nasceram sem nome são thin e
+  por isso não aparecem no relatório nem na §5.
 - **321 arestas inferidas** (5% do total) com confiança média 0,94. As que
   envolvem `Usuario` (85) são as que mais merecem verificação manual quando o
   comportamento não bater com o mapa.
@@ -329,10 +340,11 @@ o contexto clínico a partir do banco, não do corpo da requisição. Ver
 
 ## 9. Perguntas que o grafo responde bem
 
-- Por que `react` liga "Ocorrências de Estagiários UI" a 20 outras comunidades?
-  Centralidade de intermediação 0,065 — é a ponte da camada de UI.
+- Por que `react` liga 23 comunidades de UI — de `AppSidebar.tsx` a
+  "Periograma Periodontal"? Centralidade de intermediação 0,061: é a ponte da
+  camada de UI.
 - As 85 relações inferidas de `Usuario` estão corretas? É a maior fonte de
   incerteza do mapa.
-- "Usuários e Pedidos de Credencial" deve ser dividido? É a maior comunidade de
-  domínio (35 nós) e mistura cadastro, RBAC e fila de solicitações.
+- `solicitacoes.py` deve ser dividido? Coesão 0,099, a mais baixa entre as
+  comunidades de domínio do backend — mistura aprovação, recusa e listagem.
   Este documento **não** recomenda a divisão; apenas registra a pergunta.

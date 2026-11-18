@@ -1,6 +1,6 @@
 # STATUS — UniCare
 
-**Snapshot:** 18/11/2026 · branch `augusto` · commit `b1c8bf0` (12/11/2026)
+**Snapshot:** 18/11/2026 · branch `augusto` · commit `d5dd584` (18/11/2026)
 **Alembic:** `c7e91d4a2b08` (head) · 24 revisões
 **Documentação irmã:** [`README.md`](./README.md) · [`AGENTS.md`](./AGENTS.md) ·
 [`PRD.md`](./PRD.md) · [`SPEC.md`](./SPEC.md) · [`ARCHITECTURE.md`](./ARCHITECTURE.md) ·
@@ -119,7 +119,7 @@ Nada aqui é 🔴 crítico. A ordem é a de execução sugerida.
 O `STATUS.md` anterior tinha 2.510 linhas de diário. O conteúdo foi reorganizado:
 
 - **Histórico de blocos 1–14, decisões e ~50 armadilhas** → [`MEMORY.md`](./MEMORY.md),
-  em 25 ADRs temáticos mais apêndice cronológico.
+  em 26 ADRs temáticos mais apêndice cronológico.
 - **RF/RN e perfis** → [`PRD.md`](./PRD.md).
 - **Rotas, schemas, validações, ENUMs e invariantes** → [`SPEC.md`](./SPEC.md).
 - **Mapa de código e acoplamento** → [`ARCHITECTURE.md`](./ARCHITECTURE.md),

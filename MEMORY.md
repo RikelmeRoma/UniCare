@@ -9,7 +9,7 @@ O [`STATUS.md`](./STATUS.md) guarda apenas o estado atual. Tudo o que era
 histórico acumulado (mais de 2.500 linhas de diário de blocos) foi reorganizado
 aqui por tema.
 
-**Snapshot desta memória:** branch `augusto`, commit `b1c8bf0`, 18/11/2026.
+**Snapshot desta memória:** branch `augusto`, commit `d5dd584`, 18/11/2026.
 O texto original completo continua recuperável em `git show b1c8bf0:STATUS.md`
 (2.510 linhas), `git show b1c8bf0:AGENTS.md` e
 `git show b1c8bf0:RELATORIO_CONSOLIDADO_PROJETO.md` (574 linhas, com o diagrama
@@ -716,6 +716,40 @@ caminho independente do JSON de conferência.
 - **Para reativar:** recrie o botão, a prop e o handler e chame
   `exportarJson(...)`. Se o objetivo for gravar em banco, troque o `Blob` por um
   `POST` — o payload já está montado em `montarConteudo()`.
+
+---
+
+## 10. Documentação e ferramental
+
+### ADR-26 — O grafo é reconstruído com `update --force`; os números derivados andam junto
+
+**Contexto.** `graphify-out/` não é versionado, e `ARCHITECTURE.md`/`AGENTS.md`
+citam números que saem dele (nós, arestas, comunidades, corpus). Depois dos
+commits `d9b45f1` (busca de paciente) e `d5dd584` (docs/limpeza), o grafo ainda
+apontava para `built_at_commit = b1c8bf0`: `SeletorComBusca` não existia no mapa e
+as arestas dos workspaces para `exportarJson` continuavam lá.
+
+**Decisão.** Reconstruir com `graphify update . --force` e atualizar os números
+citados. Resultado: **2.021 nós, 5.974 arestas, 82 comunidades**, corpus de 201
+arquivos, `built_at_commit = d5dd5841`. `SeletorComBusca` passou a aparecer com 11
+arestas — importado por `PsyRecordPage` e `DentalRecordPage`.
+
+**Armadilhas associadas**
+
+- **Sem `--force`, o `update` recusa o rebuild.** Ele compara com o grafo salvo e
+  aborta quando o novo tem menos nós — exatamente o caso de um refactor que
+  remove chamadas. A saída é `--force` (ou `GRAPHIFY_FORCE=1`).
+- **`update` reextrai código, não rerrotula.** Os 78 rótulos salvos foram
+  reaplicados por id; como o agrupamento virou 82 comunidades, quatro nasceram sem
+  nome e várias ficaram com o nome do arquivo (`solicitacoes.py`,
+  `RTStatsDashboard.tsx`). `cluster-only` renomearia, mas exige backend de LLM —
+  com `GEMINI_API_KEY` vazia o resultado seria placeholder pior. Não vale a pena
+  pelo rótulo.
+- **`ARCHITECTURE.md` não se atualiza sozinho.** Todo rebuild pede revisão de
+  §1 (contagens), §5 (comunidades e nós), §6 (god nodes) e das lacunas em §8.
+  `AGENTS.md` repete os três números.
+- **`tree_sitter_sql` ausente** deixa o `.sql` do corpus fora do grafo; o warning
+  é esperado e não bloqueia.
 
 ---
 
