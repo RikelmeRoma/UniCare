@@ -238,6 +238,55 @@ def test_assistente_psico_sanitiza_aspas_anonimiza_lgpd_e_faz_fallback(ia_client
         assert logs[0].registro_id == ids["psi_id"]
 
 
+def test_modelo_inexistente_cai_no_fallback(ia_client, monkeypatch):
+    """404 "model is not found" não derruba a rota: o resto da cadeia responde.
+
+    `GEMINI_MODEL_PRIMARY` desatualizado (nome que não existe na conta) saía
+    como 502 na primeira tentativa, sem nunca tentar o fallback.
+    """
+    client, _engine, ids = ia_client
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "chave-falsa-para-teste")
+    monkeypatch.setattr(settings, "GEMINI_MODEL_PRIMARY", "gemini-9.9-flash")
+    monkeypatch.setattr(settings, "GEMINI_MODEL_FALLBACK", "gemini-3.5-flash")
+
+    chamadas = []
+
+    class FakeInteractions:
+        def create(self, **kwargs):
+            chamadas.append(kwargs["model"])
+            if kwargs["model"] == "gemini-9.9-flash":
+                raise RuntimeError("404 NOT_FOUND. models/gemini-9.9-flash is not found")
+            return SimpleNamespace(
+                output_text=(
+                    '{"transcricao": null, '
+                    '"resposta": "Resposta entregue pelo modelo de fallback.", '
+                    '"redacao_texto": null, "avaliacao_demanda": null, '
+                    '"objetivos_intervencao": null, "hipotese_diagnostica": null, '
+                    '"avaliacao_final": null, "informacoes_adicionais": null, '
+                    '"alertas_clinicos": []}'
+                )
+            )
+
+    monkeypatch.setattr(
+        "app.services.gemini_service.genai.Client",
+        lambda api_key: SimpleNamespace(interactions=FakeInteractions()),
+    )
+
+    resp = client.post(
+        "/api/v1/ia/assistente",
+        headers=_auth("est.psi@unicare.test"),
+        data={
+            "paciente_id": str(ids["psi_id"]),
+            "curso": "psicologia",
+            "modo": "chat",
+            "mensagem": "Qual o alerta principal?",
+        },
+    )
+    assert resp.status_code == 200
+    assert chamadas == ["gemini-9.9-flash", "gemini-3.5-flash"]
+    assert resp.json()["modelo_utilizado"] == "gemini-3.5-flash"
+
+
 def test_transcrever_audio_odonto_e_validacao_formato(ia_client, monkeypatch):
     client, engine, ids = ia_client
     monkeypatch.setattr(settings, "GEMINI_API_KEY", "chave-falsa-para-teste")

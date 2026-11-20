@@ -115,6 +115,33 @@ function ClinicalAssistantDrawerContent({
 
   const listaRef = useRef<HTMLDivElement | null>(null);
 
+  // `carregando` é estado: dois cliques no mesmo tick passam pelo guard antes
+  // do próximo render e disparam duas chamadas cobradas ao Gemini. O ref corta
+  // no ato, ainda no mesmo tick.
+  const enviandoRef = useRef(false);
+
+  // O servidor é quem sabe se o assistente está configurado. Sem esta consulta
+  // o usuário só descobria ao enviar a primeira mensagem, recebendo 503.
+  const [iaIndisponivel, setIaIndisponivel] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelado = false;
+    api
+      .getIaStatus()
+      .then((status) => {
+        if (!cancelado) setIaIndisponivel(!status.configurado);
+      })
+      .catch(() => {
+        // Falha na verificação não é "não configurado": sem rede ou sem sessão,
+        // o envio devolve o erro real e o banner de erro o mostra.
+        if (!cancelado) setIaIndisponivel(false);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [open]);
+
   const {
     gravando,
     segundos,
@@ -240,6 +267,8 @@ function ClinicalAssistantDrawerContent({
     if (!paciente || carregando) return;
     const texto = (textoOverride ?? entrada).trim();
     if (!texto && !audioBlob) return;
+    if (enviandoRef.current) return;
+    enviandoRef.current = true;
 
     setErro(null);
     limparErro();
@@ -291,6 +320,7 @@ function ClinicalAssistantDrawerContent({
           : 'Não foi possível consultar o assistente no momento.'
       );
     } finally {
+      enviandoRef.current = false;
       setCarregando(false);
     }
   };
@@ -416,7 +446,7 @@ function ClinicalAssistantDrawerContent({
             <button
               key={atalho.rotulo}
               type="button"
-              disabled={!paciente || carregando || gravando}
+              disabled={!paciente || carregando || gravando || iaIndisponivel}
               onClick={() => void enviar(atalho.prompt, atalho.modo)}
               className="px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/80 dark:hover:bg-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-200 transition-colors disabled:opacity-50"
             >
@@ -602,6 +632,14 @@ function ClinicalAssistantDrawerContent({
 
         {/* Rodapé / Input Multimodal */}
         <footer className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1729] space-y-2.5">
+          {iaIndisponivel && (
+            <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/70 text-[11px] text-amber-900 dark:text-amber-200">
+              Assistente indisponível: o servidor não tem{' '}
+              <span className="font-mono font-semibold">GEMINI_API_KEY</span>{' '}
+              configurada em <span className="font-mono">backend/.env</span>.
+            </div>
+          )}
+
           {erroExibir && (
             <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-800 text-[11px] text-rose-800 dark:text-rose-200">
               {erroExibir}
@@ -631,7 +669,7 @@ function ClinicalAssistantDrawerContent({
             <textarea
               rows={2}
               value={entrada}
-              disabled={!paciente || carregando}
+              disabled={!paciente || carregando || iaIndisponivel}
               onChange={(e) => setEntrada(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -650,7 +688,7 @@ function ClinicalAssistantDrawerContent({
             {micSuportado && (
               <button
                 type="button"
-                disabled={!paciente || carregando}
+                disabled={!paciente || carregando || iaIndisponivel}
                 onClick={() => void alternarGravacao()}
                 title={
                   gravando
@@ -674,7 +712,7 @@ function ClinicalAssistantDrawerContent({
 
             <button
               type="button"
-              disabled={!paciente || carregando || gravando || !entrada.trim()}
+              disabled={!paciente || carregando || gravando || !entrada.trim() || iaIndisponivel}
               onClick={() => void enviar()}
               aria-label="Enviar mensagem"
               className={`p-2.5 rounded-xl text-white transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${corPrimaria}`}

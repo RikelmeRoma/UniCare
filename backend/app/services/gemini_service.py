@@ -338,6 +338,17 @@ def _eh_resposta_vazia(exc: Exception) -> bool:
     return "resposta vazia" in str(exc).lower()
 
 
+def _eh_modelo_indisponivel(exc: Exception) -> bool:
+    """404 "model is not found": o nome configurado não existe para a conta.
+
+    Não é indisponibilidade momentânea — mas também não justifica desistir sem
+    tentar o resto da cadeia: `GEMINI_MODEL_PRIMARY` pode estar desatualizado e
+    o fallback existir. Antes disto o 404 virava 502 na primeira tentativa.
+    """
+    txt = str(exc).lower()
+    return "404" in txt or "not found" in txt or "not_found" in txt
+
+
 def _criar_cliente() -> genai.Client:
     if not settings.gemini_configurado:
         raise HTTPException(
@@ -358,6 +369,7 @@ def _executar_interaction_com_fallback(
 ) -> Tuple[str, str]:
     client = _criar_cliente()
     ultimo_erro: Optional[Exception] = None
+    todos_inexistentes = True
 
     for idx, modelo in enumerate(modelos):
         try:
@@ -385,16 +397,29 @@ def _executar_interaction_com_fallback(
             raise
         except Exception as exc:
             ultimo_erro = exc
-            msg = _sanitizar_erro(str(exc))
-            logger.warning("Falha na chamada Gemini (modelo=%s, tentativa=%d): %s", modelo, idx + 1, msg)
-            # Resposta vazia tambem justifica continuar: o proximo modelo
-            # pode responder, e o caso real e o audio no flash-lite.
+            mensagem_erro = _sanitizar_erro(str(exc))
+            logger.warning("Falha na chamada Gemini (modelo=%s, tentativa=%d): %s", modelo, idx + 1, mensagem_erro)
+            if not _eh_modelo_indisponivel(exc):
+                todos_inexistentes = False
+            # Resposta vazia e modelo inexistente tambem justificam continuar: o
+            # proximo modelo pode responder (audio no flash-lite; primary
+            # desatualizado no .env).
             if idx < len(modelos) - 1 and (
-                _eh_erro_transitorio(exc) or _eh_resposta_vazia(exc)
+                _eh_erro_transitorio(exc)
+                or _eh_resposta_vazia(exc)
+                or _eh_modelo_indisponivel(exc)
             ):
                 continue
             if _eh_erro_transitorio(exc):
                 break
+            if todos_inexistentes:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=(
+                        "Nenhum modelo de IA configurado existe para esta conta. "
+                        "Ajuste GEMINI_MODEL_PRIMARY/GEMINI_MODEL_FALLBACK em backend/.env."
+                    ),
+                ) from exc
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="Não foi possível processar a solicitação com o Gemini no momento.",
