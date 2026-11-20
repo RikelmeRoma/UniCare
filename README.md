@@ -16,7 +16,8 @@ configurações de build ficam na raiz de propósito.
 
 ## Subir o projeto
 
-Requisitos: Node 20+, Python 3.11+, Docker.
+Requisitos: Node 20+, Python 3.12 (a imagem Docker usa `python:3.12-slim`),
+Docker.
 
 ### 1. Banco
 
@@ -54,6 +55,11 @@ npm install
 npm run dev     # http://localhost:5173 (ou 5174 se a porta estiver ocupada)
 ```
 
+O cliente HTTP usa `VITE_API_URL` quando definida e, sem ela,
+`http://localhost:8000/api/v1`. Se você servir o front por outra origem ou atrás
+de proxy, crie um `.env` na raiz com essa variável — ela não é versionada. O
+`/health` é resolvido a partir da origem da API, não do prefixo `v1`.
+
 ---
 
 ## Verificação
@@ -77,17 +83,29 @@ Números do último snapshot: [`STATUS.md`](./STATUS.md).
 | Documento | Responde |
 |---|---|
 | [`PRD.md`](./PRD.md) | Produto, perfis RBAC, RF-001..009, regras de negócio, credenciais de seed |
-| [`SPEC.md`](./SPEC.md) | 54 endpoints, schemas, validações, ENUMs, 14 tabelas, invariantes |
+| [`SPEC.md`](./SPEC.md) | 54 endpoints, schemas, validações, ENUMs, 14 tabelas, invariantes e configuração de ambiente |
 | [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Mapa de módulos e acoplamento, extraído do grafo |
 | [`DESIGN.md`](./DESIGN.md) | Cores, fontes, ícones e padrões de tela como estão |
 | [`MEMORY.md`](./MEMORY.md) | ADRs, armadilhas verificadas e histórico cronológico |
 | [`STATUS.md`](./STATUS.md) | Estado atual verificado e pendências abertas |
 | [`AGENTS.md`](./AGENTS.md) | Orientações para agentes de IA neste repositório |
 | [`backend/README.md`](./backend/README.md) | Detalhes de Alembic, ENUMs, testes e Docker |
+| [`apresentacao/README.md`](./apresentacao/README.md) | Deck de 10 slides, PDF, previews e como regerar |
+| [`apresentacao/roteiro-demo.md`](./apresentacao/roteiro-demo.md) | Roteiro cronometrado da demonstração ao vivo |
+| [`diagramas/README.md`](./diagramas/README.md) | Diagramas de arquitetura e ERD, com origem e atualização |
 
 Para entrar no sistema, use uma das contas de demonstração do seed — a lista
 completa, com matrícula e perfil, está em [`PRD.md`](./PRD.md#6-credenciais-de-demonstração-seed).
 Todas usam a senha `unicare123`.
+
+### Apresentação e diagramas
+
+- **`apresentacao/`** — deck `UniCare_MVP.pptx`, export `UniCare_MVP.pdf`, 10
+  previews em PNG, o gerador `gerar_slides.py` e o roteiro da demo. O passo a
+  passo está em [`apresentacao/README.md`](./apresentacao/README.md).
+- **`diagramas/`** — dois HTML autocontidos para abrir no navegador:
+  `arquitetura-unicare.html` e `modelagem-banco.html`. Contexto e processo de
+  atualização em [`diagramas/README.md`](./diagramas/README.md).
 
 ---
 
@@ -97,6 +115,8 @@ Todas usam a senha `unicare123`.
 src/              SPA React (features, components, services, shared) — raiz = frontend
 public/           assets estáticos servidos pelo Vite
 backend/          API FastAPI, modelos SQLModel, migrações Alembic, testes
-apresentacao/     slides, roteiro de demo e PDFs
-graphify-out/     grafo arquitetural (não versionado)
+apresentacao/     slides, roteiro de demo, PDFs e previews (versionados)
+diagramas/        arquitetura e ERD em HTML autocontido (versionados)
+graphify-out/     grafo arquitetural (gerado localmente, ignorado pelo git)
+.archify/         diretório de trabalho do gerador de diagramas (ignorado)
 ```

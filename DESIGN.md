@@ -156,6 +156,9 @@ Tamanhos observados: `w-4 h-4` em navegação e botões, `w-5 h-5` em cabeçalho
 
 - Fundo em gradiente `from-slate-100 via-slate-50 to-blue-50/40`
   (`dark:from-[#060B16] dark:via-[#081020] dark:to-[#0A162B]`).
+- Sobre o gradiente, as camadas decorativas de aurora, orbes e brilhos
+  (`auroraBreathe`, `floatOrb`, `sparkleTwinkle`, `sparkleMote`, `lightSweep` —
+  seção 8). São o único movimento da tela; `prefers-reduced-motion` as desliga.
 - Cartão central `max-w-5xl`, `rounded-3xl`, `shadow-2xl`, borda
   `border-slate-200/80`, dividido em duas colunas a partir de `lg`
   (`flex-col lg:flex-row`), com `min-h-[640px]`.
@@ -179,6 +182,13 @@ As demais telas de acesso (`/cadastro`, `/recuperar-senha`, `/nao-autorizado`,
 - **Modal:** painel central `rounded-2xl shadow-2xl`, backdrop escuro, cabeçalho
   com título e `XMarkIcon`, rodapé com ação primária `bg-blue-600` e secundária
   neutra. `ClinicalAssistantDrawer` usa o mesmo vocabulário, ancorado à direita.
+- **Drawer do assistente clínico:** abre à direita e consulta `GET /ia/status` ao
+  ser aberto. Com `configurado: false`, aparece um banner âmbar
+  (`bg-amber-50 dark:bg-amber-950/50`, borda `amber-200/800`) dizendo que o
+  servidor não tem `GEMINI_API_KEY` em `backend/.env`, e atalhos, campo de
+  texto, microfone e botão de envio ficam desabilitados. Falha do envio aparece
+  em banner rosa (`rose-50`/`rose-950/50`); a verificação que falhou não é
+  tratada como "não configurado" — o erro real vem da chamada.
 - **Estado vazio:** ícone em `w-8 h-8`, frase curta e, quando aplicável, botão
   de ação. Nunca há número, nome ou texto clínico inventado no lugar do dado.
 - **Formulário clínico:** seções em cartões com título, campos `rounded-xl` com

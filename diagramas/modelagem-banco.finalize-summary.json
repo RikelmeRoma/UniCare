@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "erd",
+  "quality": "standard",
+  "specification": {
+    "path": "C:\\Users\\WINDOWS 10\\Desktop\\UniCare\\.archify\\erd-modelagem-banco-20261119-172807\\candidate.json",
+    "sha256": "9dd302618a5c238ef69a8879b1c1f8dd14df2622f87cfc6f35b4afafe3a34dd8",
+    "bytes": 61565
+  },
+  "artifact": {
+    "path": "C:\\Users\\WINDOWS 10\\Desktop\\UniCare\\Diagramas\\modelagem-banco.html",
+    "sha256": "5ec2d20916a723371d332328f8d6b0b44b7446c5c3a656d7b83eab0ac252ac13",
+    "bytes": 947112
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "C:\\Users\\WINDOWS 10\\Desktop\\UniCare\\.archify\\erd-modelagem-banco-20261119-172807\\review-3\\modelagem-banco.finalize.json",
+    "summaryReceipt": "C:\\Users\\WINDOWS 10\\Desktop\\UniCare\\.archify\\erd-modelagem-banco-20261119-172807\\review-3\\modelagem-banco.finalize-summary.json",
+    "browserCheckReceipt": "C:\\Users\\WINDOWS 10\\Desktop\\UniCare\\.archify\\erd-modelagem-banco-20261119-172807\\review-3\\modelagem-banco.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-11-19T20:28:53.983Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 22283,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  }
+}

@@ -9,7 +9,7 @@ Backend RESTful desenvolvido para o sistema **UniCare** da Clínica-Escola (Psic
 * **ORM:** SQLModel (SQLAlchemy 2.0 core)
 * **Migrações:** Alembic (versionamento de schema)
 * **Banco de Dados:** PostgreSQL 16 (dockerizado)
-* **Autenticação:** JWT (OAuth2 Password Bearer) com RBAC
+* **Autenticação:** JWT `HS256` com Bearer (login JSON em `POST /auth/login`) e RBAC
 * **Containerização:** Docker e Docker Compose
 
 ---
@@ -133,6 +133,14 @@ procurar a coordenação — ela não finge que enviou.
 | `MAIL_PASSWORD` | senha de app | **16 caracteres, sem espaços** |
 | `MAIL_FROM` | `conta@dominio` | vazio = a própria `MAIL_USER` |
 | `MAIL_TLS` | `true` | só relevante na porta 587 (STARTTLS) |
+| `MAIL_TIMEOUT_SEGUNDOS` | `10` | timeout do socket SMTP — a recuperação é síncrona na request |
+
+A validade e o intervalo do código de recuperação também são configuráveis:
+
+| Variável | Padrão | Observação |
+|---|---|---|
+| `TOKEN_RECUPERACAO_MINUTOS` | `15` | validade do código |
+| `TOKEN_RECUPERACAO_INTERVALO_SEGUNDOS` | `60` | intervalo mínimo entre pedidos para a mesma conta (rota pública) |
 
 **A senha é de *app*, não da conta.** No Gmail: *Conta do Google → Segurança →
 Verificação em duas etapas → Senhas de app*. O Google mostra a senha em quatro
@@ -143,6 +151,21 @@ e o e-mail não sai. O código também normaliza essa forma colada, mas o `.env`
 
 `MAIL_FROM` vazio é de propósito: Gmail e Yahoo exigem que o `From:` seja a
 conta autenticada, e um remetente diferente é reescrito ou recusado.
+
+### Assistente clínico (Gemini)
+
+| Variável | Padrão | Observação |
+|---|---|---|
+| `GEMINI_API_KEY` | vazio | sem chave, `/ia/status` devolve `configurado: false` e as rotas `/ia/*` respondem 503 |
+| `GEMINI_MODEL_PRIMARY` | `gemini-3.5-flash-lite` | primeiro modelo da cadeia |
+| `GEMINI_MODEL_FALLBACK` | `gemini-3.5-flash,gemini-3.8-flash` | separados por vírgula |
+| `GEMINI_MODEL_TRANSCRIBE` | `gemini-2.5-flash` | modelo do ditado — **não** é o da cadeia de texto |
+| `GEMINI_TIMEOUT_SEGUNDOS` | `20` | timeout da chamada |
+
+A chave fica **só** no backend: no frontend ela exporia a credencial a qualquer
+usuário da tela. Trocar a chave exige `docker compose up -d api` — `restart`
+não relê o `env_file`. A lista completa de variáveis, com padrão e efeito de
+cada uma, está em [`SPEC.md`](../SPEC.md) §7.
 
 ### E-mail externo no pedido de credencial
 
@@ -265,17 +288,27 @@ usa**, e ele não abre atalho em nenhum guard.
 | Recurso | Rotas | Acesso |
 |---|---|---|
 | Auth | `POST /auth/login`, `GET /auth/me` | público / autenticado |
+| Senha | `PATCH /auth/senha`, `POST /auth/senha/recuperar/solicitar`, `POST /auth/senha/recuperar/redeem` | autenticado / público |
 | Pacientes | `GET /pacientes`, `POST /pacientes` | autenticado, escopado ao curso |
 | **Anamnese / sinais vitais** | `GET /pacientes/{id}/anamnese`, `POST /pacientes/{id}/anamnese` | clínico (RN-001 bloqueia recepção), escopado ao curso |
 | Agendamentos | `GET /agendamentos`, `POST /agendamentos`, `PATCH /agendamentos/{id}/status` | autenticado, escopado ao curso |
 | Prontuário psi | `GET/POST /prontuarios/psico`, `PATCH /prontuarios/psico/{id}/homologar` | GET: clínico, restrito ao curso · POST: só estagiário · PATCH: supervisor, RT e coordenação |
 | Ficha odonto | `GET/POST /prontuarios/odonto`, `PATCH /prontuarios/odonto/{id}/homologar` | clínico, restrito ao curso |
+| Documento da ficha odonto | `GET/POST /prontuarios/odonto/documentos`, `PATCH .../{id}`, `PATCH .../{id}/homologar` | clínico; supervisor só nas duplas que supervisiona |
+| Radiografias | `GET/POST /prontuarios/odonto/radiografias`, `DELETE .../{id}` | clínico, restrito ao curso |
 | **Vinculo paciente-estagiario (RF-001)** | `GET/POST /atribuicoes/psico`, `PATCH /atribuicoes/psico/{id}/transferir`, `GET /atribuicoes/psico/minha` | recepcao, rt e coordenação (escrita), clinico (leitura) |
+| Duplas odonto | `GET/POST /duplas-odonto`, `GET /duplas-odonto/minha`, `DELETE /duplas-odonto/{id}` | supervisor e rt (odontologia) |
+| Solicitações de credencial | `POST /solicitacoes-cadastro`, `GET /solicitacoes-cadastro`, `POST .../{id}/aprovar`, `POST .../{id}/recusar` | fila: rt e coordenação · pedido: público |
+| Ocorrências | `GET/POST /ocorrencias/psico` | leitura: recepção, supervisor, estagiário · escrita: recepção |
+| Assistente IA | `GET /ia/status`, `POST /ia/assistente`, `POST /ia/transcrever` | clínico (estagiário, supervisor, rt) |
 | Auditoria | `GET /auditoria` | rt, coordenação, supervisor — filtrada por curso |
 | **Usuários (RF-009)** | `GET /usuarios`, `POST /usuarios`, `PATCH /usuarios/{id}`, `DELETE /usuarios/{id}` | rt (clínica inteira) · coordenação (operação da clínica, sem RT/coordenação) · supervisor (só estagiários da clínica) |
 | Relatórios | `GET /relatorios/estatisticas` | rt, coordenação, supervisor — filtrado pelo curso |
 
-O vinculo de paciente **nao** tem bloqueio RN-001: e fila de trabalho da recepcao, e ela precisa enxergar a clinica inteira para atribuir. O estagiario, ao escribir prontuario, so alcanca paciente ativo em seu nome.
+A lista canônica dos **54 endpoints**, com corpo, resposta e guard de cada um,
+está em [`SPEC.md`](../SPEC.md) §2. Esta tabela aqui é um resumo por recurso.
+
+O vinculo de paciente **nao** tem bloqueio RN-001: e fila de trabalho da recepcao, e ela precisa enxergar a clinica inteira para atribuir. O estagiario, ao escrever prontuario, so alcanca paciente ativo em seu nome.
 
 O cadastro de psicologia exige endereco, numero e CPF com 11 digitos; a
 odontologia mantem o contrato anterior. Como `ambos` tambem pode ser criado pela
@@ -295,11 +328,12 @@ tela.
 ---
 
 ## 🔒 Controles de Segurança & Conformidade Normativa
-* **RN-001 (Bloqueio de Recepção):** O endpoint `/api/v1/prontuarios` intercepta e proíbe qualquer requisição feita com token de perfil `recepcao` (HTTP 403 Forbidden).
+* **RN-001 (Bloqueio de Recepção):** a recepção não acessa dado clínico — prontuário, ficha, anamnese nem usuários clínicos. O guard `autorizado_clinico` devolve **403 Forbidden** com `RN-001` no `detail`.
 * **RN-002 (Vedação de Aspas CFP):** O schema `ProntuarioPsicoCreate` analisa via regex `["“”«»]` e recusa a gravação de falas literais (HTTP 422 Unprocessable Entity).
-* **RN-003 (Salvaguarda Institucional):** Usuários com perfil `RT` e a coordenação de psicologia possuem salvaguarda institucional, mas **não escapam da própria clínica** — a segregação por curso vale inclusive para eles.
-* **RN-004 (Homologação Docente):** Apenas supervisores, RT e a coordenação de psicologia podem alterar o status de prontuários para `VALIDADO`, e só nas fichas da clínica deles.
-* **RNF-004 (Logs de Auditoria):** Cada login, cadastro de paciente e visto é registrado na tabela `logs_auditoria`, com o **IP real da requisição** (`request.client.host`, nunca um valor fixo) e o **curso** de quem praticou o ato.
+* **RN-003 (Salvaguarda Institucional):** RT e supervisores podem auditar (`GET /auditoria`) e a RT tem salvaguarda institucional — mas **ninguém escapa da própria clínica**: a segregação por curso vale inclusive para eles, e o `require_curso` não tem bypass.
+* **RN-004 (Menor de Idade):** o cadastro de paciente menor exige nome e contato do responsável legal (HTTP 400), checado no router de pacientes.
+* **RF-004 (Homologação Docente):** apenas supervisores, RT e a coordenação de psicologia podem alterar o status de prontuários para `VALIDADO`, e só nas fichas da clínica deles; o parecer é obrigatório (422 quando vazio) e a autoria vem do token.
+* **RF-007 (Trilha de Auditoria):** cada login, cadastro de paciente e visto é registrado na tabela `logs_auditoria`, com o **IP real da requisição** (`request.client.host`, nunca um valor fixo) e o **curso** de quem praticou o ato. A tabela é append-only: nenhuma rota faz `UPDATE` ou `DELETE`.
 * **Senhas:** bcrypt com `rounds=12`. `verify_password` só aceita `bcrypt.checkpw` — não existe fallback que compare texto puro.
 
 ---
@@ -331,10 +365,10 @@ citado por descrição, para não criar colisão.
 |---|---|---|
 | RF-001 | Gestão de recepção e triagem + vínculo paciente↔estagiário | `routers/pacientes.py`, `routers/agendamentos.py`, `routers/atribuicoes.py` |
 | RF-002 | Prontuário eletrônico de psicologia | `routers/prontuarios.py` |
-| RF-003 | Odontograma e periograma interativo | `DentalRecordPage` (dados reais pendentes) |
+| RF-003 | Odontograma e periograma interativo | `DentalRecordPage`; ficha completa persistida em `documentos_ficha_odonto` |
 | RF-004 | Fila de homologação docente | `PATCH /prontuarios/{psico,odonto}/{id}/homologar` |
 | RF-005 | Gestão de duplas clínicas | `ClinicalPairs.tsx`, `PsySupervisionPage.tsx` |
 | RF-006 | Painel executivo da RT | `routers/relatorios.py` |
 | RF-007 | Trilha de auditoria imutável | `routers/auditoria.py` |
-| RF-008 | Troca rápida de perfil com imposição de senha | `LoginFields.tsx` (parcial) |
+| RF-008 | Troca rápida de perfil com imposição de senha | **não implementado como presets** — o login é por credencial (`POST /auth/login`) e o destino pós-login vem de `getDestinationRoute` |
 | RF-009 | Gerenciamento RBAC | `routers/usuarios.py` |

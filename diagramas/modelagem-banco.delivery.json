@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "079a7fdb-28f9-484d-8d0a-676a50aa3564",
+  "status": "current",
+  "command": "deliver",
+  "type": "erd",
+  "input": "C:\\Users\\WINDOWS 10\\Desktop\\UniCare\\.archify\\erd-modelagem-banco-20261119-172807\\candidate.json",
+  "output": "C:\\Users\\WINDOWS 10\\Desktop\\UniCare\\Diagramas\\modelagem-banco.html",
+  "specification": {
+    "sha256": "9dd302618a5c238ef69a8879b1c1f8dd14df2622f87cfc6f35b4afafe3a34dd8",
+    "bytes": 61565
+  },
+  "artifact": {
+    "sha256": "5ec2d20916a723371d332328f8d6b0b44b7446c5c3a656d7b83eab0ac252ac13",
+    "bytes": 947112
+  }
+}

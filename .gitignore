@@ -32,3 +32,8 @@ __pycache__/
 .env
 backend/.venv
 
+# Artefatos locais de ferramentas de análise e diagramação.
+# Os resultados entregues (diagramas HTML, slides) são versionados à parte.
+graphify-out/
+.archify/
+

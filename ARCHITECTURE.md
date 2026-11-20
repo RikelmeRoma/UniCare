@@ -29,13 +29,20 @@ Artefatos em `graphify-out/`:
 - `graph.html` — visualização interativa.
 - `manifest.json`, `cost.json`, `cache/`.
 
-`graphify-out/` **não é versionado**. Para reconstruir: CLI `graphify`. Para
-consultar sem reescanear:
+`graphify-out/` **não é versionado** (está no `.gitignore`). Para reconstruir: CLI
+`graphify`. Para consultar sem reescanear:
 
 ```bash
 graphify query "<pergunta>"
 graphify explain "<nó>"
 ```
+
+**O grafo é um snapshot do commit `d5dd584`.** Desde lá houve `2a608bc` (só
+documentação) e `d6a751b` (ajuste de robustez da IA: `_eh_modelo_indisponivel`
+e o banner de `/ia/status`). O primeiro não muda o mapa; o segundo **não
+aparece nele**, porque o grafo é anterior ao ajuste — o grafo não é a fonte
+para o estado do assistente. `graphify-out/2026-11-18/` guarda a cópia anterior
+do grafo, gerada no mesmo ciclo.
 
 ---
 
@@ -179,6 +186,55 @@ após o login. `AuthContext` guarda sessão, usuários e escrita de conta.
 - **Rotas:** declaradas em `src/App.tsx` e protegidas por `ProtectedRoute` com
   `allowedRoles` **e** `allowedCourses`; o destino pós-login vem de
   `src/features/auth/routes.ts` (`getDestinationRoute`).
+
+### 4.4 Rotas do SPA
+
+`src/App.tsx` declara **15 telas** mais dois redirecionamentos (`/` e `*`, ambos
+para `/login`). As quatro primeiras telas são públicas; as demais passam por
+`ProtectedRoute`, que exige perfil **e** clínica — o item sem permissão não é
+renderizado no menu (ADR-08).
+
+| Rota | Perfis | Clínica | Tela |
+|---|---|---|---|
+| `/` | — | — | redireciona para `/login` |
+| `/login` | — | — | `LoginPage` |
+| `/cadastro` | — | — | `RegisterPage` (pedido público de credencial) |
+| `/recuperar-senha` | — | — | `ForgotPasswordPage` (2 etapas) |
+| `/nao-autorizado` | — | — | `UnauthorizedPage` |
+| `/recepcao` | `recepcao`, `supervisor`, `rt` | odontologia | `ReceptionDashboard` |
+| `/ficha-odonto` | `estagiario`, `supervisor`, `rt` | odontologia | `DentalRecordPage` |
+| `/odonto/agendamentos` | `estagiario`, `supervisor`, `rt` | odontologia | `OdontoAppointmentsPage` |
+| `/supervisao` | `supervisor`, `rt` | odontologia | `SupervisionPage` |
+| `/psi/recepcao` | `recepcao`, `rt`, `coordenacao` | psicologia | `PsyReceptionDashboard` |
+| `/psi/agendamentos` | `estagiario` | psicologia | `PsyAppointmentsPage` |
+| `/psi/prontuario` | `estagiario`, `supervisor`, `rt`, `coordenacao` | psicologia | `PsyRecordPage` |
+| `/psi/supervisao` | `supervisor`, `rt`, `coordenacao` | psicologia | `PsySupervisionPage` |
+| `/psi/coordenacao` | `coordenacao`, `rt` | psicologia | `CoordinationManagementPage` |
+| `/rt/relatorios` | `rt`, `supervisor` | qualquer | `RTManagementPage` |
+| `/conta/senha` | qualquer autenticado | qualquer | `AlterarSenhaPage` |
+| `*` | — | — | redireciona para `/login` |
+
+Duas rotas não filtram por clínica de propósito: `/rt/relatorios` (o servidor
+devolve o escopo do curso do token) e `/conta/senha` (trocar a própria senha é
+direito de qualquer perfil logado; o servidor exige a senha atual).
+
+### 4.5 Destino pós-login
+
+`getDestinationRoute` (`src/features/auth/routes.ts`) é a função única que
+decide para onde a conta vai depois de autenticar — o `LoginFields` e o
+`UnauthorizedPage` importam a mesma, para a divergência do ADR-08 não voltar.
+
+| Perfil / curso | Destino |
+|---|---|
+| `rt` (qualquer clínica) | `/rt/relatorios` |
+| `coordenacao` | `/psi/coordenacao` |
+| psicologia · `recepcao` | `/psi/recepcao` |
+| psicologia · `supervisor` | `/psi/supervisao` |
+| psicologia · `estagiario` | `/psi/prontuario` |
+| odontologia · `recepcao` | `/recepcao` |
+| odontologia · `supervisor` | `/supervisao` |
+| odontologia · `estagiario` | `/ficha-odonto` |
+| curso `geral` ou ausente | `/psi/recepcao` (fallback) |
 
 ---
 
@@ -335,6 +391,9 @@ o contexto clínico a partir do banco, não do corpo da requisição. Ver
   comportamento não bater com o mapa.
 - O grafo não mede qualidade, cobertura de teste nem dívida técnica — só
   conexão.
+- O corpus é code-only e anterior às pastas de entrega: `apresentacao/` e
+  `diagramas/` não entram no mapa, e `apresentacao/gerar_slides.py` é código
+  que o snapshot não viu.
 
 ---
 
@@ -348,3 +407,38 @@ o contexto clínico a partir do banco, não do corpo da requisição. Ver
 - `solicitacoes.py` deve ser dividido? Coesão 0,099, a mais baixa entre as
   comunidades de domínio do backend — mistura aprovação, recusa e listagem.
   Este documento **não** recomenda a divisão; apenas registra a pergunta.
+
+---
+
+## 10. Diagramas entregues
+
+Além do grafo de dependências, a pasta `diagramas/` traz dois HTMLs
+autocontidos, gerados pelo **Archify 3.2.0** a partir do commit `2a608bc` e
+publicados em 19/11/2026. Eles são **snapshot**, não gerado em runtime: o
+código da aplicação não os usa, e a API não os serve.
+
+| Arquivo | Tipo | O que mostra |
+|---|---|---|
+| `diagramas/arquitetura-unicare.html` | arquitetura | Duas views: **jornada** (navegador → Vite → API → PostgreSQL) e **saídas** (SMTP e Gemini, com as saídas condicionais). Componentes, portas, limites e notas sobre CORS, schema e o que não existe no MVP. |
+| `diagramas/modelagem-banco.html` | ERD | As **14 entidades** de negócio com atributos, PK/UK/FK e cardinalidade, e as **10 foreign keys** do schema, em três views: **acesso**, **paciente** e **clínica**. |
+
+Os dois HTMLs abrem direto no navegador, sem servidor e sem rede. Os recibos
+ao lado (`*.delivery.json`, `*.finalize-summary.json`) registram os gates
+(`validate`, `deliver`, `check`, `browser-check` — todos `pass`) e os hashes
+dos artefatos.
+
+**Reconciliação com o `SPEC.md`.** O ERD mostra 10 FKs porque são 10 FKs: sete
+`paciente_id` → `pacientes.id`, `radiografias_odonto.dupla_id`,
+`solicitacoes_cadastro.usuario_criado_id` e
+`tokens_recuperacao_senha.usuario_id`. `logs_auditoria` e
+`ocorrencias_estagiarios` aparecem **sem aresta para `usuarios`** — a relação
+é lógica, não-identificante, e está explicada em nota no próprio diagrama
+(ADR-02). O diagrama é a ilustração do `SPEC.md` §5; o `SPEC.md` é a fonte.
+
+**Regeneração.** O rascunho do gerador fica em `.archify/`
+(`<tipo>-<nome>-<timestamp>/`), com o `candidate.json` e os scripts de
+tradução; a pasta é ignorada pelo git porque carrega caminhos absolutos da
+máquina. Ao mudar schema, rotas ou desenho de layers, regenere os candidatos,
+roda o Archify (`deliver` + `finalize`) e atualize os números citados neste
+documento e no `SPEC.md`. Detalhes de operação em
+[`diagramas/README.md`](./diagramas/README.md).

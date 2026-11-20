@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "C:\\Users\\WINDOWS 10\\Desktop\\UniCare\\.archify\\architecture-unicare-20261119-172807\\candidate.json",
+    "sha256": "6fd982b84a7619705b25f561f7cadda03630b6e87a1ffb7f3094b388279cfa90",
+    "bytes": 40266
+  },
+  "artifact": {
+    "path": "C:\\Users\\WINDOWS 10\\Desktop\\UniCare\\Diagramas\\arquitetura-unicare.html",
+    "sha256": "c51a5d86cee802e2c6b3b26c21bd66f2d6434100bc9cc254a0ab13102e3bc87e",
+    "bytes": 845341
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "C:\\Users\\WINDOWS 10\\Desktop\\UniCare\\Diagramas\\arquitetura-unicare.finalize.json",
+    "summaryReceipt": "C:\\Users\\WINDOWS 10\\Desktop\\UniCare\\Diagramas\\arquitetura-unicare.finalize-summary.json",
+    "browserCheckReceipt": "C:\\Users\\WINDOWS 10\\Desktop\\UniCare\\Diagramas\\arquitetura-unicare.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-11-19T20:28:53.983Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 17947,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  }
+}

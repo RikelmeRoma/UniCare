@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "d6bd1116-ae64-46c0-93b0-a48a02eef0e9",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "C:\\Users\\WINDOWS 10\\Desktop\\UniCare\\.archify\\architecture-unicare-20261119-172807\\candidate.json",
+  "output": "C:\\Users\\WINDOWS 10\\Desktop\\UniCare\\Diagramas\\arquitetura-unicare.html",
+  "specification": {
+    "sha256": "6fd982b84a7619705b25f561f7cadda03630b6e87a1ffb7f3094b388279cfa90",
+    "bytes": 40266
+  },
+  "artifact": {
+    "sha256": "c51a5d86cee802e2c6b3b26c21bd66f2d6434100bc9cc254a0ab13102e3bc87e",
+    "bytes": 845341
+  }
+}

@@ -14,6 +14,8 @@ que **não** é dedutível lendo o código, e o detalhe fica nos documentos irm�
 | [`MEMORY.md`](./MEMORY.md) | ADRs, armadilhas verificadas e histórico cronológico |
 | [`STATUS.md`](./STATUS.md) | Estado atual, números verificados e pendências |
 | [`backend/README.md`](./backend/README.md) | Rodar backend, Alembic, ENUMs, testes |
+| [`apresentacao/README.md`](./apresentacao/README.md) | Deck, previews, gerador e roteiro da demo |
+| [`diagramas/README.md`](./diagramas/README.md) | Diagrama de arquitetura e ERD, origem e atualização |
 | [`README.md`](./README.md) | Porta de entrada e subida rápida |
 
 ## Stack
@@ -99,9 +101,15 @@ O mapa arquitetural vem do grafo persistido em `graphify-out/`:
 
 `ARCHITECTURE.md` é derivado desse diretório **sem reescanear o código**. O corpus
 é code-only (201 arquivos; `.md`, PDFs, apresentações e imagens ficaram fora).
-`graphify-out/` não é versionado — se precisar dele, reconstrua com o CLI
-`graphify`. Para consultar: `graphify query "<pergunta>"` e
+`graphify-out/` não é versionado — está no `.gitignore`; se precisar dele,
+reconstrua com o CLI `graphify`. Para consultar: `graphify query "<pergunta>"` e
 `graphify explain "<nó>"`.
+
+**Não confunda os dois mapas.** `graphify-out/` é o grafo de dependências do
+código usado pelo `ARCHITECTURE.md`. `diagramas/` são dois HTMLs entregáveis
+(arquitetura e ERD), gerados pelo Archify e versionados; o rascunho do gerador
+fica em `.archify/`, que é ignorado. `apresentacao/` é material de demo, não
+entra no corpus do grafo.
 
 ## Convenções
 

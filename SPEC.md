@@ -318,6 +318,14 @@ orientandos; recepção e RT, a clínica.
 | POST | `/transcrever` | `autorizado_clinico` | multipart (áudio + campos) | `TranscricaoResponse` |
 
 - Sem `GEMINI_API_KEY`, `configurado: false` e as rotas de geração respondem 503.
+  O frontend consulta `/status` ao abrir o drawer e, com `configurado: false`,
+  mostra banner âmbar e bloqueia o envio — o 503 continua sendo a resposta da
+  rota, para qualquer cliente que a chame direto.
+- A cadeia de modelos tenta `GEMINI_MODEL_PRIMARY` e depois
+  `GEMINI_MODEL_FALLBACK` em 503/429/timeout, resposta vazia **e** 404 de modelo
+  inexistente. Se todos os nomes configurados não existirem, a resposta é 502
+  com `"Nenhum modelo de IA configurado existe para esta conta"`; se todos
+  falharem por sobrecarga, é 503.
 - `POST /assistente` recebe `paciente_id`, `curso`, `modo`, `aba_atual`,
   `mensagem`, `rascunho_atual`, `historico_json`, `ficha_resumo_json` e `audio`
   opcional. O contexto clínico é montado pelo backend.
@@ -523,8 +531,10 @@ a recepção é uma conta por clínica.
 
 ## 5. Modelo de dados
 
-14 tabelas de negócio. Apenas **4 foreign keys**, todas de `paciente_id` para
-`pacientes.id` (três de prontuário/agenda e uma da anamnese).
+14 tabelas de negócio. **10 foreign keys**: sete de `paciente_id` para
+`pacientes.id`, `radiografias_odonto.dupla_id` para `duplas_odonto.id`,
+`solicitacoes_cadastro.usuario_criado_id` e
+`tokens_recuperacao_senha.usuario_id` para `usuarios.id`.
 
 | Tabela | Papel | Chaves e índices relevantes |
 |---|---|---|
@@ -539,9 +549,9 @@ a recepção é uma conta por clínica.
 | `anamneses` | Sinais vitais | FK `paciente_id`; `afetido_em` (timestamptz) |
 | `duplas_odonto` | Duplas | matrículas lógicas (sem FK); `ativo` |
 | `ocorrencias_estagiarios` | Ocorrências | `estagiario_matricula`, `curso`, `tipo` |
-| `solicitacoes_cadastro` | Pedidos | `situacao`, `usuario_criado_id` lógico |
-| `tokens_recuperacao_senha` | Reset | `codigo_hash` (SHA-256), `expira_em` |
-| `logs_auditoria` | Trilha | `usuario_id` lógico, `usuario_nome` copiado, `endpoint`/IP |
+| `solicitacoes_cadastro` | Pedidos | FK `usuario_criado_id`; `situacao` |
+| `tokens_recuperacao_senha` | Reset | FK `usuario_id`; `token_hash` (SHA-256), `expira_em` |
+| `logs_auditoria` | Trilha | `usuario_id` lógico, `usuario_nome` copiado, `curso`, `endereco_ip` |
 
 `logs_auditoria` não tem FK para `usuarios` de propósito: a autoria sobrevive à
 desativação.
@@ -591,7 +601,66 @@ motivo). Não há estado "aprovada sem usuário".
 
 ---
 
-## 7. O que não existe no contrato
+## 7. Configuração de ambiente
+
+A fonte canônica é `backend/.env.example`; `backend/.env` não é versionado nem
+copiado para a imagem Docker. `DATABASE_URL` é a única variável **obrigatória**
+— sem ela a aplicação falha na importação. Todas as demais têm padrão em
+`backend/app/config.py`.
+
+### 7.1 Backend
+
+| Variável | Padrão | Efeito |
+|---|---|---|
+| `DATABASE_URL` | **obrigatória** | DSN do PostgreSQL. Sem ela: `ValidationError: DATABASE_URL — Field required`. |
+| `SECRET_KEY` | fallback no código | Chave do JWT. O padrão serve só para desenvolvimento: defina uma chave nova em qualquer ambiente real (`python -c "import secrets; print(secrets.token_urlsafe(48))"`). |
+| `ALGORITHM` | `HS256` | Algoritmo de assinatura do token. |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `480` | Validade do JWT. |
+| `CORS_ORIGINS` | 5173 e 5174 (localhost e 127.0.0.1) | Allowlist de origens, separada por vírgula. Não use `"*"`: com `allow_credentials=True` o Starlette reflete qualquer origin e a lista vira código morto. |
+| `MAIL_HOST` | vazio | Host SMTP. Vazio = envio indisponível (503 nas rotas que dependem de e-mail). |
+| `MAIL_PORT` | `587` | `587` = STARTTLS; `465` = TLS implícito (`SMTP_SSL`). A porta decide o modo. |
+| `MAIL_USER` | vazio | Conta que autentica no SMTP. O e-mail é considerado configurado só com host, usuário e senha. |
+| `MAIL_PASSWORD` | vazio | Senha de **app** (16 caracteres colados no Gmail), não a senha da conta. |
+| `MAIL_FROM` | vazio | Remetente. Vazio = usa `MAIL_USER`, que é o que Gmail e Yahoo exigem. |
+| `MAIL_TLS` | `true` | Só relevante na porta 587 (STARTTLS). |
+| `MAIL_TIMEOUT_SEGUNDOS` | `10` | Timeout do socket SMTP — a recuperação é síncrona na request e não pode segurar a conexão. |
+| `PERMITIR_EMAILS_EXTERNOS` | `false` | Libera e-mail de fora dos domínios institucionais no pedido público de credencial. A aprovação da gestão continua sendo o gate. |
+| `TOKEN_RECUPERACAO_MINUTOS` | `15` | Validade do código de recuperação de senha. |
+| `TOKEN_RECUPERACAO_INTERVALO_SEGUNDOS` | `60` | Intervalo mínimo entre dois pedidos de código para a mesma conta (rota pública). |
+| `GEMINI_API_KEY` | vazio | Chave do Gemini. Sem ela, `/ia/status` devolve `configurado: false` e as rotas de geração respondem 503. |
+| `GEMINI_MODEL_PRIMARY` | `gemini-3.5-flash-lite` | Primeiro modelo da cadeia de fallback. |
+| `GEMINI_MODEL_FALLBACK` | `gemini-3.5-flash,gemini-3.8-flash` | Modelos seguintes, separados por vírgula. |
+| `GEMINI_MODEL_TRANSCRIBE` | `gemini-2.5-flash` | Modelo do ditado por voz — não é o da cadeia de texto. |
+| `GEMINI_TIMEOUT_SEGUNDOS` | `20` | Timeout da chamada ao Gemini. |
+
+Duas regras de ambiente:
+
+- **`docker compose restart` não relê o `env_file`.** Depois de mudar o `.env`,
+  recrie o container com `docker compose up -d api` (ADR-23).
+- **`backend/.env` nunca é versionado nem entra na imagem.** A checagem que vale
+  é `git ls-files backend/.env` (saída vazia) e a entrada `.env` no
+  `backend/.dockerignore`.
+
+Variáveis usadas só por ferramenta:
+
+| Variável | Onde | Efeito |
+|---|---|---|
+| `TEST_DATABASE_URL` | `tests/conftest.py` | Banco da suíte. Sem ela, o nome é derivado do `DATABASE_URL` (`unicare_test`). |
+| `UNICARE_TESTE_SMTP` | `tests/test_email_rede.py` | `1` habilita o teste de rede; a suíte padrão roda com `-m "not rede"`. |
+| `RELOAD` | `backend/docker/entrypoint.sh` | `1` liga o hot-reload do uvicorn no Compose. Fora de desenvolvimento, use `0`. |
+
+### 7.2 Frontend
+
+| Variável | Padrão | Efeito |
+|---|---|---|
+| `VITE_API_URL` | `http://localhost:8000/api/v1` | Base da API no cliente HTTP (`src/services/api.ts`). Aceita caminho relativo — nesse caso a origem é a da própria página. O `/health` é resolvido a partir da origem, fora do prefixo `/api/v1`. |
+
+Não existe `.env` versionado no frontend: a variável é opcional e o padrão
+aponta para a API local.
+
+---
+
+## 8. O que não existe no contrato
 
 Rotas ausentes de propósito (não invente):
 

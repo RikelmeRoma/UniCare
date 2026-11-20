@@ -9,7 +9,7 @@ O [`STATUS.md`](./STATUS.md) guarda apenas o estado atual. Tudo o que era
 histórico acumulado (mais de 2.500 linhas de diário de blocos) foi reorganizado
 aqui por tema.
 
-**Snapshot desta memória:** branch `augusto`, commit `d5dd584`, 18/11/2026.
+**Snapshot desta memória:** branch `augusto`, commit `d6a751b`, 20/11/2026.
 O texto original completo continua recuperável em `git show b1c8bf0:STATUS.md`
 (2.510 linhas), `git show b1c8bf0:AGENTS.md` e
 `git show b1c8bf0:RELATORIO_CONSOLIDADO_PROJETO.md` (574 linhas, com o diagrama
@@ -98,13 +98,36 @@ detected." — esse é o estado esperado, não um detalhe.
 **Contexto.** A trilha de auditoria precisa sobreviver à desativação do usuário,
 e o prontuário precisa preservar quem era o responsável no momento da escrita.
 
-**Decisão.** Apenas **4 foreign keys** existem no schema, três de `paciente_id`
-para `pacientes.id` e uma da anamnese. Matrículas, nomes de supervisor e autorias
-são campos denormalizados. `logs_auditoria` não tem FK para `usuarios`.
+**Decisão.** Existem **10 foreign keys** no schema: sete `paciente_id` →
+`pacientes.id` (agendamentos, atribuições, prontuário psi, ficha odonto,
+documentos, radiografias e anamnese), `radiografias_odonto.dupla_id` →
+`duplas_odonto.id`, `solicitacoes_cadastro.usuario_criado_id` → `usuarios.id` e
+`tokens_recuperacao_senha.usuario_id` → `usuarios.id`. Matrículas, nomes de
+supervisor e autorias são campos denormalizados. `logs_auditoria` e
+`ocorrencias_estagiarios` são as duas únicas tabelas sem FK de entrada.
+
+**`logs_auditoria` fica sem FK, e é o padrão da indústria.** Trilha de auditoria
+não aponta para o cadastro vivo: guarda o snapshot (`usuario_id`,
+`usuario_nome`, `curso`) para que o fato continue verdadeiro depois que a pessoa
+mudar de nome, mudar de clínica ou for removida. Uma FK aqui só daria três
+opções, todas ruins: `RESTRICT` trava qualquer exclusão de usuário, `CASCADE`
+apaga a prova junto com o cadastro e `SET NULL` apaga o autor. A referência
+lógica também é o que permite atender pedido de eliminação da LGPD anonimizando
+`usuario_nome` sem destruir o evento.
+
+**`ocorrencias_estagiarios` fica sem FK, mas é o caso mais fraco.** O
+relacionamento é 1:N legítimo e `usuarios.matricula` é única, então a FK seria
+tecnicamente válida e não quebraria nada hoje. Não ter é defensável pelo mesmo
+motivo — a ocorrência precisa sobreviver ao aluno sair do curso — e porque a
+aplicação já valida antes de gravar (`exigir_estagiario_da_clinica`, em
+`app/routers/ocorrencias.py`): não existe caminho para registrar ocorrência de
+estagiário inexistente ou de outra clínica. Diferente de `logs_auditoria`, esta
+é consistência com esta decisão, não uma obrigação.
 
 **Consequência.** Desativar (`ativo = false`) continua sendo o único "delete"
 possível. A trilha é append-only: nenhuma rota faz `UPDATE` ou `DELETE` em
-`logs_auditoria`.
+`logs_auditoria`. No ERD, as duas tabelas aparecem sem aresta para `usuarios`:
+a relação é lógica, não-identificante, e está descrita na legenda do diagrama.
 
 ### ADR-03 — Colunas de data novas são `DateTime`, não `str`
 
@@ -408,6 +431,10 @@ configuração; `GET /ia/status` devolve `configurado: false`.
   só continuava a cadeia em erro transitório (503, 429, timeout), mas "resposta
   vazia" com áudio também não é motivo para desistir. `_eh_resposta_vazia()`
   trata o caso.
+- **404 de modelo não é "IA sobrecarregada".** Um nome que não existe na conta
+  (`gemini-3.5-transcribe` foi o caso real) devolvia 502 na primeira tentativa,
+  sem exercitar a cadeia. `_eh_modelo_indisponivel()` faz o 404 continuar para o
+  próximo modelo; se todos os configurados não existirem, o 502 diz isso.
 - **O Google responde 503 "high demand" sem aviso.** A cadeia de fallback existe
   por isso, e "a IA falhou" não é imediatamente "a chave está errada" — cheque
   `GET /ia/status` primeiro.
@@ -415,6 +442,15 @@ configuração; `GET /ia/status` devolve `configurado: false`.
   `gemini-2.5-flash` devolveu uma anamnese completa e coerente. O texto precisa
   passar pela conferência do profissional antes de ir ao prontuário, e o registro
   de `DITADO_VOZ_IA` na trilha é o que permite auditar o que foi ditado.
+- **O `configurado: false` só pode vir do servidor.** O drawer do assistente
+  consulta `GET /ia/status` ao abrir; sem chave, mostra banner âmbar e bloqueia
+  o envio. Descobrir o 503 só depois de digitar a pergunta é a pior ordem
+  possível. Mas falha na *consulta* não é "não configurado": sem rede ou sem
+  sessão, o envio devolve o erro real, que o banner de erro mostra.
+- **`carregando` é estado, e estado não corta duplo clique.** Dois cliques no
+  mesmo tick passam pelo guard antes do próximo render e disparam duas chamadas
+  cobradas ao Gemini. O corte tem de ser em `ref` (`enviandoRef`), não em
+  `useState`.
 
 ### ADR-15 — Contexto clínico da IA é montado pelo backend
 
@@ -753,6 +789,97 @@ arestas — importado por `PsyRecordPage` e `DentalRecordPage`.
 
 ---
 
+## 11. Entregáveis de demonstração e diagramas
+
+### ADR-27 — A apresentação é entregável versionado, não artefato de máquina
+
+**Contexto.** A finalização do MVP produziu um deck de 10 slides
+(`apresentacao/UniCare_MVP.pptx`), o export em PDF, 10 previews em PNG, o
+gerador `gerar_slides.py` e o roteiro da demo (`roteiro-demo.md`). Nada disso
+tinha README: o deck era encontrado por acaso, o gerador exigia uma
+dependência fora do `requirements.txt` e o PDF não tinha caminho de geração no
+repositório.
+
+**Decisão.** Versionar a pasta `apresentacao/` inteira e descrever o inventário
+em `apresentacao/README.md`:
+
+| Arquivo | Papel |
+|---|---|
+| `UniCare_MVP.pptx` | deck gerado por `gerar_slides.py` (10 slides) |
+| `UniCare_MVP.pdf` | export do deck para distribuição |
+| `preview/Slide1..10.PNG` | previews dos slides |
+| `gerar_slides.py` | gerador do `.pptx` (`python-pptx`) |
+| `roteiro-demo.md` | roteiro cronometrado do pré-voo, da demo e do plano B |
+| `RELATORIO_ALTERACOES_PSICOLOGIA.pdf` | material de apoio já versionado; não é saída do gerador |
+
+**Consequência.**
+
+- **`python-pptx` é dependência de apresentação, não do produto.** Não entra em
+  `backend/requirements.txt`: a API não usa PPTX. Quem for regerar o deck
+  instala à parte (`pip install python-pptx`).
+- **O gerador só produz o `.pptx`.** O PDF e os previews saíram de export
+  externo ao PowerPoint; regerar o PPTX não os atualiza. Se o deck mudar,
+  exporte de novo — ou os artefatos ficam com conteúdo diferente.
+- **O deck é snapshot, não tela viva.** Os slides descrevem o produto numa
+  data; o sistema é a fonte. Antes de apresentar, confira os números contra
+  `STATUS.md`.
+- **O slide 3 lista os nove `RF-*` do relatório normativo, e `RF-008` não está
+  implementado como presets** (ver `PRD.md`, RF-008). Ao apresentar, cite-o
+  como requisito do relatório, não como funcionalidade entregue.
+- **`roteiro-demo.md` é o contrato da demo ao vivo.** Ele registra as contas,
+  a ordem dos cliques e o que **não** mostrar (recuperação de senha depende de
+  SMTP; `.env` e senha de app nunca entram em tela).
+
+**Armadilhas associadas**
+
+- **O gerador roda da raiz do repositório** e busca o brasão em
+  `public/uninassau-crest.png`. Rodar de outro diretório quebra o caminho.
+- **Apresentação e aplicação divergem em silêncio.** O "Baixar cópia" da ficha
+  odontológica foi removido (ADR-25); se o deck ou o roteiro ainda mostrarem o
+  botão, é o deck que está desatualizado.
+
+---
+
+### ADR-28 — Os diagramas são snapshot de ferramenta externa, não fonte
+
+**Contexto.** A pasta `diagramas/` traz o diagrama de arquitetura e o ERD em
+HTML, gerados pelo Archify 3.2.0 a partir do commit `2a608bc` (19/11/2026), com
+recibos de validação ao lado. O rascunho do gerador (candidatos, scripts de
+tradução, revisões) fica em `.archify/`, com caminhos absolutos da máquina. O
+`graphify-out/` já existia, e os dois pareciam o mesmo mapa.
+
+**Decisão.** Versionar `diagramas/` (os dois HTMLs, os recibos e um README
+local) e ignorar `.archify/` no `.gitignore`.
+
+**Consequência.**
+
+- **Archify não é graphify.** O Archify gera os diagramas de entrega (camadas,
+  componentes, ERD); o graphify gera o grafo de dependências do código, que é
+  a base do `ARCHITECTURE.md`. Os números dos dois não se cruzam.
+- **Os diagramas são snapshot, não runtime.** Nenhum código da aplicação os
+  lê ou serve. A fonte de verdade do contrato continua sendo `SPEC.md` §2 e §5;
+  o diagrama é a ilustração.
+- **Reconciliação verificada:** o ERD tem **14 entidades** e **10 foreign keys**,
+  o mesmo que o `SPEC.md` §5. `logs_auditoria` e `ocorrencias_estagiarios`
+  aparecem sem aresta para `usuarios` — a relação é lógica, não-identificante,
+  e está explicada em nota no próprio diagrama (ADR-02).
+- **Mudou schema, rotas ou desenho de camadas?** Regenere os candidatos,
+  rode o `deliver`/`finalize` do Archify e atualize os números citados no
+  `ARCHITECTURE.md` e no `SPEC.md`.
+
+**Armadilhas associadas**
+
+- **Os recibos JSON guardam caminhos absolutos** da máquina que rodou o
+  gerador (`C:\Users\...\UniCare\...`). Não são portáveis — servem como
+  evidência do que foi validado, não como referência de caminho.
+- **O `candidate.json` é a especificação-fonte.** Sem ele, o HTML não é
+  regenerável: ele não sai do código, sai do candidato.
+- **A pasta versionada é `diagramas/`, minúscula.** Os recibos gravam
+  `Diagramas/` com D maiúsculo — no Windows não há diferença, mas em outro
+  sistema o caminho do recibo não resolve.
+
+---
+
 ## Apêndice cronológico
 
 Datas conforme registradas no `STATUS.md` original. "Revisão" é a cabeça Alembic
@@ -814,8 +941,12 @@ citada no bloco, quando havia.
 | 2026-11-18 | Snapshot documental | `c7e91d4a2b08` | **149 passed, 1 deselected**; build verde; 7 problemas de lint |
 | 2026-11-18 | Remoção de `.agents/` | — | Skill `gemini-api-dev` sai do índice (ADR-24); repo fica só com o produto |
 | 2026-11-18 | Remoção do "Baixar cópia" | — | Ficha odonto perde o export JSON; `exportarJson*` preservadas (ADR-25) |
+| 2026-11-19 | Diagramas Archify | — | Arquitetura (2 views) e ERD (14 entidades, 10 FKs); gates `pass` (ADR-28) |
+| 2026-11-20 | Entrega do MVP documentada | — | Apresentação versionada, README local, config de ambiente e correção do `backend/README.md` (ADR-27) |
 
 > O `STATUS.md` antigo citava `68603f2ce70a` como head e "114 passed" no bloco
 > "Estado verificado" — os dois estavam defasados. O valor real medido em
-> 18/11/2026 é `c7e91d4a2b08` (24 revisões) e 149 testes.
+> 18/11/2026 é `c7e91d4a2b08` (24 revisões) e 149 testes; remedido em
+> 20/11/2026, com o teste de fallback 404 da IA incluído, são **150 passed,
+> 1 deselected**.
 
